@@ -378,7 +378,7 @@ const belowList = (l: EditLine) => Boolean(l.item.listPrice && l.unitPrice && Nu
           <button v-if="!isNew && !showCreditFailed" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
         </template>
         <template v-else-if="order && released">
-          <button type="button" class="erp-btn erp-btn-secondary" @click="later('Print')">Print</button>
+          <RouterLink :to="`/sales/orders/${order.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
           <button type="button" class="erp-btn erp-btn-secondary" @click="later('Email')">Email</button>
           <button type="button" class="erp-btn erp-btn-secondary" @click="later('Revise')">Revise</button>
           <RouterLink :to="`/sales/orders/${order.id}/flow`" class="erp-btn erp-btn-secondary">Document flow</RouterLink>

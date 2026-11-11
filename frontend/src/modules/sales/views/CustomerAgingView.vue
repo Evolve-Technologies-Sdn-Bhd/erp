@@ -64,7 +64,7 @@ function exportCsv() {
     <template #actions><ReportActions :can-export="Boolean(report)" @export="exportCsv" /></template>
   </PageHeader>
 
-  <div class="grid grid-cols-5 gap-3 print:hidden max-lg:grid-cols-2">
+  <div class="grid grid-cols-5 gap-3 print:hidden max-lg:not-print:grid-cols-2">
     <FilterSelect v-if="!view.fromTopBar.value" label="Branch" all="all" :model-value="filters.branch ?? ''" :options="options.branches" @update:model-value="setFilter('branch', $event)" />
     <FilterSelect label="Sales agent" all="all" :model-value="filters.agent ?? ''" :options="options.agents" @update:model-value="setFilter('agent', $event)" />
     <FilterSelect label="Customer group" all="all" :model-value="filters.group ?? ''" :options="options.groups" @update:model-value="setFilter('group', $event)" />
@@ -72,7 +72,7 @@ function exportCsv() {
     <FilterSelect label="Aged by" :model-value="filters.basis || 'due'" :options="BASIS" @update:model-value="setFilter('basis', $event === 'due' ? '' : $event)" />
   </div>
 
-  <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+  <div class="grid grid-cols-4 gap-4 max-lg:not-print:grid-cols-2">
     <KpiCard label="Balance due" :value="report ? formatRm(report.kpis.due.amount) : '—'" :sub="report ? `${report.kpis.due.invoices} unpaid invoices` : ''" :loading="loading && !report" />
     <KpiCard
       label="Overdue"
@@ -134,7 +134,7 @@ function exportCsv() {
     </div>
   </section>
 
-  <div v-if="report" class="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-start gap-4 max-lg:grid-cols-1">
+  <div v-if="report" class="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-start gap-4 max-lg:not-print:grid-cols-1">
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Balance by age (RM)</h2>
       <BarRows :rows="chart" empty="Nobody owes anything." />

@@ -205,10 +205,6 @@ function deleteDraft() {
   })
 }
 
-function printLater() {
-  toast.add({ severity: 'info', summary: 'Print DO', detail: 'The printed delivery order comes with the print step.', life: 3000 })
-}
-
 // ── Proof of delivery ────────────────────────────────────────────────────────
 async function upload(file: File) {
   const d = delivery.value!
@@ -253,7 +249,7 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
       <template #actions>
         <RouterLink to="/sales/deliveries" class="erp-btn erp-btn-secondary">{{ editable ? 'Cancel' : 'Back' }}</RouterLink>
         <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
-        <button type="button" class="erp-btn erp-btn-secondary" @click="printLater">Print DO</button>
+        <RouterLink :to="`/sales/deliveries/${delivery.id}/print`" class="erp-btn erp-btn-secondary">Print DO</RouterLink>
         <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || !dirty" @click="save">Save draft</button>
         <button v-if="!confirmed" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('confirm') || Boolean(delivery.depositHold)" @click="confirmDelivery">Confirm delivery</button>
       </template>

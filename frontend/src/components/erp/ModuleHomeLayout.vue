@@ -11,6 +11,7 @@ import { formatLongDate } from '@/utils/format'
 import AccountMenu from './AccountMenu.vue'
 import BranchSwitch from './BranchSwitch.vue'
 import ModuleSwitcher from './ModuleSwitcher.vue'
+import PrintStamp from './PrintStamp.vue'
 
 /** The module home frame: white header, content, footer (PurHome.html). No sidebar here. */
 const route = useRoute()
@@ -33,7 +34,7 @@ const year = computed(() => (today.value ? today.value.slice(0, 4) : ''))
 <template>
   <div :data-module="module.key" class="flex min-h-screen flex-col bg-erp-bg">
     <!-- Floating top bar, the same shape as the launcher and the module screens -->
-    <div class="sticky top-0 z-20 px-4 pt-3 pb-2 backdrop-blur-sm md:px-6">
+    <div class="erp-no-print sticky top-0 z-20 px-4 pt-3 pb-2 backdrop-blur-sm md:px-6">
       <header class="flex h-14 items-center justify-between gap-4 rounded-2xl border border-erp-border bg-erp-card/95 px-4 shadow-sm md:px-5">
         <div class="flex items-center gap-3">
           <RouterLink to="/" class="flex items-center gap-3 text-erp-text no-underline" title="All modules">
@@ -68,10 +69,11 @@ const year = computed(() => (today.value ? today.value.slice(0, 4) : ''))
     </div>
 
     <main class="flex grow flex-col gap-5 px-4 pt-3 pb-6 md:px-6">
+      <PrintStamp :module="module.label" />
       <slot />
     </main>
 
-    <div class="px-4 pb-3 md:px-6">
+    <div class="erp-no-print px-4 pb-3 md:px-6">
       <footer class="flex h-11 items-center justify-between rounded-2xl border border-erp-border bg-erp-card px-5 text-xs text-erp-muted shadow-sm">
         <span class="font-semibold text-erp-text">Zora Pro ERP<template v-if="state.tenantName"> · {{ state.tenantName }}</template></span>
         <span>© {{ year }} All rights reserved.</span>

@@ -54,7 +54,7 @@ function exportCsv() {
     <template #actions><ReportActions :can-export="Boolean(report)" @export="exportCsv" /></template>
   </PageHeader>
 
-  <div class="grid grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))] gap-3 print:hidden max-lg:grid-cols-2">
+  <div class="grid grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))] gap-3 print:hidden max-lg:not-print:grid-cols-2">
     <FilterSelect label="Period" :model-value="filters.period || report?.period || ''" :options="options.periods" @update:model-value="setFilter('period', $event)" />
     <FilterSelect label="Branch" all="all" :model-value="filters.branch ?? ''" :options="options.branches" @update:model-value="setFilter('branch', $event)" />
     <FilterSelect label="Sales agent" all="all" :model-value="filters.agent ?? ''" :options="options.agents" @update:model-value="setFilter('agent', $event)" />
@@ -62,7 +62,7 @@ function exportCsv() {
     <FilterSelect label="Type" all="all" :model-value="filters.type ?? ''" :options="TYPES" @update:model-value="setFilter('type', $event)" />
   </div>
 
-  <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+  <div class="grid grid-cols-4 gap-4 max-lg:not-print:grid-cols-2">
     <KpiCard
       label="Invoiced"
       :value="report ? formatRm(report.kpis.invoiced.amount) : '—'"

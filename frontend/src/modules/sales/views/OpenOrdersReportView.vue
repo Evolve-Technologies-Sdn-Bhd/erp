@@ -74,14 +74,14 @@ function exportCsv() {
     <template #actions><ReportActions :can-export="Boolean(report)" @export="exportCsv" /></template>
   </PageHeader>
 
-  <div class="grid grid-cols-4 gap-3 print:hidden max-lg:grid-cols-2">
+  <div class="grid grid-cols-4 gap-3 print:hidden max-lg:not-print:grid-cols-2">
     <FilterSelect label="Branch" all="all" :model-value="filters.branch ?? ''" :options="options.branches" @update:model-value="setFilter('branch', $event)" />
     <FilterSelect label="Sales agent" all="all" :model-value="filters.agent ?? ''" :options="options.agents" @update:model-value="setFilter('agent', $event)" />
     <FilterSelect label="Customer group" all="all" :model-value="filters.group ?? ''" :options="options.groups" @update:model-value="setFilter('group', $event)" />
     <FilterSelect label="Show" all="all open orders" :model-value="filters.show ?? ''" :options="SHOW" @update:model-value="setFilter('show', $event)" />
   </div>
 
-  <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+  <div class="grid grid-cols-4 gap-4 max-lg:not-print:grid-cols-2">
     <KpiCard label="Open orders" :value="report ? report.kpis.open.orders : '—'" :sub="openSub" :loading="loading && !report" />
     <KpiCard
       label="Still to deliver"
@@ -109,7 +109,7 @@ function exportCsv() {
     Inventory is not connected yet. Stock is taken from the last snapshot, so “Waiting for stock” and “Ready to deliver” may change once it is.
   </NoticeBanner>
 
-  <div v-if="report" class="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] items-start gap-4 max-lg:grid-cols-1">
+  <div v-if="report" class="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] items-start gap-4 max-lg:not-print:grid-cols-1">
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Still to deliver, by what it waits for (RM)</h2>
       <BarRows :rows="chart" empty="No open sales orders." />

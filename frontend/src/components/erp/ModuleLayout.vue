@@ -13,6 +13,7 @@ import AccountMenu from './AccountMenu.vue'
 import BranchSwitch from './BranchSwitch.vue'
 import ModuleSwitcher from './ModuleSwitcher.vue'
 import PageSearch from './PageSearch.vue'
+import PrintStamp from './PrintStamp.vue'
 
 /**
  * Frame for every module screen except the module home (PoList.html): a floating icon rail with one icon per
@@ -185,7 +186,7 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
 
     <!-- Floating panel: pages of the open group -->
     <aside
-      class="fixed top-3 bottom-3 left-[76px] z-30 flex w-[210px] flex-col overflow-hidden rounded-2xl border border-erp-border bg-erp-card shadow-sm transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      class="erp-no-print fixed top-3 bottom-3 left-[76px] z-30 flex w-[210px] flex-col overflow-hidden rounded-2xl border border-erp-border bg-erp-card shadow-sm transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
       :class="openGroup ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-4 opacity-0'"
       :aria-hidden="!openGroup"
     >
@@ -221,11 +222,11 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
     </aside>
 
     <div
-      class="flex min-h-screen min-w-0 flex-col transition-[margin] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      class="erp-print-full flex min-h-screen min-w-0 flex-col transition-[margin] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
       :class="openGroup ? 'ml-[286px]' : 'ml-[68px]'"
     >
       <!-- Floating top bar; the strip around it blurs content scrolling underneath -->
-      <div class="sticky top-0 z-20 px-4 pt-3 pb-2 backdrop-blur-sm md:px-6">
+      <div class="erp-no-print sticky top-0 z-20 px-4 pt-3 pb-2 backdrop-blur-sm md:px-6">
         <header class="flex h-12 items-center gap-4 rounded-2xl border border-erp-border bg-erp-card/95 px-5 shadow-sm">
           <div class="w-[180px] shrink-0 truncate text-xs font-medium text-erp-muted">{{ today ? formatTopBarDate(today) : '' }}</div>
           <div class="flex min-w-0 grow justify-center"><PageSearch :module="module" /></div>
@@ -248,7 +249,8 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
       </div>
 
       <main class="flex min-h-0 grow flex-col gap-3.5 px-4 pt-2 pb-6 md:px-6">
-        <div class="flex gap-1.5 text-xs text-erp-muted" aria-label="Breadcrumb">
+        <PrintStamp :module="module.label" />
+        <div class="erp-no-print flex gap-1.5 text-xs text-erp-muted" aria-label="Breadcrumb">
           <template v-for="(crumb, i) in crumbs" :key="i">
             <span v-if="i > 0" aria-hidden="true">›</span>
             <RouterLink v-if="crumb.to" :to="crumb.to" class="erp-link">{{ crumb.label }}</RouterLink>

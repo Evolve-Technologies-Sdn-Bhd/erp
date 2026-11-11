@@ -426,7 +426,7 @@ const overLimit = (l: EditLine) => Number(l.discountPct || 0) > Number(quote.val
           <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="save">Save draft</button>
         </template>
         <template v-else-if="quote">
-          <button type="button" class="erp-btn erp-btn-secondary" @click="later('Print')">Print</button>
+          <RouterLink :to="`/sales/quotations/${quote.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
           <button type="button" class="erp-btn erp-btn-secondary" :disabled="!can('email')" :title="can('email') ? undefined : 'Release the quotation before emailing it.'" @click="email">Email</button>
           <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
           <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || !dirty" @click="save">Save draft</button>

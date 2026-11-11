@@ -7,6 +7,7 @@ const DocumentTypes = () => import('./views/DocumentTypesView.vue')
 const EmailTemplates = () => import('./views/EmailTemplatesView.vue')
 const OrderList = () => import('./views/OrderListView.vue')
 const OrderForm = () => import('./views/OrderFormView.vue')
+const OrderPrint = () => import('./views/OrderPrintView.vue')
 const Approvals = () => import('./views/ApprovalsView.vue')
 const Demand = () => import('./views/DemandView.vue')
 const RequestList = () => import('./views/RequestListView.vue')
@@ -39,6 +40,8 @@ interface ScreenDef {
   mockup: string
   parent?: { title: string; to: string }
   component?: RouteRecordRaw['component']
+  /** A full-page design without the sidebar (print previews) */
+  bare?: boolean
 }
 
 const doc = (title: string, to: string) => ({ title, to })
@@ -56,6 +59,7 @@ const SCREENS: ScreenDef[] = [
   { code: 'P08', path: 'rfqs/:id', name: 'purchase-rfq', title: 'Compare replies', group: 'transaction', item: 'rfqs', step: 6, mockup: 'RfqCompare.html', parent: doc('Request for Quote', '/purchase/rfqs'), component: RfqCompare },
   { code: 'P09', path: 'orders', name: 'purchase-orders', title: 'Purchase Order', group: 'transaction', item: 'orders', step: 4, mockup: 'PoList.html', component: OrderList },
   { code: 'P03', path: 'orders/:id/flow', name: 'purchase-order-flow', title: 'Document flow', group: 'transaction', item: 'orders', step: 10, mockup: 'PurDocFlow.html', parent: doc('Purchase Order', '/purchase/orders'), component: OrderFlow },
+  { code: 'P10', path: 'orders/:id/print', name: 'purchase-order-print', title: 'Print preview', group: 'transaction', item: 'orders', step: 4, mockup: 'PoForm.html', parent: doc('Purchase Order', '/purchase/orders'), component: OrderPrint, bare: true },
   { code: 'P10', path: 'orders/:id', name: 'purchase-order', title: 'Purchase order', group: 'transaction', item: 'orders', step: 4, mockup: 'PoForm.html', parent: doc('Purchase Order', '/purchase/orders'), component: OrderForm },
   { code: 'P14', path: 'receipts', name: 'purchase-receipts', title: 'Goods Receipt', group: 'transaction', item: 'receipts', step: 7, mockup: 'GrnList.html', component: ReceiptList },
   { code: 'P15', path: 'receipts/:id', name: 'purchase-receipt', title: 'Goods receipt', group: 'transaction', item: 'receipts', step: 7, mockup: 'GrnConfirm.html', parent: doc('Goods Receipt', '/purchase/receipts'), component: ReceiptForm },
@@ -90,7 +94,7 @@ export const purchaseRoutes: RouteRecordRaw[] = [
         code: s.code,
         title: s.title,
         module: 'purchase',
-        layout: 'module',
+        layout: s.bare ? 'bare' : 'module',
         menuGroup: s.group,
         menuItem: s.item,
         parent: s.parent,

@@ -167,10 +167,6 @@ async function recordPayment() {
   show(await salesProformasApi.get(p.id))
 }
 
-function printLater() {
-  toast.add({ severity: 'info', summary: 'Print', detail: 'The printed proforma comes with the print layouts in Document Types.', life: 3000 })
-}
-
 const GROUP: Record<ProformaStatus, 'draft' | 'released' | 'done' | 'partial' | 'cancelled'> = { DRAFT: 'draft', SENT: 'released', PAID: 'done', USED: 'partial', CANCELLED: 'cancelled' }
 </script>
 
@@ -190,7 +186,7 @@ const GROUP: Record<ProformaStatus, 'draft' | 'released' | 'done' | 'partial' | 
         <RouterLink v-if="!editable" to="/sales/proformas" class="erp-btn erp-btn-secondary">Back</RouterLink>
         <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
         <button v-if="can('cancel')" type="button" class="erp-btn erp-btn-danger" :disabled="saving" @click="cancelProforma">Cancel proforma</button>
-        <button type="button" class="erp-btn erp-btn-secondary" @click="printLater">Print</button>
+        <RouterLink :to="`/sales/proformas/${pf.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
         <button type="button" class="erp-btn erp-btn-secondary" :disabled="!can('email')" :title="can('email') ? undefined : 'Release the proforma before emailing it.'" @click="email">Email to customer</button>
         <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || !dirty" @click="save">Save draft</button>
         <button v-if="pf.status === 'DRAFT'" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>

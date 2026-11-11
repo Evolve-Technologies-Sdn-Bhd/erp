@@ -63,14 +63,14 @@ function exportCsv() {
     <template #actions><ReportActions :can-export="Boolean(report)" @export="exportCsv" /></template>
   </PageHeader>
 
-  <div class="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-3 print:hidden max-lg:grid-cols-2">
+  <div class="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-3 print:hidden max-lg:not-print:grid-cols-2">
     <FilterSelect label="Period" :model-value="filters.period || report?.period || ''" :options="options.periods" @update:model-value="setFilter('period', $event)" />
     <FilterSelect label="Branch" all="all" :model-value="filters.branch ?? ''" :options="options.branches" @update:model-value="setFilter('branch', $event)" />
     <FilterSelect label="Sales agent" all="all" :model-value="filters.agent ?? ''" :options="options.agents" @update:model-value="setFilter('agent', $event)" />
     <FilterSelect label="Customer group" all="all" :model-value="filters.group ?? ''" :options="options.groups" @update:model-value="setFilter('group', $event)" />
   </div>
 
-  <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+  <div class="grid grid-cols-4 gap-4 max-lg:not-print:grid-cols-2">
     <KpiCard
       label="Sent"
       :value="report ? report.kpis.sent.count : '—'"
@@ -94,7 +94,7 @@ function exportCsv() {
     <KpiCard label="Still open" :value="report ? report.kpis.open.count : '—'" :sub="openSub" :loading="loading && !report" />
   </div>
 
-  <div v-if="report" class="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-start gap-4 max-lg:grid-cols-1">
+  <div v-if="report" class="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-start gap-4 max-lg:not-print:grid-cols-1">
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">How they ended up (RM)</h2>
       <BarRows :rows="chart" empty="No quotations sent in this period." />

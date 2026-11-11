@@ -264,10 +264,6 @@ async function email() {
   show(await ordersApi.get(order.value!.id))
 }
 
-function print() {
-  window.print()
-}
-
 function onSent(o: OrderDetail) {
   show(o)
   notifyApprovalsChanged()
@@ -354,7 +350,7 @@ const warehouseName = computed(() => warehouses.value.find((w) => w.code === for
           <button v-if="!isNew && can('release')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="release">Release</button>
         </template>
         <template v-else-if="order">
-          <button type="button" class="erp-btn erp-btn-secondary erp-no-print" @click="print"><Printer :size="15" aria-hidden="true" />Print</button>
+          <RouterLink :to="`/purchase/orders/${order.id}/print`" class="erp-btn erp-btn-secondary"><Printer :size="15" aria-hidden="true" />Print</RouterLink>
           <button v-if="can('email')" type="button" class="erp-btn erp-btn-secondary" @click="email"><Mail :size="15" aria-hidden="true" />Email to supplier</button>
           <RouterLink v-if="can('cancelBalance')" :to="`/purchase/cancel-orders/new?po=${order.id}`" class="erp-btn erp-btn-danger">Cancel balance</RouterLink>
           <RouterLink v-if="can('receive')" :to="`/purchase/receipts/new?po=${order.id}`" class="erp-btn erp-btn-primary">Receive goods</RouterLink>

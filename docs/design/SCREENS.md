@@ -39,6 +39,7 @@ Sidebar groups: **Purchase Transaction**, **Supplier Billing**, **Operation Poli
 | P08 | RFQ · compare replies and award | `RfqCompare.html` | `/purchase/rfqs/:id` | `GET /purchase/rfqs/:id`, `POST …/replies`, `POST …/award`, `POST …/close` |
 | P09 | Purchase order list | `PoList.html` | `/purchase/orders` | `GET /purchase/orders` |
 | P10 | Purchase order | `PoForm.html` | `/purchase/orders/:id` (and `/new`) | `GET/POST/PATCH /purchase/orders/:id`, `POST …/release` · `/email` |
+| P10 | Purchase order print preview (A4, laid out like S20; prints as a draft until released) | `InvoicePrint.html` | `/purchase/orders/:id/print` | `GET /purchase/orders/:id`, `POST …/email` |
 | P11 | Send PO for approval (dialog) | `PoApproval.html` | dialog on P10 | `GET /purchase/orders/:id/approval-check`, `POST …/submit-for-approval` |
 | P12 | Cancel order list | `PoCancelList.html` | `/purchase/cancel-orders` | `GET /purchase/cancel-orders` |
 | P13 | Cancel PO balance | `PoCancel.html` | `/purchase/cancel-orders/:id` (and `/new?po=`) | `GET/POST/PATCH …`, `POST …/release` |
@@ -91,19 +92,23 @@ Theme: purple. Sidebar groups: **Sales Transaction**, **Billing**, **Operation P
 | S07 | New enquiry | `EnquiryForm.html` | `/sales/enquiries/:id` |
 | S08 | Quotation list | `QuotationList.html` | `/sales/quotations` |
 | S09 | Quotation | `QuotationForm.html` | `/sales/quotations/:id` |
+| S09 | Quotation print preview (A4, like S20) | `InvoicePrint.html` | `/sales/quotations/:id/print` |
 | S10 | Sales order list | `SalesOrderList.html` | `/sales/orders` |
 | S11 | Sales order | `SalesOrderForm.html` | `/sales/orders/:id` |
+| S11 | Sales order print preview (A4, like S20) | `InvoicePrint.html` | `/sales/orders/:id/print` |
 | S12 | Credit check failed | `CreditApproval.html` | state of S11 |
 | S13 | Cancel order list | `CancelOrderList.html` | `/sales/cancel-orders` |
 | S14 | Cancel order balance | `CancelOrder.html` | `/sales/cancel-orders/:id` |
 | S15 | Delivery orders | `DeliveryList.html` | `/sales/deliveries` |
 | S16 | Confirm delivery | `DeliveryConfirm.html` | `/sales/deliveries/:id` |
+| S16 | Delivery order print preview (A4, like S20; quantities only, no prices) | `InvoicePrint.html` | `/sales/deliveries/:id/print` |
 | S17 | Invoice list | `InvoiceList.html` | `/sales/invoices` |
 | S18 | Create invoice from order | `CreateInvoice.html` | `/sales/invoices/new` |
 | S19 | Invoice | `InvoiceForm.html` | `/sales/invoices/:id` |
 | S20 | Invoice print preview | `InvoicePrint.html` | `/sales/invoices/:id/print` |
 | S21 | Proforma list | `ProformaList.html` | `/sales/proformas` |
 | S22 | Proforma | `ProformaForm.html` | `/sales/proformas/:id` |
+| S22 | Proforma print preview (A4, like S20) | `InvoicePrint.html` | `/sales/proformas/:id/print` |
 | S23 | Cash sales list | `CashSaleList.html` | `/sales/cash-sales` |
 | S24 | Cash sale | `CashSale.html` | `/sales/cash-sales/:id` |
 | S25 | Debit note list | `DebitNoteList.html` | `/sales/debit-notes` |

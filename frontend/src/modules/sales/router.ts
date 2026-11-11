@@ -16,6 +16,7 @@ const InvoiceList = () => import('./views/InvoiceListView.vue')
 const CreateInvoice = () => import('./views/CreateInvoiceView.vue')
 const InvoiceForm = () => import('./views/InvoiceFormView.vue')
 const InvoicePrint = () => import('./views/InvoicePrintView.vue')
+const DocPrint = () => import('./views/SalesDocPrintView.vue')
 const ProformaList = () => import('./views/ProformaListView.vue')
 const ProformaForm = () => import('./views/ProformaFormView.vue')
 const CancelOrderList = () => import('./views/CancelOrderListView.vue')
@@ -70,15 +71,19 @@ const SCREENS: ScreenDef[] = [
   { code: 'S06', path: 'enquiries', name: 'sales-enquiries', title: 'Enquiry', group: 'transaction', item: 'enquiries', step: 4, mockup: 'EnquiryList.html', component: EnquiryList },
   { code: 'S07', path: 'enquiries/:id', name: 'sales-enquiry', title: 'Enquiry', group: 'transaction', item: 'enquiries', step: 4, mockup: 'EnquiryForm.html', parent: doc('Enquiry', '/sales/enquiries'), component: EnquiryForm },
   { code: 'S08', path: 'quotations', name: 'sales-quotations', title: 'Quotation', group: 'transaction', item: 'quotations', step: 4, mockup: 'QuotationList.html', component: QuotationList },
+  { code: 'S09', path: 'quotations/:id/print', name: 'sales-quotation-print', title: 'Print preview', group: 'transaction', item: 'quotations', step: 4, mockup: 'InvoicePrint.html', parent: doc('Quotation', '/sales/quotations'), component: DocPrint, bare: true },
   { code: 'S09', path: 'quotations/:id', name: 'sales-quotation', title: 'Quotation', group: 'transaction', item: 'quotations', step: 4, mockup: 'QuotationForm.html', parent: doc('Quotation', '/sales/quotations'), component: QuotationForm },
   { code: 'S10', path: 'orders', name: 'sales-orders', title: 'Sales Order', group: 'transaction', item: 'orders', step: 3, mockup: 'SalesOrderList.html', component: OrderList },
   { code: 'S03', path: 'orders/:id/flow', name: 'sales-order-flow', title: 'Document flow', group: 'transaction', item: 'orders', step: 9, mockup: 'DocFlow.html', parent: doc('Sales Order', '/sales/orders'), component: OrderFlow },
+  { code: 'S11', path: 'orders/:id/print', name: 'sales-order-print', title: 'Print preview', group: 'transaction', item: 'orders', step: 3, mockup: 'InvoicePrint.html', parent: doc('Sales Order', '/sales/orders'), component: DocPrint, bare: true },
   { code: 'S11', path: 'orders/:id', name: 'sales-order', title: 'Sales order', group: 'transaction', item: 'orders', step: 3, mockup: 'SalesOrderForm.html', parent: doc('Sales Order', '/sales/orders'), component: OrderForm },
   { code: 'S15', path: 'deliveries', name: 'sales-deliveries', title: 'Delivery Order', group: 'transaction', item: 'deliveries', step: 5, mockup: 'DeliveryList.html', component: DeliveryList },
+  { code: 'S16', path: 'deliveries/:id/print', name: 'sales-delivery-print', title: 'Print preview', group: 'transaction', item: 'deliveries', step: 5, mockup: 'InvoicePrint.html', parent: doc('Delivery Order', '/sales/deliveries'), component: DocPrint, bare: true },
   { code: 'S16', path: 'deliveries/:id', name: 'sales-delivery', title: 'Confirm delivery', group: 'transaction', item: 'deliveries', step: 5, mockup: 'DeliveryConfirm.html', parent: doc('Delivery Order', '/sales/deliveries'), component: DeliveryForm },
   { code: 'S13', path: 'cancel-orders', name: 'sales-cancel-orders', title: 'Cancel Order', group: 'transaction', item: 'cancel-orders', step: 8, mockup: 'CancelOrderList.html', component: CancelOrderList },
   { code: 'S14', path: 'cancel-orders/:id', name: 'sales-cancel-order', title: 'Cancel order balance', group: 'transaction', item: 'cancel-orders', step: 8, mockup: 'CancelOrder.html', parent: doc('Cancel Order', '/sales/cancel-orders'), component: CancelOrderForm },
   { code: 'S21', path: 'proformas', name: 'sales-proformas', title: 'Proforma Invoice', group: 'billing', item: 'proformas', step: 7, mockup: 'ProformaList.html', component: ProformaList },
+  { code: 'S22', path: 'proformas/:id/print', name: 'sales-proforma-print', title: 'Print preview', group: 'billing', item: 'proformas', step: 7, mockup: 'InvoicePrint.html', parent: doc('Proforma Invoice', '/sales/proformas'), component: DocPrint, bare: true },
   { code: 'S22', path: 'proformas/:id', name: 'sales-proforma', title: 'Proforma invoice', group: 'billing', item: 'proformas', step: 7, mockup: 'ProformaForm.html', parent: doc('Proforma Invoice', '/sales/proformas'), component: ProformaForm },
   { code: 'S17', path: 'invoices', name: 'sales-invoices', title: 'Invoice', group: 'billing', item: 'invoices', step: 6, mockup: 'InvoiceList.html', component: InvoiceList },
   { code: 'S18', path: 'invoices/new', name: 'sales-invoice-new', title: 'Create invoice', group: 'billing', item: 'invoices', step: 6, mockup: 'CreateInvoice.html', parent: doc('Invoice', '/sales/invoices'), component: CreateInvoice },

@@ -31,7 +31,7 @@ const TONES = {
   <component
     :is="to ? 'RouterLink' : 'div'"
     :to="to"
-    class="erp-card flex flex-col transition-shadow"
+    class="erp-card erp-kpi flex flex-col transition-shadow"
     :class="[
       TONES[tone].box,
       to ? 'hover:shadow-sm' : '',

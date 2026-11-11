@@ -60,14 +60,14 @@ function exportCsv() {
     LHDN is not connected yet. Each e-Invoice is saved with its document and is submitted once LHDN is connected. Nothing has been sent.
   </NoticeBanner>
 
-  <div class="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-3 print:hidden max-lg:grid-cols-2">
+  <div class="grid grid-cols-[minmax(0,1.3fr)_repeat(3,minmax(0,1fr))] gap-3 print:hidden max-lg:not-print:grid-cols-2">
     <FilterSelect label="Period" all="all months" :model-value="filters.period === 'all' ? '' : (filters.period ?? '')" :options="options.periods" @update:model-value="setFilter('period', $event)" />
     <FilterSelect v-if="!view.fromTopBar.value" label="Branch" all="all" :model-value="filters.branch ?? ''" :options="options.branches" @update:model-value="setFilter('branch', $event)" />
     <FilterSelect label="Type" all="all" :model-value="filters.type ?? ''" :options="TYPES" @update:model-value="setFilter('type', $event)" />
     <FilterSelect label="Show" :model-value="filters.show ?? ''" :options="SHOW" @update:model-value="setFilter('show', $event)" />
   </div>
 
-  <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+  <div class="grid grid-cols-4 gap-4 max-lg:not-print:grid-cols-2">
     <KpiCard
       label="Waiting for LHDN"
       tone="warning"
