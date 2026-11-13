@@ -1,4 +1,4 @@
-import { FileUp, ListChecks, Package, Percent, Ruler, SlidersHorizontal, Tags, Truck, Users, Warehouse } from '@lucide/vue'
+import { FileUp, Gift, ListChecks, Package, Percent, Ruler, SlidersHorizontal, Tags, Truck, Users, Warehouse } from '@lucide/vue'
 import type { MenuGroup } from '../common/menu'
 
 /** Core sidebar (CoreHome.html and the other Core mockups). Labels exactly as in the mockups. */
@@ -30,6 +30,7 @@ export const CORE_MENU: MenuGroup[] = [
     to: '/core/price-lists',
     items: [
       { key: 'price-lists', label: 'Price Lists', to: '/core/price-lists', icon: Tags },
+      { key: 'packages', label: 'Packages', to: '/core/packages', icon: Gift },
       { key: 'tax-codes', label: 'Tax Codes', to: '/core/tax-codes', icon: Percent },
     ],
   },

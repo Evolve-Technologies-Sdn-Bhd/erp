@@ -5,6 +5,7 @@ export const CORE_ENTITY = {
   CUSTOMER: 'MDM_CUSTOMER',
   SUPPLIER: 'MDM_SUPPLIER',
   PRICE_LIST: 'MDM_PRICE_LIST',
+  PACKAGE: 'MDM_PACKAGE',
   TAX_CODE: 'MDM_TAX_CODE',
   WAREHOUSE: 'MDM_WAREHOUSE',
   /** An item group, customer category, area or credit term (C12). */
@@ -40,6 +41,8 @@ export const CORE_EVENT = {
   SUPPLIER_DELETED: 'mdm.supplier.deleted',
   PRICE_LIST_UPDATED: 'mdm.price_list.updated',
   PRICE_LIST_DELETED: 'mdm.price_list.deleted',
+  PACKAGE_UPDATED: 'mdm.package.updated',
+  PACKAGE_DELETED: 'mdm.package.deleted',
   TAX_CODE_UPDATED: 'mdm.tax_code.updated',
   TAX_CODE_DELETED: 'mdm.tax_code.deleted',
   UOM_UPDATED: 'mdm.uom.updated',

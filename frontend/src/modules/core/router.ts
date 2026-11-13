@@ -43,6 +43,8 @@ const SCREENS: ScreenDef[] = [
   { code: 'C05', path: 'customers/:id', name: 'core-customer', title: 'Customer', group: 'parties', item: 'customers', step: 3, mockup: 'CoreCustomerForm.html', parent: doc('Customers', '/core/customers'), component: CustomerForm },
   { code: 'C06', path: 'suppliers', name: 'core-suppliers', title: 'Suppliers', group: 'parties', item: 'suppliers', step: 4, mockup: 'CoreSupplierList.html', component: SupplierList },
   { code: 'C07', path: 'suppliers/:id', name: 'core-supplier', title: 'Supplier', group: 'parties', item: 'suppliers', step: 4, mockup: 'CoreSupplierForm.html', parent: doc('Suppliers', '/core/suppliers'), component: SupplierForm },
+  { code: 'C15', path: 'packages', name: 'core-packages', title: 'Packages', group: 'pricing', item: 'packages', step: 5, mockup: 'CorePackages.html', component: () => import('./views/PackagesView.vue') },
+  { code: 'C16', path: 'packages/:id', name: 'core-package', title: 'Package', group: 'pricing', item: 'packages', step: 5, mockup: 'CorePackageForm.html', parent: doc('Packages', '/core/packages'), component: () => import('./views/PackageFormView.vue') },
   { code: 'C08', path: 'price-lists', name: 'core-price-lists', title: 'Price Lists', group: 'pricing', item: 'price-lists', step: 5, mockup: 'CorePriceLists.html', component: PriceLists },
   { code: 'C09', path: 'price-lists/:id', name: 'core-price-list', title: 'Price list', group: 'pricing', item: 'price-lists', step: 5, mockup: 'CorePriceListForm.html', parent: doc('Price Lists', '/core/price-lists'), component: PriceListForm },
   { code: 'C10', path: 'tax-codes', name: 'core-tax-codes', title: 'Tax Codes', group: 'pricing', item: 'tax-codes', step: 6, mockup: 'CoreTaxCodes.html', component: TaxCodes },

@@ -1,6 +1,6 @@
 import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
-import type { CoreDashboard, CustomerDetail, CustomerFormOptions, CustomerInput, CustomerListItem, ItemDetail, ItemFormOptions, ItemInput, ImportAnswer, ImportKind, ImportKindInfo, ItemListItem, PriceListDetail, PriceListInput, PriceListListItem, PurchasableItemOption, ReferenceData, ReferenceListKey, SellableItemOption, TaxCodeDetail, TaxCodesData, TaxType, WarehouseDetail, WarehousesData, SupplierDetail, SupplierFormOptions, SupplierInput, SupplierListItem, SupplierOption, UomDetail, UomsData } from '../types'
+import type { CoreDashboard, CustomerDetail, CustomerFormOptions, CustomerInput, CustomerListItem, ItemDetail, ItemFormOptions, ItemInput, ImportAnswer, ImportKind, ImportKindInfo, ItemListItem, PriceListDetail, PriceListInput, PriceListListItem, PurchasableItemOption, ReferenceData, ReferenceListKey, SellableItemOption, TaxCodeDetail, TaxCodesData, TaxType, WarehouseDetail, WarehousesData, SupplierDetail, SupplierFormOptions, SupplierInput, SupplierListItem, SupplierOption, UomDetail, UomsData, PackageDetail, PackageInput, PackageListItem } from '../types'
 
 /** Core API (/api/v1/core). Each build step adds its resources here. */
 export const coreApi = {
@@ -14,6 +14,7 @@ export const coreLookupsApi = {
   supplierForm: () => api<SupplierFormOptions>('/core/lookups/supplier-form'),
   purchasableItems: (q: string) => api<{ items: PurchasableItemOption[] }>('/core/lookups/purchasable-items', { query: { q } }),
   sellableItems: (q: string) => api<{ items: SellableItemOption[] }>('/core/lookups/sellable-items', { query: { q } }),
+  activeItems: (q: string) => api<{ items: SellableItemOption[] }>('/core/lookups/active-items', { query: { q } }),
 }
 
 export const coreItemsApi = {
@@ -59,6 +60,15 @@ export const corePriceListsApi = {
   update: (id: string, input: PriceListInput & { version: number }) => api<PriceListDetail>(`/core/price-lists/${id}`, { method: 'PATCH', body: input }),
   setStatus: (id: string, action: 'deactivate' | 'activate', version: number) => api<PriceListDetail>(`/core/price-lists/${id}/${action}`, { method: 'POST', body: { version } }),
   remove: (id: string, version: number) => api<{ deleted: boolean; code: string }>(`/core/price-lists/${id}`, { method: 'DELETE', query: { version } }),
+}
+
+export const corePackagesApi = {
+  list: (query: ListQuery) => api<ListResponse<PackageListItem>>('/core/packages', { query }),
+  get: (id: string) => api<PackageDetail>(`/core/packages/${id}`),
+  create: (input: PackageInput & { code: string }) => api<PackageDetail>('/core/packages', { method: 'POST', body: input }),
+  update: (id: string, input: PackageInput & { version: number }) => api<PackageDetail>(`/core/packages/${id}`, { method: 'PATCH', body: input }),
+  end: (id: string, version: number) => api<PackageDetail>(`/core/packages/${id}/end`, { method: 'POST', body: { version } }),
+  remove: (id: string, version: number) => api<{ deleted: boolean; code: string }>(`/core/packages/${id}`, { method: 'DELETE', query: { version } }),
 }
 
 export const coreTaxCodesApi = {

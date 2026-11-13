@@ -18,6 +18,9 @@ import { ItemImporter } from './imports/importers/item.importer';
 import { PriceImporter } from './imports/importers/price.importer';
 import { SupplierImporter } from './imports/importers/supplier.importer';
 import { CoreLookupsController } from './lookups/lookups.controller';
+import { CorePackagesController } from './packages/packages.controller';
+import { PackagesQuery } from './packages/packages.query';
+import { PackagesService } from './packages/packages.service';
 import { CorePriceListsController } from './price-lists/price-lists.controller';
 import { PriceListsQuery } from './price-lists/price-lists.query';
 import { PriceListsService } from './price-lists/price-lists.service';
@@ -45,8 +48,8 @@ import { WarehousesService } from './warehouses/warehouses.service';
  * through MasterDataPort. Never imports from purchase/ or sales/, and never reads their tables.
  */
 @Module({
-  controllers: [CoreDashboardController, CoreUsageController, CoreLookupsController, CoreItemsController, CoreUomsController, CoreCustomersController, CoreSuppliersController, CorePriceListsController, CoreTaxCodesController, CoreReferenceController, CoreWarehousesController, CoreImportsController],
-  providers: [CoreDashboardQuery, CoreRecordsService, CoreUsageQuery, ItemsQuery, ItemsService, UomsQuery, UomsService, CustomersQuery, CustomersService, SuppliersQuery, SuppliersService, PriceListsQuery, PriceListsService, TaxCodesQuery, TaxCodesService, ReferenceQuery, ReferenceService, WarehousesQuery, WarehousesService, ImportsService, CustomerImporter, SupplierImporter, ItemImporter, PriceImporter],
+  controllers: [CoreDashboardController, CoreUsageController, CoreLookupsController, CoreItemsController, CoreUomsController, CoreCustomersController, CoreSuppliersController, CorePriceListsController, CorePackagesController, CoreTaxCodesController, CoreReferenceController, CoreWarehousesController, CoreImportsController],
+  providers: [CoreDashboardQuery, CoreRecordsService, CoreUsageQuery, ItemsQuery, ItemsService, UomsQuery, UomsService, CustomersQuery, CustomersService, SuppliersQuery, SuppliersService, PriceListsQuery, PriceListsService, PackagesQuery, PackagesService, TaxCodesQuery, TaxCodesService, ReferenceQuery, ReferenceService, WarehousesQuery, WarehousesService, ImportsService, CustomerImporter, SupplierImporter, ItemImporter, PriceImporter],
 })
 export class CoreModule implements OnModuleInit {
   constructor(

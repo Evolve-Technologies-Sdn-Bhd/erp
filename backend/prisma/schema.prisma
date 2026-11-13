@@ -1756,6 +1756,63 @@ model MdmPriceList {
   @@map("mdm_price_list")
 }
 
+/// A package (C15, C16; phase 5): several items sold together at one price, with an optional free gift. Sales adds
+/// it to an order as one line. Its items' list prices come from `priceListCode`, which gives the normal value and how
+/// the package price is spread over the items. Status is worked out from the dates: scheduled, running or ended.
+model MdmPackage {
+  id            String    @id @default(uuid()) @db.Char(36)
+  tenantId      String    @db.Char(36)
+  code          String    @db.VarChar(20) // PK-DIN-06; typed once, never changed or reused
+  name          String    @db.VarChar(100) // shown to customers
+  uomCode       String    @db.VarChar(10) // SET
+  salesTaxCode  String    @db.VarChar(10)
+  priceListCode String    @db.VarChar(20) // where the items' list prices come from
+  packagePrice  Decimal   @db.Decimal(18, 2) // before tax
+  giftRule      String    @default("NONE") @db.VarChar(12) // NONE, ALWAYS (every gift), CHOOSE_ONE
+  runsFrom      DateTime  @db.Date
+  runsUntil     DateTime? @db.Date // null = no end
+  endedOn       DateTime? @db.Date // End now: the last day it ran
+  createdAt     DateTime  @default(now()) @db.DateTime(3)
+  updatedAt     DateTime  @default(now()) @updatedAt @db.DateTime(3)
+  version       Int       @default(1)
+  createdBy     String?   @db.VarChar(20)
+  updatedBy     String?   @db.VarChar(20)
+
+  @@unique([tenantId, code])
+  @@index([tenantId, runsFrom])
+  @@map("mdm_package")
+}
+
+/// The items in a package, in their order. A line's share of the package price is worked out, not stored.
+model MdmPackageItem {
+  id          String  @id @default(uuid()) @db.Char(36)
+  tenantId    String  @db.Char(36)
+  packageCode String  @db.VarChar(20)
+  itemCode    String  @db.VarChar(30)
+  qty         Decimal @db.Decimal(18, 4)
+  uomCode     String  @db.VarChar(10)
+  sortOrder   Int     @default(0)
+
+  @@index([tenantId, packageCode])
+  @@index([tenantId, itemCode])
+  @@map("mdm_package_item")
+}
+
+/// The free gifts of a package: all of them (ALWAYS) or one the customer picks (CHOOSE_ONE).
+model MdmPackageGift {
+  id          String  @id @default(uuid()) @db.Char(36)
+  tenantId    String  @db.Char(36)
+  packageCode String  @db.VarChar(20)
+  itemCode    String  @db.VarChar(30)
+  qty         Decimal @db.Decimal(18, 4)
+  uomCode     String  @db.VarChar(10)
+  sortOrder   Int     @default(0)
+
+  @@index([tenantId, packageCode])
+  @@index([tenantId, itemCode])
+  @@map("mdm_package_gift")
+}
+
 /// Dated prices (SRS BR-PRC-003/004): a price change adds a row from its date, so a future price waits for its date
 /// and the price on any past date can be shown. The port answers the latest row on or before the asked date.
 model MdmPriceListItem {
@@ -2620,22 +2677,22 @@ model SalCancelOrderLine {
 
 /// One row per tenant (S29 "Other sales rules" and the credit scope).
 model SalSetting {
-  id                   String   @id @default(uuid()) @db.Char(36)
-  tenantId             String   @unique @db.Char(36)
-  creditScope          String   @default("GROUP") @db.VarChar(10) // GROUP, BRANCH
-  stockCheck           String   @default("WARN") @db.VarChar(10) // WARN, OFF
-  invoiceFromDelivered Boolean  @default(true)
-  strictPriceList      Boolean  @default(true)
-  roundTo5Sen          Boolean  @default(true)
-  showMargin           Boolean  @default(true)
-  skipCreditForSystem  Boolean  @default(true)
-  discountApprovalPct  Decimal  @default(15) @db.Decimal(7, 4)
-  quoteExpiryWarnDays  Int      @default(3)
+  id                     String   @id @default(uuid()) @db.Char(36)
+  tenantId               String   @unique @db.Char(36)
+  creditScope            String   @default("GROUP") @db.VarChar(10) // GROUP, BRANCH
+  stockCheck             String   @default("WARN") @db.VarChar(10) // WARN, OFF
+  invoiceFromDelivered   Boolean  @default(true)
+  strictPriceList        Boolean  @default(true)
+  roundTo5Sen            Boolean  @default(true)
+  showMargin             Boolean  @default(true)
+  skipCreditForSystem    Boolean  @default(true)
+  discountApprovalPct    Decimal  @default(15) @db.Decimal(7, 4)
+  quoteExpiryWarnDays    Int      @default(3)
   // Sales flow (S34, phase 5). Defaults are the standard flow, so a company that never opens the page sees no change.
   useEnquiries           Boolean  @default(true) // off: Enquiry is hidden and new enquiries are refused
   officeDraftsQuotations Boolean  @default(true) // off: Draft Quotation is hidden from the menu
-  updatedAt            DateTime @updatedAt @db.DateTime(3)
-  updatedBy            String   @db.VarChar(20)
+  updatedAt              DateTime @updatedAt @db.DateTime(3)
+  updatedBy              String   @db.VarChar(20)
 
   @@map("sal_setting")
 }

@@ -519,3 +519,64 @@ export interface ImportAnswer {
   counts: Record<string, number>
   summary: string
 }
+
+// ── Packages (C15, C16; phase 5) ──
+
+export type PackageStatus = 'SCHEDULED' | 'RUNNING' | 'ENDED'
+export type GiftRule = 'NONE' | 'ALWAYS' | 'CHOOSE_ONE'
+export type PackageAction = 'edit' | 'end' | 'delete'
+
+interface PackageFields {
+  id: string
+  code: string
+  name: string
+  uomCode: string
+  salesTaxCode: string
+  priceListCode: string
+  packagePrice: string
+  giftRule: GiftRule
+  runsFrom: string
+  runsUntil: string | null
+  endedOn: string | null
+  status: PackageStatus
+  statusLabel: string
+  version: number
+}
+
+export interface PackageListItem extends PackageFields {
+  itemsText: string
+  normalValue: string
+  saves: string | null
+  giftText: string
+}
+
+export interface PackageLineInput {
+  itemCode: string
+  qty: string
+  uomCode: string
+}
+
+export interface PackageInput {
+  name: string
+  uomCode: string
+  salesTaxCode: string
+  priceListCode: string
+  packagePrice: string
+  giftRule: GiftRule
+  runsFrom: string
+  runsUntil: string | null
+  items: PackageLineInput[]
+  gifts: PackageLineInput[]
+}
+
+export interface PackageDetail extends PackageFields {
+  giftRuleLabel: string
+  normalValue: string
+  saves: string | null
+  priceWarning: string | null
+  items: { itemId: string | null; itemCode: string; itemName: string; qty: string; uomCode: string; listPrice: string | null; listValue: string; unitPrice: string | null; amount: string | null }[]
+  gifts: { itemId: string | null; itemCode: string; itemName: string; qty: string; uomCode: string }[]
+  activity: CoreActivity[]
+  allowedActions: PackageAction[]
+  refusals: Partial<Record<PackageAction, string>>
+}

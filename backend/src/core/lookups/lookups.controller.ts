@@ -101,6 +101,22 @@ export class CoreLookupsController {
     return { items: rows.map((r) => ({ ...r, units: itemUnits(r.baseUom, conversions.filter((c) => c.itemCode === r.code)) })) };
   }
 
+  /** Active items, sold or not, with their units: the free-gift picker on a package (C16), since a gift is often not sold on its own. */
+  @Get('active-items')
+  @RequirePermission(P.VIEW)
+  async activeItems(@CurrentContext() ctx: RequestContext, @Query('q') q?: string) {
+    const tenantId = ctx.tenantId;
+    const text = q?.trim();
+    const rows = await this.prisma.mdmItem.findMany({
+      where: { tenantId, status: 'ACTIVE', ...(text && { OR: [{ code: { contains: text } }, { name: { contains: text } }] }) },
+      orderBy: { code: 'asc' },
+      take: 20,
+      select: { code: true, name: true, baseUom: true },
+    });
+    const conversions = await this.prisma.mdmUomConversion.findMany({ where: { tenantId, itemCode: { in: rows.map((r) => r.code) } }, select: { itemCode: true, fromUom: true, toUom: true } });
+    return { items: rows.map((r) => ({ ...r, units: itemUnits(r.baseUom, conversions.filter((c) => c.itemCode === r.code)) })) };
+  }
+
   /** Active suppliers matching code or name, for the preferred-supplier picker. */
   @Get('suppliers')
   @RequirePermission(P.VIEW)
