@@ -109,6 +109,11 @@ export async function seedSalesMasterData(ctx: SeedCtx): Promise<void> {
     ctx.items.set(row.code, row);
   }
 
+  // The demo has no packages (FIELD_SALES_SEED_DATA.md): ones made since the last seed go, so every run starts the same.
+  await prisma.mdmPackageItem.deleteMany({ where: { tenantId } });
+  await prisma.mdmPackageGift.deleteMany({ where: { tenantId } });
+  await prisma.mdmPackage.deleteMany({ where: { tenantId } });
+
   // Every price is valid from its list's start date (CORE_SEED_DATA.md → Price lists).
   const validFrom = day('2026-01-01');
   await prisma.mdmPriceListItem.deleteMany({ where: { tenantId } });

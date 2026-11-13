@@ -32,6 +32,7 @@ import type {
   EnquiryInput,
   EnquiryListItem,
   EnquiryTypeOption,
+  PackageOption,
   InboxDetail,
   InvoiceCandidates,
   InvoiceDetail,
@@ -288,4 +289,5 @@ export const salesLookupsApi = {
   agents: () => api<{ items: { code: string; name: string; branchCodes: string[] }[] }>('/sales/lookups/agents'),
   branches: () => api<{ items: { code: string; name: string }[] }>('/sales/lookups/branches'),
   enquiryTypes: () => api<{ types: EnquiryTypeOption[]; sources: { code: string; name: string }[] }>('/sales/lookups/enquiry-types'),
+  packages: (date?: string) => api<{ date: string; items: PackageOption[] }>('/sales/lookups/packages', { query: { date } }),
 }

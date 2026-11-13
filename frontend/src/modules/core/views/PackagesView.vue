@@ -59,6 +59,7 @@ const runs = (p: PackageListItem) => `${formatDate(p.runsFrom)} – ${p.endedOn 
       <Column header="Runs">
         <template #body="{ data }: { data: PackageListItem }"><span class="whitespace-nowrap">{{ runs(data) }}</span></template>
       </Column>
+      <Column header="Orders" field="orders" class="erp-col-num" />
       <Column header="Status">
         <template #body="{ data }: { data: PackageListItem }"><StatusChip :status="data.status" :label="data.statusLabel" :group="PACKAGE_STATUS_GROUP[data.status]" /></template>
       </Column>

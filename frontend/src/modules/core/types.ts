@@ -548,6 +548,8 @@ export interface PackageListItem extends PackageFields {
   normalValue: string
   saves: string | null
   giftText: string
+  /** Sales orders that carry it. */
+  orders: number
 }
 
 export interface PackageLineInput {

@@ -14,6 +14,7 @@ export const USAGE_PATHS: Record<string, UsageKind> = {
   'tax-code': 'TAX_CODE',
   'price-list': 'PRICE_LIST',
   warehouse: 'WAREHOUSE',
+  package: 'PACKAGE',
 };
 
 export function kindFromPath(segment: string): UsageKind | null {
@@ -29,6 +30,7 @@ export const KIND_LABEL: Record<UsageKind, string> = {
   TAX_CODE: 'Tax code',
   PRICE_LIST: 'Price list',
   WAREHOUSE: 'Warehouse',
+  PACKAGE: 'Package',
 };
 
 /** What to do instead of deleting a record that is used. */
@@ -40,6 +42,7 @@ const INSTEAD: Record<UsageKind, string> = {
   TAX_CODE: 'Make it inactive instead.',
   PRICE_LIST: 'Deactivate it instead.',
   WAREHOUSE: 'Make it inactive instead.',
+  PACKAGE: 'End it instead.',
 };
 
 /** A Core record that points to this one (an item's prices, a customer's price list …), counted by Core itself. */

@@ -5,7 +5,7 @@ import DatePicker from 'primevue/datepicker'
 import Menu from 'primevue/menu'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { ChevronDown, Lock, Plus, X } from '@lucide/vue'
+import { ChevronDown, Gift, Lock, Plus, X } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import ActivityList from '@/components/erp/ActivityList.vue'
 import FormField from '@/components/erp/FormField.vue'
@@ -23,8 +23,9 @@ import { formatDate, formatDateTime, formatMoney, formatPrice, formatQty, format
 import { isPositiveDecimal, previewSaleLine, sumMoney } from '@/utils/money'
 import { salesDeliveriesApi, salesLookupsApi, salesOrdersApi, salesProformasApi } from '../api/sales'
 import ItemPickerDialog from '../components/ItemPickerDialog.vue'
+import PackagePickerDialog from '../components/PackagePickerDialog.vue'
 import { docRoute } from '../routes'
-import type { CustomerOption, OrderAction, OrderDetail, SaleItemOption } from '../types'
+import type { CustomerOption, OrderAction, OrderDetail, OrderLine, PackageOption, SaleItemOption } from '../types'
 
 /** S11 · Sales order (SalesOrderForm.html) and S12 · Credit check failed (CreditApproval.html). */
 const route = useRoute()
@@ -57,12 +58,32 @@ interface LineItem {
   listPrice: string | null
 }
 interface EditLine {
+  kind: 'item'
   key: number
   item: LineItem
   qty: string
   unitPrice: string
   discountPct: string
 }
+/** A package on the order (phase 5): sets and the chosen gift. Core prices it; the form only previews. */
+interface EditPackage {
+  kind: 'package'
+  key: number
+  code: string
+  name: string
+  uomCode: string
+  price: string
+  taxCode: string
+  taxName: string
+  taxRate: string
+  giftRule: PackageOption['giftRule']
+  /** Items per set, with the unit price the package gives them. */
+  items: { itemCode: string; itemName: string; qty: string; uomCode: string; unitPrice: string }[]
+  gifts: PackageOption['gifts']
+  qty: string
+  giftItemCode: string | null
+}
+type FormLine = EditLine | EditPackage
 let nextKey = 1
 const form = reactive({
   customer: null as CustomerOption | null,
@@ -72,7 +93,7 @@ const form = reactive({
   customerPoRef: '',
   project: '',
   deliveryAddress: '',
-  lines: [] as EditLine[],
+  lines: [] as FormLine[],
 })
 const pad = (n: number) => String(n).padStart(2, '0')
 const isoToDate = (iso: string) => (iso ? new Date(`${iso}T00:00:00`) : null)
@@ -80,7 +101,11 @@ const dateToIso = (value: unknown) => (value instanceof Date ? `${value.getFullY
 const trimPrice = (v: string) => v.replace(/(\.\d\d)00$/, '$1')
 
 const saved = ref('')
-const snapshot = () => JSON.stringify({ ...form, lines: form.lines.map((l) => ({ code: l.item.code, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct })) })
+const snapshot = () =>
+  JSON.stringify({
+    ...form,
+    lines: form.lines.map((l) => (l.kind === 'package' ? { pkg: l.code, qty: l.qty, gift: l.giftItemCode } : { code: l.item.code, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct })),
+  })
 const dirty = computed(() => snapshot() !== saved.value)
 
 const can = (action: OrderAction) => (isNew.value ? action === 'edit' : Boolean(order.value?.allowedActions.includes(action)))
@@ -95,13 +120,7 @@ function fillForm(o: OrderDetail | null) {
     form.customerPoRef = o.customerPoRef ?? ''
     form.project = o.project ?? ''
     form.deliveryAddress = o.deliveryAddress ?? ''
-    form.lines = o.lines.map((l) => ({
-      key: nextKey++,
-      item: { code: l.itemCode, name: l.itemName, uomCode: l.uomCode, taxCode: l.taxCode, taxName: l.taxName, taxRate: l.taxRate, listPrice: l.listPrice },
-      qty: formatQty(l.orderedQty).replace(/,/g, ''),
-      unitPrice: trimPrice(l.unitPrice),
-      discountPct: Number(l.discountPct) ? l.discountPct.replace(/\.?0+$/, '') : '',
-    }))
+    form.lines = toFormLines(o.lines)
   } else {
     form.customer = null
     form.contactName = ''
@@ -116,6 +135,50 @@ function fillForm(o: OrderDetail | null) {
   errors.value = {}
 }
 
+const plainQty = (v: string) => formatQty(v).replace(/,/g, '')
+/** The order's lines as the form edits them: each package's lines become one package line again. */
+function toFormLines(lines: OrderLine[]): FormLine[] {
+  const out: FormLine[] = []
+  const seen = new Set<number>()
+  for (const l of lines) {
+    if (!l.package) {
+      out.push({
+        kind: 'item',
+        key: nextKey++,
+        item: { code: l.itemCode, name: l.itemName, uomCode: l.uomCode, taxCode: l.taxCode, taxName: l.taxName, taxRate: l.taxRate, listPrice: l.listPrice },
+        qty: plainQty(l.orderedQty),
+        unitPrice: trimPrice(l.unitPrice),
+        discountPct: Number(l.discountPct) ? l.discountPct.replace(/\.?0+$/, '') : '',
+      })
+      continue
+    }
+    const p = l.package
+    if (seen.has(p.group)) continue
+    seen.add(p.group)
+    const own = lines.filter((x) => x.package?.group === p.group)
+    const sets = plainQty(p.qty)
+    const perSet = (qty: string) => plainQty((Number(qty) / Number(sets)).toFixed(4))
+    const gift = own.find((x) => x.lineKind === 'GIFT') ?? null
+    out.push({
+      kind: 'package',
+      key: nextKey++,
+      code: p.code,
+      name: p.name,
+      uomCode: p.uomCode,
+      price: p.price,
+      taxCode: l.taxCode,
+      taxName: l.taxName,
+      taxRate: l.taxRate,
+      giftRule: gift ? 'CHOOSE_ONE' : 'NONE',
+      items: own.filter((x) => x.lineKind === 'PACKAGE').map((x) => ({ itemCode: x.itemCode, itemName: x.itemName, qty: perSet(x.orderedQty), uomCode: x.uomCode, unitPrice: x.unitPrice })),
+      gifts: gift ? [{ itemCode: gift.itemCode, itemName: gift.itemName, qty: perSet(gift.orderedQty), uomCode: gift.uomCode }] : [],
+      qty: sets,
+      giftItemCode: gift?.itemCode ?? null,
+    })
+  }
+  return out
+}
+
 async function load() {
   loading.value = true
   try {
@@ -125,6 +188,7 @@ async function load() {
   } finally {
     loading.value = false
   }
+  if (editable.value) void loadPackageChoices()
 }
 onMounted(load)
 
@@ -132,6 +196,7 @@ function show(o: OrderDetail) {
   order.value = o
   fillForm(o)
   setCrumb(o.docNo)
+  if (editable.value) void loadPackageChoices()
 }
 
 const searchCustomers = async (q: string) => (await salesLookupsApi.customers(q)).items
@@ -142,10 +207,11 @@ function onCustomerPicked(c: CustomerOption) {
 }
 
 // ── Lines ────────────────────────────────────────────────────────────────────
-const onLines = computed(() => Object.fromEntries(form.lines.map((l, i) => [l.item.code, i + 1])))
+const onLines = computed(() => Object.fromEntries(form.lines.flatMap((l, i) => (l.kind === 'item' ? [[l.item.code, i + 1]] : []))))
 function addItems(picked: { item: SaleItemOption; qty: string }[]) {
   for (const { item, qty } of picked) {
     form.lines.push({
+      kind: 'item',
       key: nextKey++,
       item: { code: item.code, name: item.name, uomCode: item.uomCode, taxCode: item.taxCode, taxName: item.taxName, taxRate: item.taxRate, listPrice: item.listPrice },
       qty,
@@ -165,7 +231,63 @@ function openPicker() {
   pickerOpen.value = true
 }
 
-const previews = computed(() => form.lines.map((l) => previewSaleLine(l.qty || '0', l.unitPrice || '0', l.discountPct || '0', l.item.taxRate)))
+// ── Packages (phase 5) ───────────────────────────────────────────────────────
+const packagePickerOpen = ref(false)
+function addPackage({ pkg, qty, giftItemCode }: { pkg: PackageOption; qty: string; giftItemCode: string | null }) {
+  form.lines.push({
+    kind: 'package',
+    key: nextKey++,
+    code: pkg.code,
+    name: pkg.name,
+    uomCode: pkg.uomCode,
+    price: pkg.price,
+    taxCode: pkg.taxCode,
+    taxName: pkg.taxName,
+    taxRate: pkg.taxRate,
+    giftRule: pkg.giftRule,
+    items: pkg.items.map((i) => ({ itemCode: i.itemCode, itemName: i.itemName, qty: plainQty(i.qty), uomCode: i.uomCode, unitPrice: i.unitPrice ?? '0' })),
+    gifts: pkg.gifts,
+    qty,
+    giftItemCode,
+  })
+}
+/** A draft's packages get their gift choices from Core again, so the agent can still change the gift. */
+async function loadPackageChoices() {
+  if (!form.lines.some((l) => l.kind === 'package')) return
+  const running = (await salesLookupsApi.packages(form.docDate || undefined)).items
+  for (const l of form.lines) {
+    const p = l.kind === 'package' ? running.find((x) => x.code === l.code) : undefined
+    if (l.kind === 'package' && p) {
+      l.giftRule = p.giftRule
+      l.gifts = p.gifts
+    }
+  }
+  saved.value = snapshot()
+}
+/** Per-set quantity × whole sets, exactly: "6" × 2 → "12". */
+function timesSets(qty: string, sets: string): string {
+  if (!/^[1-9]\d*$/.test(sets)) return '0'
+  const [whole = '0', frac = ''] = qty.split('.')
+  const units = BigInt(whole + frac) * BigInt(sets)
+  const s = units.toString().padStart(frac.length + 1, '0')
+  return frac.length ? `${s.slice(0, -frac.length)}.${s.slice(-frac.length)}` : s
+}
+const packageParts = (l: EditPackage) => l.items.map((i) => ({ ...i, total: timesSets(i.qty, l.qty.trim()), preview: previewSaleLine(timesSets(i.qty, l.qty.trim()), i.unitPrice, '0', l.taxRate) }))
+function linePreview(l: FormLine) {
+  if (l.kind === 'item') return previewSaleLine(l.qty || '0', l.unitPrice || '0', l.discountPct || '0', l.item.taxRate)
+  const parts = packageParts(l).map((p) => p.preview)
+  if (parts.some((p) => p === null)) return null
+  return {
+    grossAmount: sumMoney(parts.map((p) => p!.grossAmount)),
+    discountAmount: '0.00',
+    amount: sumMoney(parts.map((p) => p!.amount)),
+    taxAmount: sumMoney(parts.map((p) => p!.taxAmount)),
+  }
+}
+const taxOf = (l: FormLine) => (l.kind === 'item' ? { code: l.item.taxCode, name: l.item.taxName } : { code: l.taxCode, name: l.taxName })
+const giftName = (l: EditPackage) => l.gifts.find((g) => g.itemCode === l.giftItemCode)?.itemName ?? l.giftItemCode ?? ''
+
+const previews = computed(() => form.lines.map(linePreview))
 const previewTotals = computed(() => {
   const ok = previews.value.filter((p) => p !== null)
   const gross = sumMoney(ok.map((p) => p!.grossAmount))
@@ -174,9 +296,10 @@ const previewTotals = computed(() => {
   form.lines.forEach((l, i) => {
     const p = previews.value[i]
     if (!p) return
-    const entry = taxes.get(l.item.taxCode) ?? { name: l.item.taxName, amounts: [] }
+    const tax = taxOf(l)
+    const entry = taxes.get(tax.code) ?? { name: tax.name, amounts: [] }
     entry.amounts.push(p.taxAmount)
-    taxes.set(l.item.taxCode, entry)
+    taxes.set(tax.code, entry)
   })
   const taxLines = [...taxes].map(([code, t]) => ({ code, name: t.name, amount: sumMoney(t.amounts) }))
   const net = sumMoney(ok.map((p) => p!.amount))
@@ -191,6 +314,11 @@ function validate(): boolean {
   if (!form.customer) e.customerCode = 'Pick the customer from Master Data.'
   if (!form.lines.length) e.lines = 'Add at least one item.'
   form.lines.forEach((l, i) => {
+    if (l.kind === 'package') {
+      if (!/^[1-9]\d*$/.test(l.qty.trim())) e[`lines[${i}].qty`] = 'Packages are sold in whole sets.'
+      if (l.giftRule === 'CHOOSE_ONE' && !l.giftItemCode) e[`lines[${i}].giftItemCode`] = `Pick the free gift for ${l.code}.`
+      return
+    }
     if (!isPositiveDecimal(l.qty)) e[`lines[${i}].qty`] = 'Quantity must be more than 0.'
     if (!/^\d+(\.\d{1,4})?$/.test(l.unitPrice)) e[`lines[${i}].unitPrice`] = 'Enter a price.'
     if (l.discountPct && !/^\d{1,3}(\.\d{1,2})?$/.test(l.discountPct)) e[`lines[${i}].discountPct`] = 'Discount like 5 or 7.5.'
@@ -214,7 +342,11 @@ async function save(): Promise<OrderDetail | null> {
       customerPoRef: form.customerPoRef,
       project: form.project,
       deliveryAddress: form.deliveryAddress,
-      lines: form.lines.map((l) => ({ itemCode: l.item.code, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct || '0' })),
+      lines: form.lines.map((l) =>
+        l.kind === 'package'
+          ? { packageCode: l.code, qty: l.qty.trim(), giftItemCode: l.giftItemCode }
+          : { itemCode: l.item.code, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct || '0' },
+      ),
     }
     const result = isNew.value ? await salesOrdersApi.create(body) : await salesOrdersApi.update(id.value, { ...body, version: order.value!.version })
     toast.add({ severity: 'success', summary: isNew.value ? `${result.docNo} saved as draft` : 'Draft saved', detail: result.activity.find((a) => a.action === 'credit_check')?.message, life: 3500 })
@@ -348,6 +480,28 @@ const bar = computed(() => {
 const lineHint = (l: EditLine) =>
   l.item.listPrice ? `Price list${order.value ? ` ${order.value.priceList.name}` : ''}: RM ${formatPrice(l.item.listPrice)}` : 'Not on the price list'
 const belowList = (l: EditLine) => Boolean(l.item.listPrice && l.unitPrice && Number(l.unitPrice) < Number(l.item.listPrice))
+const lineErrors = (i: number) =>
+  ['itemCode', 'packageCode', 'qty', 'unitPrice', 'discountPct', 'giftItemCode'].map((k) => errors.value[`lines[${i}].${k}`]).filter((m): m is string => Boolean(m))
+
+/** Released or locked order: a package shows as one line with its items and its gift under it (FsOrder.html). */
+type ViewRow = { kind: 'line'; line: OrderLine; sub: boolean } | { kind: 'package'; key: string; pkg: NonNullable<OrderLine['package']>; amount: string; taxName: string }
+const viewRows = computed<ViewRow[]>(() => {
+  const lines = order.value?.lines ?? []
+  const rows: ViewRow[] = []
+  const seen = new Set<number>()
+  for (const l of lines) {
+    if (!l.package) {
+      rows.push({ kind: 'line', line: l, sub: false })
+      continue
+    }
+    if (seen.has(l.package.group)) continue
+    seen.add(l.package.group)
+    const own = lines.filter((x) => x.package?.group === l.package!.group)
+    rows.push({ kind: 'package', key: `pk-${l.package.group}`, pkg: l.package, amount: sumMoney(own.map((x) => x.amount)), taxName: l.taxName })
+    for (const x of own) rows.push({ kind: 'line', line: x, sub: true })
+  }
+  return rows
+})
 </script>
 
 <template>
@@ -502,6 +656,63 @@ const belowList = (l: EditLine) => Boolean(l.item.listPrice && l.unitPrice && Nu
                     <td colspan="9" class="text-center text-erp-muted">No items yet. Click Add item to pick from Master Data.</td>
                   </tr>
                   <template v-for="(l, i) in form.lines" :key="l.key">
+                    <template v-if="l.kind === 'package'">
+                      <tr>
+                        <td class="text-erp-muted">{{ i + 1 }}</td>
+                        <td>
+                          <div class="flex items-center gap-2 font-bold whitespace-nowrap">{{ l.code }} <StatusChip status="DRAFT" label="Package" group="draft" /></div>
+                          <div class="text-xs text-erp-muted">{{ l.name }}</div>
+                        </td>
+                        <td class="num w-[90px] min-w-[76px]">
+                          <input v-model="l.qty" class="erp-cell min-w-[60px]" inputmode="numeric" :aria-invalid="Boolean(errors[`lines[${i}].qty`])" :aria-label="`Sets, line ${i + 1}`" />
+                        </td>
+                        <td>{{ l.uomCode }}</td>
+                        <td class="num">{{ formatMoney(l.price) }}</td>
+                        <td class="num text-erp-muted">—</td>
+                        <td class="whitespace-nowrap">{{ l.taxName }}</td>
+                        <td class="num"><MoneyText :value="previews[i]?.amount ?? null" /></td>
+                        <td class="w-8">
+                          <button type="button" class="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-erp-muted hover:bg-erp-head" :aria-label="`Remove line ${i + 1}`" @click="removeLine(l.key)">
+                            <X :size="14" />
+                          </button>
+                        </td>
+                      </tr>
+                      <tr v-for="p in packageParts(l)" :key="`${l.key}-${p.itemCode}`" class="text-xs text-erp-muted">
+                        <td />
+                        <td class="pl-6">{{ p.itemCode }} · {{ p.itemName }}</td>
+                        <td class="num">{{ formatQty(p.total) }}</td>
+                        <td>{{ p.uomCode }}</td>
+                        <td class="num">{{ formatPrice(p.unitPrice) }}</td>
+                        <td colspan="2" />
+                        <td class="num"><MoneyText :value="p.preview?.amount ?? null" /></td>
+                        <td />
+                      </tr>
+                      <tr v-if="l.giftRule !== 'NONE' && l.gifts.length" class="text-xs">
+                        <td />
+                        <td class="pl-6" colspan="3">
+                          <template v-if="l.giftRule === 'CHOOSE_ONE' && l.gifts.length > 1">
+                            <label class="flex items-center gap-2">
+                              <span class="font-semibold">Free gift</span>
+                              <select v-model="l.giftItemCode" class="erp-input h-8 w-auto text-xs" :aria-invalid="Boolean(errors[`lines[${i}].giftItemCode`])" :aria-label="`Free gift, line ${i + 1}`">
+                                <option :value="null" disabled>Pick the gift</option>
+                                <option v-for="g in l.gifts" :key="g.itemCode" :value="g.itemCode">{{ g.itemName }} ({{ g.itemCode }})</option>
+                              </select>
+                            </label>
+                          </template>
+                          <template v-else>
+                            <span class="font-semibold">Free gift</span> · {{ l.giftRule === 'ALWAYS' ? l.gifts.map((g) => g.itemName).join(', ') : giftName(l) }}
+                          </template>
+                        </td>
+                        <td class="num text-erp-muted" colspan="3">0.00 · leaves with the delivery</td>
+                        <td class="num font-semibold text-chip-done-text">Free</td>
+                        <td />
+                      </tr>
+                      <tr v-if="lineErrors(i).length">
+                        <td />
+                        <td colspan="8" class="!pt-0 text-xs text-note-error-text">{{ lineErrors(i).join(' ') }}</td>
+                      </tr>
+                    </template>
+                    <template v-else>
                     <tr>
                       <td class="text-erp-muted">{{ i + 1 }}</td>
                       <td>
@@ -530,36 +741,60 @@ const belowList = (l: EditLine) => Boolean(l.item.listPrice && l.unitPrice && Nu
                       <td />
                       <td colspan="8" class="!pt-0 text-xs" :class="belowList(l) ? 'text-attention' : 'text-erp-muted'">
                         {{ lineHint(l) }}<template v-if="belowList(l)"> · below the price list, invoices at this price need approval</template>
-                        <span v-for="key in ['qty', 'unitPrice', 'discountPct']" :key="key" class="ml-2 text-note-error-text">{{ errors[`lines[${i}].${key}`] }}</span>
+                        <span v-for="m in lineErrors(i)" :key="m" class="ml-2 text-note-error-text">{{ m }}</span>
                       </td>
                     </tr>
+                    </template>
                   </template>
                 </template>
 
                 <template v-else>
-                  <tr v-for="l in order?.lines ?? []" :key="l.id">
+                  <template v-for="row in viewRows" :key="row.kind === 'package' ? row.key : row.line.id">
+                  <tr v-if="row.kind === 'package'">
                     <td>
-                      <div class="font-bold whitespace-nowrap">{{ l.itemCode }}</div>
-                      <div class="text-xs text-erp-muted">{{ l.itemName }}<template v-if="l.isBuyToOrder"> · buy to order</template></div>
-                      <div v-if="l.purchase" class="text-xs" :class="l.purchase.state === 'NO_PO' || l.purchase.state === 'PO_CANCELLED' ? 'text-attention' : l.purchase.state === 'RECEIVED' ? 'text-chip-done-text' : 'text-erp-muted'">{{ l.purchase.label }}</div>
+                      <div class="flex items-center gap-2 font-bold whitespace-nowrap">{{ row.pkg.code }} <StatusChip status="DRAFT" label="Package" group="draft" /></div>
+                      <div class="text-xs text-erp-muted">{{ row.pkg.name }}</div>
                     </td>
-                    <td class="erp-num">{{ formatQty(l.orderedQty) }} {{ l.uomCode }}</td>
-                    <td class="num">{{ formatQty(l.deliveredQty) }}</td>
-                    <td class="num">{{ formatQty(l.invoicedQty) }}</td>
-                    <td class="num font-bold text-mod-accent">{{ formatQty(l.balanceQty) }}</td>
-                    <td class="num">
-                      {{ formatPrice(l.unitPrice) }}
-                      <div v-if="Number(l.discountPct)" class="text-xs text-erp-muted">less {{ Number(l.discountPct) }}%</div>
-                    </td>
-                    <td class="whitespace-nowrap">{{ l.taxName }}</td>
-                    <td class="num"><MoneyText :value="l.amount" /></td>
+                    <td class="erp-num">{{ formatQty(row.pkg.qty) }} {{ row.pkg.uomCode }}</td>
+                    <td colspan="3" />
+                    <td class="num">{{ formatMoney(row.pkg.price) }}</td>
+                    <td class="whitespace-nowrap">{{ row.taxName }}</td>
+                    <td class="num"><MoneyText :value="row.amount" /></td>
                   </tr>
+                  <tr v-else :key="row.line.id" :class="{ 'text-xs': row.sub }">
+                    <td :class="{ 'pl-6': row.sub }">
+                      <template v-if="row.sub">
+                        <span class="font-semibold">{{ row.line.itemCode }}</span> · {{ row.line.itemName }}
+                        <span v-if="row.line.lineKind === 'GIFT'" class="font-semibold text-chip-done-text"> · free gift</span>
+                      </template>
+                      <template v-else>
+                        <div class="font-bold whitespace-nowrap">{{ row.line.itemCode }}</div>
+                        <div class="text-xs text-erp-muted">{{ row.line.itemName }}<template v-if="row.line.isBuyToOrder"> · buy to order</template></div>
+                      </template>
+                      <div v-if="row.line.purchase" class="text-xs" :class="row.line.purchase.state === 'NO_PO' || row.line.purchase.state === 'PO_CANCELLED' ? 'text-attention' : row.line.purchase.state === 'RECEIVED' ? 'text-chip-done-text' : 'text-erp-muted'">{{ row.line.purchase.label }}</div>
+                    </td>
+                    <td class="erp-num">{{ formatQty(row.line.orderedQty) }} {{ row.line.uomCode }}</td>
+                    <td class="num">{{ formatQty(row.line.deliveredQty) }}</td>
+                    <td class="num">{{ formatQty(row.line.invoicedQty) }}</td>
+                    <td class="num font-bold text-mod-accent">{{ formatQty(row.line.balanceQty) }}</td>
+                    <td class="num">
+                      {{ formatPrice(row.line.unitPrice) }}
+                      <div v-if="Number(row.line.discountPct)" class="text-xs text-erp-muted">less {{ Number(row.line.discountPct) }}%</div>
+                    </td>
+                    <td class="whitespace-nowrap">{{ row.sub ? '' : row.line.taxName }}</td>
+                    <td class="num">
+                      <span v-if="row.line.lineKind === 'GIFT'" class="font-semibold text-chip-done-text">Free</span>
+                      <MoneyText v-else :value="row.line.amount" />
+                    </td>
+                  </tr>
+                  </template>
                 </template>
               </tbody>
             </table>
           </div>
           <div v-if="editable" class="flex gap-2">
             <button type="button" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add item</button>
+            <button type="button" class="erp-btn erp-btn-secondary" @click="packagePickerOpen = true"><Gift :size="14" aria-hidden="true" />Add package</button>
           </div>
           <NoticeBanner v-if="order?.stock.releaseNote" kind="warning">
             {{ order.stock.releaseNote }}
@@ -669,6 +904,12 @@ const belowList = (l: EditLine) => Boolean(l.item.listPrice && l.unitPrice && Nu
       :branch-name="order?.branch.name ?? 'this branch'"
       :on-lines="onLines"
       @add="addItems"
+    />
+    <PackagePickerDialog
+      v-model:visible="packagePickerOpen"
+      :context="`${order?.docNo ?? 'New order'}${form.customer ? ` · ${form.customer.name}` : ''}`"
+      :doc-date="form.docDate || today"
+      @add="addPackage"
     />
   </template>
 </template>

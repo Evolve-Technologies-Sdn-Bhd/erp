@@ -66,6 +66,30 @@ export interface MdItem {
   status: 'ACTIVE' | 'BLOCKED' | 'DISCONTINUED';
 }
 
+export interface MdPackageLine {
+  itemCode: string;
+  qty: string;
+  uomCode: string;
+}
+
+/** Several items sold together at one price, with free gifts (Core C15, C16; phase 5). */
+export interface MdPackage {
+  code: string;
+  name: string;
+  uomCode: string;
+  salesTaxCode: string;
+  /** Where the items' list prices come from, to spread the package price over them. */
+  priceListCode: string;
+  /** One set, before tax. */
+  packagePrice: string;
+  giftRule: 'NONE' | 'ALWAYS' | 'CHOOSE_ONE';
+  runsFrom: string;
+  runsUntil: string | null;
+  endedOn: string | null;
+  items: MdPackageLine[];
+  gifts: MdPackageLine[];
+}
+
 export interface MdCustomer {
   id: string;
   code: string;
@@ -175,4 +199,8 @@ export interface MasterDataPort {
   listPrices(tenantId: string, filter: { priceListCode: string; itemCodes?: string[]; onDate: string }): Promise<MdPrice[]>;
   /** Items matching code, name or barcode. sellableOnly hides items that cannot be sold. */
   searchSellableItems(tenantId: string, options: SearchOptions & { itemGroup?: string; sellableOnly?: boolean }): Promise<MdItem[]>;
+  /** A package by code, whatever its dates. */
+  findPackage(tenantId: string, code: string): Promise<MdPackage | null>;
+  /** Packages that can be sold on a date (YYYY-MM-DD), by code. */
+  listRunningPackages(tenantId: string, onDate: string): Promise<MdPackage[]>;
 }

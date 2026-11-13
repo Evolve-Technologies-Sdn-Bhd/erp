@@ -9,7 +9,7 @@ const REVISED = { ...DOC, revision: true } as const;
 const DELIVERY = { ...DOC, lines: { select: { qty: true, invoicedQty: true } } } as const;
 
 /**
- * Tells Core which Sales documents use an item, customer, unit, tax code, price list or warehouse (CLAUDE.md →
+ * Tells Core which Sales documents use an item, customer, unit, tax code, price list, warehouse or package (CLAUDE.md →
  * Phase 3 · Record-usage check), and Configuration which carry a branch (Phase 4, rule 6). Read only: reads sal_
  * tables and changes nothing. Documents are matched on business codes, which never change.
  */
@@ -100,6 +100,11 @@ export class SalesUsageProvider implements RecordUsageProvider, OnModuleInit {
       ]);
       add('QUOTATION', quotations);
       add('SALES_ORDER', orders);
+    }
+
+    // Packages are kept on order lines (phase 5); later documents carry the package's items.
+    if (q.kind === 'PACKAGE') {
+      add('SALES_ORDER', await this.prisma.salSalesOrder.findMany({ where: { tenantId, lines: { some: { packageCode: q.code } } }, select: REVISED }));
     }
 
     if (q.kind === 'WAREHOUSE') {

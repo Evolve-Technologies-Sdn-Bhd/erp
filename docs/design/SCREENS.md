@@ -195,8 +195,8 @@ The Service module is new: orange (side `#C2410C`, primary `#9A3412`, light `#FF
 | Code | Screen | Mockup | Route (proposed) |
 |---|---|---|---|
 | S34 | Sales flow (Operation Policies): the profile's switches. **Built (F1, part 1):** the two step switches, `GET`, `PUT /api/v1/sales/settings/sales-flow`; the other settings on the mockup come with their own parts | `FsPolicies.html` | `/sales/settings/sales-flow` |
-| S11 | Sales order with a package, a free gift, a voucher, the installation option and the customer's signature (profile on) | `FsOrder.html` | `/sales/orders/:id` |
-| C15 | Package list. **Built (F1, part 2)**, without the Orders column (comes with part 3) · `GET /api/v1/core/packages` | `CorePackages.html` | `/core/packages` |
+| S11 | Sales order with a package, a free gift, a voucher, the installation option and the customer's signature (profile on). **Built (F1, part 3):** *Add package* and the package and gift lines, `GET /api/v1/sales/lookups/packages?date=`; the voucher, installation option and signature come with their own parts | `FsOrder.html` | `/sales/orders/:id` |
+| C15 | Package list. **Built (F1, parts 2 and 3)**, the Orders column from the record-usage check · `GET /api/v1/core/packages` | `CorePackages.html` | `/core/packages` |
 | C16 | Package: items, package price, free gift. **Built (F1, part 2)**, without branches and gift stock · `GET, POST, PATCH, DELETE /api/v1/core/packages/:id`, `POST …/end`, `GET /api/v1/core/lookups/active-items?q=` (gift picker) | `CorePackageForm.html` | `/core/packages/:id` |
 | V01 | Service home | `SvcHome.html` | `/service` |
 | V02 | Booking board | `SvcBoard.html` | `/service/board` |

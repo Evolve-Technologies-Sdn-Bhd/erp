@@ -8,6 +8,8 @@ import { NotFoundError } from '../../platform/http/errors';
 import { ListQueryDto } from '../../platform/http/list-query.dto';
 import { pageArgs, statusFromKey, statusKey, toListResponse, type StatusCounts } from '../../platform/http/list';
 import { PrismaService } from '../../platform/prisma/prisma.service';
+import { RecordUsageRegistry } from '../../platform/usage/record-usage.registry';
+import { deleteRefusal } from '../usage/usage.rules';
 import { CORE_ENTITY } from '../core.constants';
 import { CORE_PERMISSIONS as P } from '../core.permissions';
 import {
@@ -35,6 +37,7 @@ export class PackagesQuery {
     private readonly activity: ActivityService,
     private readonly permissions: PermissionRegistry,
     private readonly clock: ClockService,
+    private readonly usage: RecordUsageRegistry,
   ) {}
 
   /** Status is worked out from the dates, so each tab is a date filter. */
@@ -63,11 +66,14 @@ export class PackagesQuery {
         const own = lines.items.filter((l) => l.packageCode === p.code);
         const spread = await this.spread(tenantId, p, own, today);
         const gifts = lines.gifts.filter((g) => g.packageCode === p.code);
+        // Sales orders that carry the package, from the record-usage check (Core never reads sal_ tables).
+        const usage = await this.usage.check({ tenantId, kind: 'PACKAGE', code: p.code });
         return {
           ...this.fields(p, today),
           itemsText: linesText(own),
           normalValue: spread.normalValue.toFixed(2),
           saves: spread.missing.length ? null : spread.saves.toFixed(2),
+          orders: usage.documents,
           giftText: p.giftRule === 'NONE' ? 'None' : p.giftRule === 'CHOOSE_ONE' ? `Choose 1 of ${gifts.length}` : linesText(gifts),
         };
       }),
@@ -97,8 +103,9 @@ export class PackagesQuery {
       const end = endRefusal(p.code, status, this.dates(p).endedOn);
       if (end) refusals.end = end;
       else allowedActions.push('end');
-      // Sales does not use packages yet (phase 5, F1 part 3 adds the order lines and the usage check).
-      allowedActions.push('delete');
+      const remove = await this.deleteRefusal(tenantId, p.code);
+      if (remove) refusals.delete = remove;
+      else allowedActions.push('delete');
     }
     return {
       ...this.fields(p, today),
@@ -125,6 +132,11 @@ export class PackagesQuery {
       allowedActions,
       refusals,
     };
+  }
+
+  /** A package on any sales order cannot be deleted (it can be ended); null when nothing uses it. */
+  async deleteRefusal(tenantId: string, code: string): Promise<string | null> {
+    return deleteRefusal('PACKAGE', code, await this.usage.check({ tenantId, kind: 'PACKAGE', code }));
   }
 
   async load(ctx: RequestContext, id: string): Promise<MdmPackage> {

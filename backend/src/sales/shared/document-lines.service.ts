@@ -18,6 +18,15 @@ export interface SaleLineInput {
   discountPct?: string;
 }
 
+/** Set for the lines a package becomes (phase 5): its tax code, its own list price, and whether it is a free gift. */
+export interface SaleLineOption {
+  taxCode?: string;
+  /** Kept as the line's list price instead of the price list's, so the price checks compare with the package. */
+  listPrice?: string | null;
+  /** A free gift may be an item that is not for sale on its own. */
+  gift?: boolean;
+}
+
 /**
  * What every Sales document with lines needs from Master Data: an active customer, the branch, warehouse and agent,
  * and lines of sellable items not excluded in the branch with price list, tax and cost copied at that moment.
@@ -65,7 +74,7 @@ export class SalesDocumentLines {
    * Lines from Master Data: sellable and active items not excluded in the branch, price list, tax and cost copied now.
    * Prices are before tax unless `taxMode` is INCLUSIVE (cash sales at the counter).
    */
-  async buildLines(ctx: RequestContext, customer: MdCustomer, branchCode: string, docDate: string, input: SaleLineInput[], taxMode: 'EXCLUSIVE' | 'INCLUSIVE' = 'EXCLUSIVE') {
+  async buildLines(ctx: RequestContext, customer: MdCustomer, branchCode: string, docDate: string, input: SaleLineInput[], taxMode: 'EXCLUSIVE' | 'INCLUSIVE' = 'EXCLUSIVE', options: SaleLineOption[] = []) {
     const problems: FieldError[] = lineProblems(input.map((l, index) => ({ index, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct ?? '0' })));
     const codes = [...new Set(input.map((l) => l.itemCode))];
     const [items, taxes, prices, excluded, setting] = await Promise.all([
@@ -80,16 +89,17 @@ export class SalesDocumentLines {
       const field = `lines[${index}].itemCode`;
       if (!item) { problems.push({ field, message: 'Pick an item from Master Data.' }); return null; }
       if (item.status !== 'ACTIVE') { problems.push({ field, message: `${item.code} is ${item.status.toLowerCase()} in Master Data and cannot be sold.` }); return null; }
-      if (!item.isSellable) { problems.push({ field, message: `${item.code} is not for sale in Master Data.` }); return null; }
+      const option = options[index] ?? {};
+      if (!item.isSellable && !option.gift) { problems.push({ field, message: `${item.code} is not for sale in Master Data.` }); return null; }
       const ex = excluded.find((e) => e.itemCode === item.code);
       if (ex) { problems.push({ field, message: `${item.code} is excluded from sale in this branch (${ex.reason}).` }); return null; }
-      const tax = taxes.find((t) => t.code === (item.salesTaxCode ?? item.purchaseTaxCode));
-      if (!tax) { problems.push({ field, message: `${item.code} has no sales tax code in Master Data.` }); return null; }
+      const tax = taxes.find((t) => t.code === (option.taxCode ?? item.salesTaxCode ?? item.purchaseTaxCode));
+      if (!tax) { problems.push({ field, message: option.taxCode ? `Tax code ${option.taxCode} is not in Master Data.` : `${item.code} has no sales tax code in Master Data.` }); return null; }
       const totals = saleLineTotals({ qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct ?? '0', taxRate: tax.rate }, taxMode);
       const list = prices.find((p) => p.itemCode === item.code);
       return {
         itemId: item.id, itemCode: item.code, itemName: item.name, uomCode: item.salesUomCode, taxCode: tax.code, taxRate: dec(tax.rate),
-        listPrice: list ? dec(list.unitPrice) : null, unitPrice: dec(l.unitPrice), discountPct: dec(l.discountPct ?? '0'), qty: dec(l.qty),
+        listPrice: option.listPrice !== undefined ? (option.listPrice === null ? null : dec(option.listPrice)) : list ? dec(list.unitPrice) : null, unitPrice: dec(l.unitPrice), discountPct: dec(l.discountPct ?? '0'), qty: dec(l.qty),
         grossAmount: totals.grossAmount, discountAmount: totals.discountAmount, amount: totals.amount, taxAmount: totals.taxAmount,
         isBuyToOrder: item.isBuyToOrder, unitCost: item.standardCost ? dec(item.standardCost) : null,
       };
@@ -113,15 +123,16 @@ export class SalesDocumentLines {
     });
   }
 
-  /** Release re-checks that nothing became unsellable since the document was saved. */
-  async checkStillSellable(ctx: RequestContext, branchCode: string, codes: string[]) {
+  /** Release re-checks that nothing became unsellable since the document was saved. An item that is only a free gift here only has to be active. */
+  async checkStillSellable(ctx: RequestContext, branchCode: string, codes: string[], giftOnly: string[] = []) {
     const [items, excluded] = await Promise.all([
       this.masterData.findItems(ctx.tenantId, codes),
       this.excludedItems(ctx.tenantId, branchCode, codes, this.clock.today()),
     ]);
     for (const code of codes) {
       const item = items.find((i) => i.code === code);
-      if (!item || item.status !== 'ACTIVE' || !item.isSellable) throw new BusinessRuleError('ITEM_NOT_SELLABLE', `${code} can no longer be sold. Remove the line and save again.`);
+      const sellable = item?.isSellable || giftOnly.includes(code);
+      if (!item || item.status !== 'ACTIVE' || !sellable) throw new BusinessRuleError('ITEM_NOT_SELLABLE', `${code} can no longer be sold. Remove the line and save again.`);
       const ex = excluded.find((e) => e.itemCode === code);
       if (ex) throw new BusinessRuleError('ITEM_EXCLUDED', `${code} is now excluded from sale in this branch (${ex.reason}). Remove the line and save again.`);
     }

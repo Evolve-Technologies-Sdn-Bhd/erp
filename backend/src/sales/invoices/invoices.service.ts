@@ -227,7 +227,7 @@ export class InvoicesService {
       }
     }
     await this.requireAction(ctx, inv, 'release', this.lockedMessage(inv));
-    await this.docs.checkStillSellable(ctx, inv.branchCode, inv.lines.map((l) => l.itemCode));
+    await this.docs.checkStillSellable(ctx, inv.branchCode, inv.lines.map((l) => l.itemCode), await this.giftOnly(ctx.tenantId, inv.lines));
     const customer = await this.masterData.findCustomer(ctx.tenantId, inv.customerCode);
     const now = this.clock.now();
     const docDate = iso(inv.docDate);
@@ -338,10 +338,19 @@ export class InvoicesService {
       const list = prices.find((p) => p.itemCode === so.itemCode);
       return {
         soLineId: so.id, itemId: so.itemId, itemCode: so.itemCode, itemName: so.itemName, uomCode: so.uomCode, taxCode: so.taxCode, taxRate: so.taxRate, qty,
-        listPrice: list ? dec(list.unitPrice) : so.listPrice, unitPrice: so.unitPrice, discountPct: so.discountPct,
+        // A package's items and gifts are priced from the package (phase 5): compare with that, not the price list.
+        listPrice: so.lineKind !== 'ITEM' ? so.listPrice : list ? dec(list.unitPrice) : so.listPrice, unitPrice: so.unitPrice, discountPct: so.discountPct,
         grossAmount: t.grossAmount, discountAmount: t.discountAmount, amount: t.amount, taxAmount: t.taxAmount,
       };
     });
+  }
+
+  /** Items that are only free gifts of a package on this invoice (phase 5): a gift need not be for sale on its own. */
+  private async giftOnly(tenantId: string, lines: { itemCode: string; soLineId: string | null }[]): Promise<string[]> {
+    const ids = lines.map((l) => l.soLineId).filter((id): id is string => Boolean(id));
+    if (!ids.length) return [];
+    const gifts = new Set((await this.prisma.salSalesOrderLine.findMany({ where: { tenantId, id: { in: ids }, lineKind: 'GIFT' }, select: { id: true } })).map((l) => l.id));
+    return lines.filter((l) => l.soLineId && gifts.has(l.soLineId) && !lines.some((o) => o.itemCode === l.itemCode && !(o.soLineId && gifts.has(o.soLineId)))).map((l) => l.itemCode);
   }
 
   private async totalsOf(tenantId: string, lines: BuiltLine[]) {

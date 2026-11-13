@@ -2170,6 +2170,14 @@ model SalSalesOrderLine {
   purchaseReceivedQty  Decimal              @default(0) @db.Decimal(18, 4) // received on that PO (purchase.goods.received)
   purchaseCancelledQty Decimal              @default(0) @db.Decimal(18, 4) // cancelled on that PO (purchase.order.balance_cancelled)
   quotationLineId      String?              @db.Char(36)
+  // Packages (phase 5): a package is kept as its items, priced from the package; its gifts are lines at 0.00.
+  lineKind             String               @default("ITEM") @db.VarChar(10) // ITEM, PACKAGE (an item of a package), GIFT
+  packageGroup         Int? // the lines of one package on this order share it
+  packageCode          String?              @db.VarChar(20)
+  packageName          String?              @db.VarChar(100)
+  packageQty           Decimal?             @db.Decimal(18, 4) // sets
+  packagePrice         Decimal?             @db.Decimal(18, 2) // one set, before tax, as it was on the order
+  packageUomCode       String?              @db.VarChar(10)
   salesOrder           SalSalesOrder        @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   deliveryLines        SalDeliveryLine[]
   invoiceLines         SalInvoiceLine[]
@@ -2177,6 +2185,7 @@ model SalSalesOrderLine {
 
   @@unique([salesOrderId, lineNo])
   @@index([tenantId, itemCode])
+  @@index([tenantId, packageCode])
   @@map("sal_sales_order_line")
 }
 

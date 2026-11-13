@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ClockService } from '../../platform/clock/clock.service';
@@ -8,6 +8,7 @@ import { CurrentContext, RequirePermission } from '../../platform/context/contex
 import type { RequestContext } from '../../platform/context/request-context';
 import { dec, toMoney, toPrice, toQty } from '../../platform/http/decimal';
 import { PrismaService } from '../../platform/prisma/prisma.service';
+import { spreadPrice } from '../../master-data/package-price.rules';
 import { SALES_PERMISSIONS as P } from '../sales.permissions';
 import { SAL_ROLE } from '../shared/sales.constants';
 
@@ -39,6 +40,13 @@ class ItemSearchQuery extends SearchQuery {
   @Transform(({ value }) => value === true || value === 'true' || value === '1')
   @IsBoolean()
   sellableOnly?: boolean;
+}
+
+class PackageQuery {
+  /** The order date; packages running on it are offered. Today when empty. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date must look like 2026-09-29.' })
+  date?: string;
 }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -118,6 +126,49 @@ export class SalesLookupsController {
         };
       }),
       groups: [...new Set(found.map((i) => i.itemGroup))].sort(),
+    };
+  }
+
+  /**
+   * Packages for the order form's Add package (phase 5): those running on the order date, their price spread over
+   * their items, and their gifts. `problem` says why one cannot be added (an item without a list price).
+   */
+  @Get('packages')
+  async packages(@CurrentContext() ctx: RequestContext, @Query() query: PackageQuery) {
+    const date = query.date ?? this.clock.today();
+    const packages = await this.masterData.listRunningPackages(ctx.tenantId, date);
+    const codes = [...new Set(packages.flatMap((p) => [...p.items, ...p.gifts].map((l) => l.itemCode)))];
+    const [items, taxes, prices] = await Promise.all([
+      codes.length ? this.masterData.findItems(ctx.tenantId, codes) : Promise.resolve([]),
+      this.masterData.listTaxCodes(ctx.tenantId),
+      Promise.all([...new Set(packages.map((p) => p.priceListCode))].map(async (priceListCode) => ({
+        priceListCode, rows: await this.masterData.listPrices(ctx.tenantId, { priceListCode, itemCodes: codes, onDate: date }),
+      }))),
+    ]);
+    const name = (code: string) => items.find((i) => i.code === code)?.name ?? code;
+    return {
+      date,
+      items: packages.map((p) => {
+        const rows = prices.find((x) => x.priceListCode === p.priceListCode)?.rows ?? [];
+        const spread = spreadPrice(dec(p.packagePrice), p.items.map((i) => {
+          const price = rows.find((r) => r.itemCode === i.itemCode && r.uomCode === i.uomCode);
+          return { itemCode: i.itemCode, qty: dec(i.qty), uomCode: i.uomCode, listPrice: price ? dec(price.unitPrice) : null };
+        }));
+        const tax = taxes.find((t) => t.code === p.salesTaxCode);
+        return {
+          code: p.code, name: p.name, uomCode: p.uomCode, price: p.packagePrice, giftRule: p.giftRule,
+          taxCode: p.salesTaxCode, taxName: tax?.name ?? p.salesTaxCode, taxRate: tax?.rate ?? '0.0000',
+          normalValue: spread.missing.length ? null : toMoney(spread.normalValue),
+          saves: spread.missing.length ? null : toMoney(spread.saves),
+          runsUntil: p.endedOn ?? p.runsUntil,
+          items: p.items.map((i, n) => ({
+            itemCode: i.itemCode, itemName: name(i.itemCode), qty: toQty(dec(i.qty)), uomCode: i.uomCode,
+            unitPrice: spread.missing.length ? null : spread.lines[n]!.unitPrice.toFixed(4),
+          })),
+          gifts: p.gifts.map((g) => ({ itemCode: g.itemCode, itemName: name(g.itemCode), qty: toQty(dec(g.qty)), uomCode: g.uomCode })),
+          problem: spread.missing.length ? `No list price on ${p.priceListCode} for ${spread.missing.join(', ')}` : null,
+        };
+      }),
     };
   }
 

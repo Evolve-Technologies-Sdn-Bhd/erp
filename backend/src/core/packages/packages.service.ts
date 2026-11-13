@@ -127,6 +127,8 @@ export class PackagesService {
     const tenantId = ctx.tenantId;
     const p = await this.query.load(ctx, id);
     if (p.version !== version) throw new StaleVersionError();
+    const used = await this.query.deleteRefusal(tenantId, p.code);
+    if (used) throw new BusinessRuleError('PACKAGE_IN_USE', used);
     const old = await this.query.lines(tenantId, [p.code]);
     await this.prisma.$transaction(async (tx) => {
       await tx.mdmPackageItem.deleteMany({ where: { tenantId, packageCode: p.code } });

@@ -43,6 +43,8 @@ export class CoreUsageQuery {
         return this.prisma.mdmPriceList.findUnique({ where, select });
       case 'WAREHOUSE':
         return this.prisma.mdmWarehouse.findUnique({ where, select });
+      case 'PACKAGE':
+        return this.prisma.mdmPackage.findUnique({ where, select });
     }
   }
 }

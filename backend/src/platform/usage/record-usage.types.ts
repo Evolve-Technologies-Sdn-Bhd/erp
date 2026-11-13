@@ -5,7 +5,7 @@
  * a branch (Phase 4, rule 6).
  */
 
-export const USAGE_KINDS = ['ITEM', 'CUSTOMER', 'SUPPLIER', 'UOM', 'TAX_CODE', 'PRICE_LIST', 'WAREHOUSE'] as const;
+export const USAGE_KINDS = ['ITEM', 'CUSTOMER', 'SUPPLIER', 'UOM', 'TAX_CODE', 'PRICE_LIST', 'WAREHOUSE', 'PACKAGE'] as const;
 /** Master data Core asks about. */
 export type UsageKind = (typeof USAGE_KINDS)[number];
 /** Any record a provider can be asked about: master data, or a branch for Configuration. */

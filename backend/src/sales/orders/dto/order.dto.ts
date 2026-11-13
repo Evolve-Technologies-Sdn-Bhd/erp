@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
 
 const DECIMAL_4 = /^\d{1,14}(\.\d{1,4})?$/;
@@ -38,6 +38,39 @@ export class OrderLineDto {
   @IsOptional()
   @Matches(PERCENT, { message: 'Discount must be a percentage like 5 or 7.5.' })
   discountPct?: string;
+}
+
+/**
+ * A line on a sales order: an item with its price, or a package (phase 5) with the number of sets and the free gift
+ * the customer chose. A package is priced from Core, so it carries no price or discount.
+ */
+export class OrderEntryLineDto {
+  @ValidateIf((l: OrderEntryLineDto) => !l.packageCode)
+  @IsString()
+  @IsNotEmpty({ message: 'Pick an item from Master Data.' })
+  @MaxLength(30)
+  itemCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  packageCode?: string;
+
+  @Matches(DECIMAL_4, { message: 'Quantity must be a number with up to 4 decimals.' })
+  qty!: string;
+
+  @ValidateIf((l: OrderEntryLineDto) => !l.packageCode)
+  @Matches(DECIMAL_4, { message: 'Unit price must be a number with up to 4 decimals.' })
+  unitPrice?: string;
+
+  @ValidateIf((l: OrderEntryLineDto) => !l.packageCode && l.discountPct !== undefined)
+  @Matches(PERCENT, { message: 'Discount must be a percentage like 5 or 7.5.' })
+  discountPct?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  giftItemCode?: string | null;
 }
 
 class OrderFieldsDto {
@@ -88,8 +121,8 @@ export class CreateOrderDto extends OrderFieldsDto {
   @IsArray()
   @ArrayMinSize(1, { message: 'Add at least one line.' })
   @ValidateNested({ each: true })
-  @Type(() => OrderLineDto)
-  lines!: OrderLineDto[];
+  @Type(() => OrderEntryLineDto)
+  lines!: OrderEntryLineDto[];
 }
 
 export class UpdateOrderDto extends OrderFieldsDto {
@@ -107,8 +140,8 @@ export class UpdateOrderDto extends OrderFieldsDto {
   @IsArray()
   @ArrayMinSize(1, { message: 'Add at least one line.' })
   @ValidateNested({ each: true })
-  @Type(() => OrderLineDto)
-  lines?: OrderLineDto[];
+  @Type(() => OrderEntryLineDto)
+  lines?: OrderEntryLineDto[];
 }
 
 export class VersionDto {

@@ -216,6 +216,8 @@ export class OrdersQuery {
         isBuyToOrder: l.isBuyToOrder,
         purchaseOrderNo: l.purchaseOrderNo,
         purchase: buyToOrderStatus(l),
+        lineKind: l.lineKind,
+        package: l.packageCode ? { group: l.packageGroup, code: l.packageCode, name: l.packageName, qty: l.packageQty ? toQty(l.packageQty) : null, price: l.packagePrice ? toMoney(l.packagePrice) : null, uomCode: l.packageUomCode } : null,
       })),
       totals: { subtotal: toMoney(order.subtotal), discountTotal: toMoney(order.discountTotal), taxLines, rounding: toMoney(order.rounding), total: toMoney(order.total) },
       quantities: {

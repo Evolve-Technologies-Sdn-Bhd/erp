@@ -57,6 +57,7 @@ import { SalesUsageProvider } from './usage/sales-usage.provider';
 import { SalesProspectLinkListener } from './enquiries/prospect-link.listener';
 import { CreditService } from './shared/credit.service';
 import { SalesDocumentLines } from './shared/document-lines.service';
+import { PackageLines } from './shared/package-lines.service';
 import { SalesLinkedDocsService } from './shared/linked-docs.service';
 import { ReceivablesService } from './shared/receivables.service';
 import { SalesMailService } from './shared/sales-mail.service';
@@ -79,6 +80,7 @@ import { SalesMailService } from './shared/sales-mail.service';
     SalesOrderFlowQuery,
     OrdersService,
     SalesDocumentLines,
+    PackageLines,
     SalesMailService,
     QuotationsQuery,
     QuotationsService,

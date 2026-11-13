@@ -138,6 +138,37 @@ export interface OrderLine {
   isBuyToOrder: boolean
   purchaseOrderNo: string | null
   purchase: BuyToOrderStatus | null
+  /** ITEM, PACKAGE (an item of a package) or GIFT (phase 5). */
+  lineKind: 'ITEM' | 'PACKAGE' | 'GIFT'
+  package: OrderLinePackage | null
+}
+
+/** The package a line belongs to: lines of one package share its group. */
+export interface OrderLinePackage {
+  group: number
+  code: string
+  name: string
+  qty: string
+  price: string
+  uomCode: string
+}
+
+/** A running package for Add package on the order form (phase 5). */
+export interface PackageOption {
+  code: string
+  name: string
+  uomCode: string
+  price: string
+  giftRule: 'NONE' | 'ALWAYS' | 'CHOOSE_ONE'
+  taxCode: string
+  taxName: string
+  taxRate: string
+  normalValue: string | null
+  saves: string | null
+  runsUntil: string | null
+  items: { itemCode: string; itemName: string; qty: string; uomCode: string; unitPrice: string | null }[]
+  gifts: { itemCode: string; itemName: string; qty: string; uomCode: string }[]
+  problem: string | null
 }
 
 /** Where a buy-to-order line stands with Purchase (from Purchase's events). */
@@ -219,7 +250,8 @@ export interface OrderInput {
   customerPoRef?: string
   project?: string
   deliveryAddress?: string
-  lines: OrderLineInput[]
+  /** An item with its price, or a package (phase 5) with whole sets and the chosen gift. */
+  lines: (OrderLineInput | { packageCode: string; qty: string; giftItemCode: string | null })[]
 }
 
 // ── Approvals (S02) ─────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { MdmCustomer, MdmItem, MdmSupplier, Prisma } from '@prisma/client';
+import type { MdmCustomer, MdmItem, MdmPackage, MdmSupplier, Prisma } from '@prisma/client';
 import { ClockService } from '../platform/clock/clock.service';
 import { branchCodesInOrder, rolesOn } from '../platform/context/assignment.rules';
 import { PrismaService } from '../platform/prisma/prisma.service';
@@ -14,6 +14,7 @@ import type {
   MdPriceList,
   MdSupplier,
   MdLocation,
+  MdPackage,
   MdTaxCode,
   MdUser,
   MdWarehouse,
@@ -314,5 +315,48 @@ export class PrismaMasterDataAdapter implements MasterDataPort {
       take: options.limit ?? 20,
     });
     return rows.map(toItem);
+  }
+
+  async findPackage(tenantId: string, code: string): Promise<MdPackage | null> {
+    const row = await this.prisma.mdmPackage.findUnique({ where: { tenantId_code: { tenantId, code } } });
+    return row ? (await this.withLines(tenantId, [row]))[0]! : null;
+  }
+
+  async listRunningPackages(tenantId: string, onDate: string): Promise<MdPackage[]> {
+    const on = day(onDate);
+    const rows = await this.prisma.mdmPackage.findMany({
+      where: {
+        tenantId,
+        runsFrom: { lte: on },
+        AND: [{ OR: [{ runsUntil: null }, { runsUntil: { gte: on } }] }, { OR: [{ endedOn: null }, { endedOn: { gte: on } }] }],
+      },
+      orderBy: { code: 'asc' },
+    });
+    return this.withLines(tenantId, rows);
+  }
+
+  private async withLines(tenantId: string, rows: MdmPackage[]): Promise<MdPackage[]> {
+    if (!rows.length) return [];
+    const codes = rows.map((r) => r.code);
+    const order = [{ sortOrder: 'asc' as const }, { itemCode: 'asc' as const }];
+    const [items, gifts] = await Promise.all([
+      this.prisma.mdmPackageItem.findMany({ where: { tenantId, packageCode: { in: codes } }, orderBy: order }),
+      this.prisma.mdmPackageGift.findMany({ where: { tenantId, packageCode: { in: codes } }, orderBy: order }),
+    ]);
+    const line = (l: { itemCode: string; qty: Prisma.Decimal; uomCode: string }) => ({ itemCode: l.itemCode, qty: l.qty.toFixed(4), uomCode: l.uomCode });
+    return rows.map((r) => ({
+      code: r.code,
+      name: r.name,
+      uomCode: r.uomCode,
+      salesTaxCode: r.salesTaxCode,
+      priceListCode: r.priceListCode,
+      packagePrice: r.packagePrice.toFixed(2),
+      giftRule: r.giftRule as MdPackage['giftRule'],
+      runsFrom: isoDate(r.runsFrom),
+      runsUntil: r.runsUntil ? isoDate(r.runsUntil) : null,
+      endedOn: r.endedOn ? isoDate(r.endedOn) : null,
+      items: items.filter((i) => i.packageCode === r.code).map(line),
+      gifts: gifts.filter((g) => g.packageCode === r.code).map(line),
+    }));
   }
 }

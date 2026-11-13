@@ -7,13 +7,16 @@ import { ApprovalsService, type DecisionResult } from '../../platform/approvals/
 import { ClockService } from '../../platform/clock/clock.service';
 import type { RequestContext } from '../../platform/context/request-context';
 import { dec, toMoney, toQty } from '../../platform/http/decimal';
-import { BusinessRuleError, StaleVersionError } from '../../platform/http/errors';
+import { BusinessRuleError, StaleVersionError, ValidationFailedError } from '../../platform/http/errors';
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { breachText, creditActivityText } from '../shared/credit.rules';
 import { CreditService } from '../shared/credit.service';
 import { SalesDocumentLines } from '../shared/document-lines.service';
+import { PackageLines, type EnteredLine } from '../shared/package-lines.service';
+import { toEnteredLine } from '../shared/package-lines.rules';
+import type { MdCustomer } from '../../master-data/master-data.port';
 import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.constants';
 import type { CreateOrderDto, RequestApprovalDto, UpdateOrderDto } from './dto/order.dto';
 import { ORDER_LOCKED_MESSAGE, stockShortfall, type OrderAction } from './order.rules';
@@ -37,6 +40,7 @@ export class OrdersService {
     private readonly outbox: OutboxWriter,
     private readonly credit: CreditService,
     private readonly docs: SalesDocumentLines,
+    private readonly packages: PackageLines,
     private readonly clock: ClockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
@@ -58,7 +62,7 @@ export class OrdersService {
     const docDate = dto.docDate ?? this.clock.today();
     const customer = await this.docs.activeCustomer(ctx, dto.customerCode);
     const branchCode = this.docs.branchFor(ctx, customer);
-    const built = await this.docs.buildLines(ctx, customer, branchCode, docDate, dto.lines);
+    const built = await this.buildLines(ctx, customer, branchCode, docDate, dto.lines);
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(built.totals.total), branchCode });
     const warehouseCode = await this.docs.warehouseFor(ctx, branchCode);
     const agent = await this.docs.agentFor(ctx, customer);
@@ -102,7 +106,7 @@ export class OrdersService {
     const customer = await this.docs.activeCustomer(ctx, dto.customerCode ?? order.customerCode);
     const customerChanged = customer.code !== order.customerCode;
     const branchCode = customerChanged ? this.docs.branchFor(ctx, customer) : order.branchCode;
-    const built = dto.lines ? await this.docs.buildLines(ctx, customer, branchCode, docDate, dto.lines) : null;
+    const built = dto.lines ? await this.buildLines(ctx, customer, branchCode, docDate, dto.lines) : null;
     const total = built ? built.totals.total : order.total;
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(total), branchCode, excludeOrderId: order.id });
 
@@ -213,7 +217,8 @@ export class OrdersService {
       if (credit.check.action === 'APPROVAL') throw new BusinessRuleError('CREDIT_APPROVAL_REQUIRED', `${creditActivityText(credit.input, credit.check)}. Type a reason and request approval.`);
     }
     this.require(this.query.actions(ctx, order, credit), 'release', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is waiting for approval.` : `${order.docNo} is already released.`);
-    await this.docs.checkStillSellable(ctx, order.branchCode, order.lines.map((l) => l.itemCode));
+    const giftOnly = order.lines.filter((l) => l.lineKind === 'GIFT' && !order.lines.some((o) => o.itemCode === l.itemCode && o.lineKind !== 'GIFT')).map((l) => l.itemCode);
+    await this.docs.checkStillSellable(ctx, order.branchCode, order.lines.map((l) => l.itemCode), giftOnly);
 
     // Stock only warns (policy "Stock check while entering: warn, never block").
     const items = await this.masterData.findItems(ctx.tenantId, order.lines.map((l) => l.itemCode));
@@ -237,7 +242,7 @@ export class OrdersService {
         payload: {
           soNo: order.docNo, docDate: iso(order.docDate), branchCode: order.branchCode, customerCode: customer.code, customerName: customer.name,
           total: toMoney(order.total), deliveryWantedBy: order.deliveryWantedBy ? iso(order.deliveryWantedBy) : null, warehouseCode: order.warehouseCode,
-          lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder })),
+          lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder, lineKind: l.lineKind, packageCode: l.packageCode })),
         },
       }]);
     });
@@ -245,6 +250,23 @@ export class OrdersService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /**
+   * The order's lines from what the form sent: item lines as they are, packages as their items and free gifts
+   * (phase 5). Errors point at the line the user typed.
+   */
+  private async buildLines(ctx: RequestContext, customer: MdCustomer, branchCode: string, docDate: string, entered: EnteredLine[]) {
+    const expanded = await this.packages.expand(ctx.tenantId, docDate, entered);
+    try {
+      const built = await this.docs.buildLines(ctx, customer, branchCode, docDate, expanded.input, 'EXCLUSIVE', expanded.options);
+      return { ...built, lines: built.lines.map((l, i) => ({ ...l, ...expanded.meta[i]! })) };
+    } catch (error) {
+      if (!(error instanceof ValidationFailedError)) throw error;
+      const body = error.getResponse() as { message: string; errors: { field: string; message: string }[] };
+      throw new ValidationFailedError(toEnteredLine(body.errors, expanded.origin), body.message);
+    }
+  }
+
 
   private async actionsFor(ctx: RequestContext, order: OrderWithLines) {
     return this.query.actions(ctx, order, await this.query.liveCredit(ctx, order));
