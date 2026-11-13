@@ -9,6 +9,7 @@ import { BusinessRuleError, StaleVersionError, ValidationFailedError, type Field
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { QuotationsService } from '../quotations/quotations.service';
+import { ENQUIRIES_OFF_MESSAGE } from '../settings/sales-flow.rules';
 import { SAL_DOC_TYPE, SAL_ENTITY, SAL_ROLE } from '../shared/sales.constants';
 import type { CreateEnquiryDto, EnquiryItemDto, EnquiryLostDto, UpdateEnquiryDto } from './dto/enquiry.dto';
 import { EnquiriesQuery, type EnquiryWithItems } from './enquiries.query';
@@ -34,6 +35,7 @@ export class EnquiriesService {
   ) {}
 
   async create(ctx: RequestContext, dto: CreateEnquiryDto) {
+    await this.requireEnquiriesOn(ctx);
     const docDate = dto.docDate ?? this.clock.today();
     const party = await this.resolveParty(ctx, dto);
     await this.checkTypeAndSource(ctx, dto.enquiryTypeCode, dto.sourceCode);
@@ -155,6 +157,12 @@ export class EnquiriesService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /** Sales flow (S34): a company that does not use enquiries cannot log one. Existing enquiries stay readable. */
+  private async requireEnquiriesOn(ctx: RequestContext) {
+    const s = await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { useEnquiries: true } });
+    if (s && !s.useEnquiries) throw new BusinessRuleError('ENQUIRIES_OFF', ENQUIRIES_OFF_MESSAGE);
+  }
 
   private async resolveParty(ctx: RequestContext, dto: CreateEnquiryDto) {
     if (dto.isProspect) {

@@ -4,7 +4,7 @@ import { CORE_MENU } from './core/menu'
 import { purchaseApi } from './purchase/api/purchase'
 import { PURCHASE_MENU } from './purchase/menu'
 import { salesApi } from './sales/api/sales'
-import { SALES_MENU } from './sales/menu'
+import { loadSalesFlow, salesMenu } from './sales/flow'
 import { WMS_MENU } from './wms/menu'
 
 export type ModuleKey = 'purchase' | 'sales' | 'core' | 'config' | 'wms'
@@ -33,7 +33,11 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     key: 'sales',
     label: 'Sales',
     home: '/sales',
-    menu: SALES_MENU,
+    // Read through a getter: the menu follows the company's Sales flow (S34), asked for on first use.
+    get menu() {
+      loadSalesFlow()
+      return salesMenu()
+    },
     approvalsTo: '/sales/approvals',
     approvalsCount: salesApi.approvalsCount,
   },

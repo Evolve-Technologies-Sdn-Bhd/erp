@@ -12,6 +12,7 @@ import {
   PreviewTemplateDto,
   SaveCreditControlDto,
   SaveDocumentTypesDto,
+  SaveSalesFlowDto,
   SaveTemplateDto,
 } from './dto/settings.dto';
 import { SalesListsService } from './lists.service';
@@ -35,6 +36,20 @@ export class SalesSettingsController {
   @RequirePermission(P.SETTINGS_MANAGE)
   saveCreditControl(@CurrentContext() ctx: RequestContext, @Body() dto: SaveCreditControlDto) {
     return this.policies.saveCreditControl(ctx, dto);
+  }
+
+  // ── Sales flow (S34) ──────────────────────────────────────────────────────
+
+  @Get('sales-flow')
+  @RequirePermission(P.VIEW)
+  salesFlow(@CurrentContext() ctx: RequestContext) {
+    return this.policies.salesFlow(ctx);
+  }
+
+  @Put('sales-flow')
+  @RequirePermission(P.SETTINGS_MANAGE)
+  saveSalesFlow(@CurrentContext() ctx: RequestContext, @Body() dto: SaveSalesFlowDto) {
+    return this.policies.saveSalesFlow(ctx, dto);
   }
 
   @Get('document-types')

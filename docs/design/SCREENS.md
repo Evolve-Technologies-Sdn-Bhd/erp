@@ -185,3 +185,23 @@ Opens from the launcher's WMS tile where a client's WMS is connected (`WMS_URL`)
 | W03 | EPC Lookup | `WmsEpcLookup.html` | `/wms/epc-lookup` (`?code=`) | GET /api/v1/wms/epc/:code (EPC or serial number) |
 | W04 | Receiving | `WmsReceiving.html` | `/wms/receiving` | GET /api/v1/wms/receiving |
 | W05 | Shipping | `WmsShipping.html` | `/wms/shipping` | GET /api/v1/wms/shipping |
+
+## Field sales and installation (phase 5, planning)
+
+Mockups made in step F0 for the user's approval; nothing is built. Seed data and the choices made: `FIELD_SALES_SEED_DATA.md`. The plan is in `CLAUDE.md` → *Phase 5 · Field sales and installation*. Everything here shows the profile turned **on**; with it off, the Sales screens stay as in *Sales module* above.
+
+The Service module is new: orange (side `#C2410C`, primary `#9A3412`, light `#FFF7ED`, chip `#FFEDD5`; proposed, to be added to `DESIGN_TOKENS.md` when approved). Sidebar groups: **Planning**, **Setup**. The phone app's screens are not listed here: they wait with the app (decision 13).
+
+| Code | Screen | Mockup | Route (proposed) |
+|---|---|---|---|
+| S34 | Sales flow (Operation Policies): the profile's switches. **Built (F1, part 1):** the two step switches, `GET`, `PUT /api/v1/sales/settings/sales-flow`; the other settings on the mockup come with their own parts | `FsPolicies.html` | `/sales/settings/sales-flow` |
+| S11 | Sales order with a package, a free gift, a voucher, the installation option and the customer's signature (profile on) | `FsOrder.html` | `/sales/orders/:id` |
+| C15 | Package list | `CorePackages.html` | `/core/packages` |
+| C16 | Package: items, package price, free gift | `CorePackageForm.html` | `/core/packages/:id` |
+| V01 | Service home | `SvcHome.html` | `/service` |
+| V02 | Booking board | `SvcBoard.html` | `/service/board` |
+| V03 | Job list | `SvcJobs.html` | `/service/jobs` |
+| V04 | Job: stages, booking, what the installer recorded, fees | `SvcJob.html` | `/service/jobs/:id` |
+| V05 | Slots and stages | `SvcSettings.html` | `/service/settings` |
+
+Still to draw, with the step that needs them: the quotation list as the office sees it with the profile on (F1), fee and commission rules and their report (F5), warranty jobs and service reminders (F6).

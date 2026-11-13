@@ -10,6 +10,8 @@ import type {
   CancelOpenOrder,
   CancelOrderLines,
   CreditControlData,
+  SalesFlowData,
+  SalesFlowSwitches,
   CreditRuleRow,
   CustomerCardData,
   DocumentTypesData,
@@ -216,6 +218,8 @@ export const salesSettingsApi = {
   creditControl: () => api<CreditControlData>('/sales/settings/credit-control'),
   saveCreditControl: (input: { creditScope: 'GROUP' | 'BRANCH'; rules: CreditRuleRow[] } & CreditControlData['toggles']) =>
     api<CreditControlData>('/sales/settings/credit-control', { method: 'PUT', body: input }),
+  salesFlow: (options: { silent?: boolean } = {}) => api<SalesFlowData>('/sales/settings/sales-flow', options),
+  saveSalesFlow: (switches: SalesFlowSwitches) => api<SalesFlowData>('/sales/settings/sales-flow', { method: 'PUT', body: switches }),
   documentTypes: () => api<DocumentTypesData>('/sales/settings/document-types'),
   saveDocumentTypes: (sequences: { docType: string; resetEvery: 'NEVER' | 'MONTH'; perBranch: boolean }[]) =>
     api<DocumentTypesData>('/sales/settings/document-types', { method: 'PUT', body: { sequences } }),

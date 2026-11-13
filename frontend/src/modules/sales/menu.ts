@@ -14,6 +14,7 @@ import {
   Shield,
   Truck,
   Undo2,
+  Workflow,
 } from '@lucide/vue'
 import type { MenuGroup } from '../common/menu'
 
@@ -64,6 +65,7 @@ export const SALES_MENU: MenuGroup[] = [
     to: '/sales/settings/credit-control',
     items: [
       { key: 'credit-control', label: 'Credit Control', to: '/sales/settings/credit-control', icon: Shield },
+      { key: 'sales-flow', label: 'Sales Flow', to: '/sales/settings/sales-flow', icon: Workflow },
       { key: 'document-types', label: 'Document Types', to: '/sales/settings/document-types', icon: File },
       { key: 'enquiry-types', label: 'Enquiry Types', to: '/sales/settings/enquiry-types', icon: ListChecks },
       { key: 'excluded-items', label: 'Excluded Items', to: '/sales/settings/excluded-items', icon: Ban },

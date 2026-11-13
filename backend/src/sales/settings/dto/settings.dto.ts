@@ -35,6 +35,11 @@ export class SaveCreditControlDto {
   @IsBoolean() skipCreditForSystem!: boolean;
 }
 
+export class SaveSalesFlowDto {
+  @IsBoolean() useEnquiries!: boolean;
+  @IsBoolean() officeDraftsQuotations!: boolean;
+}
+
 export class SequenceDto {
   @IsString()
   @MaxLength(20)

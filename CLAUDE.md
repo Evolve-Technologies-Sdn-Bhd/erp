@@ -1,6 +1,6 @@
 # Zora Pro ERP — build guide for Claude Code
 
-We are building a modular ERP. **Phase 1 = the module launcher and the Purchase module** (done, steps 0–10). **Phase 2 = the Sales module** (section *Phase 2 · Sales module*, done, steps S0–S10). **Phase 3 = the Core module (Master Data)** (section *Phase 3 · Core module*, done, steps C0–C8). **Phase 4 = Configuration** (section *Phase 4 · Configuration*, in progress, steps A0–A8): company, branches, users, roles and sign-in. Purchase, Sales and Core are working apps with a real API and database (no login until Phase 4 · A5). Read this file fully before writing code, then read the docs it points to.
+We are building a modular ERP. **Phase 1 = the module launcher and the Purchase module** (done, steps 0–10). **Phase 2 = the Sales module** (section *Phase 2 · Sales module*, done, steps S0–S10). **Phase 3 = the Core module (Master Data)** (section *Phase 3 · Core module*, done, steps C0–C8). **Phase 4 = Configuration** (section *Phase 4 · Configuration*, in progress, steps A0–A8): company, branches, users, roles and sign-in. **Phase 5 = Field sales and installation** (section *Phase 5 · Field sales and installation*, planning only, steps F0–F7). Purchase, Sales and Core are working apps with a real API and database (no login until Phase 4 · A5). Read this file fully before writing code, then read the docs it points to.
 
 ## Must-read docs
 
@@ -871,3 +871,149 @@ npm run client:install -- path\to\client.json   # prisma/client.example.json sho
 - **No-access page:** `modules/common/NoAccessView.vue`, shown by `App.vue` in place of the page when the route's permission is missing. A route needs its module's view permission (`modules/common/access.ts`); `meta.permission` overrides it (the security log and audit trail), and `null` opens it to anyone signed in (My account). The address stays, the page names the permission in words (`/me` → `permissionLabels`), and switching user re-checks at once.
 - **Toasts:** a refused permission reads "Not allowed", and the same message shows once even when a page fails several loads at the same time.
 - **Tests:** `test/configuration.e2e-spec.ts` (tiles and labels), `test/wms.e2e-spec.ts`.
+
+---
+
+# Phase 5 · Field sales and installation
+
+**Status:** F0 (planning) in progress since 13 Nov 2026. This section is the plan. **Nothing is built.** The user approved the plan and decisions 1–13 on 13 Nov 2026. The phone app is set aside for now (decision 13), so the order of work is F0, F1, F3, F5, F6, F7; F2 and F4 wait.
+
+Everything above still applies: stack, database and API conventions, the working agreement and the definition of done. **Purchase, Sales, Core and Configuration keep their behaviour.** Everything in this phase sits behind settings that are off by default, so the standard flow, the demo seed and every existing test stay as they are.
+
+## What it is
+
+- Some companies sell **packages to households through sales agents**, then deliver and **install** them. The agent takes the order with the customer, the customer signs, and the office books an installer. They do not use the office steps *Enquiry* and *Draft Quotation*.
+- This phase adds that way of working as a **profile**: a set of switches a company turns on. A company that leaves them off sees no change.
+- It has three parts:
+  1. **Sales changes:** the flow switches, package order entry, and the signed order.
+  2. **An installation module:** jobs, a booking board with time slots, stages, fees, warranty jobs and reminders.
+  3. **A mobile API contract**, for a phone app built by the user's own team.
+
+**Not in this phase:**
+- Customer payments, receipts and deposits. A job only records *paid* or *not paid*, with the reason.
+- A link to an outside accounting system.
+- The phone app itself. This repo gives it the API and the contract.
+- Working offline, visits and check-in, sales targets, *My Performance*, push notifications and other languages (all in the Sales App handbook; each comes later, when asked for).
+- Trade-in, one-to-one exchange and a second country.
+- The full planning engine of the Service handbook (free times from hours, travel, skills and leave; two-person crews; maintenance contracts).
+
+## Must-read for this phase
+
+| File | Why |
+|---|---|
+| `docs/requirements/Sales Mobile App Handbook.md` | The agent's journey on the phone: customer, products, review, signature, orders. The *Take an order* steps are the acceptance criteria for the order flow |
+| `docs/requirements/SalesApp.html` | The phone design: a saved design canvas with 19 screens. It is a bundle, so unpack it with a script and read each page's text and logic. Do not paste it into a prompt |
+| `docs/requirements/Service Planning & Promotions Handbook.md` | Background for jobs, job types and packages. This phase builds a smaller version (see *Installation module*) |
+| SRS FR-SEC-066, INT-011, FR-MSG-001, NTF-036 | Separate, revocable sign-in for a phone app; one API for web and mobile; push carries a reference only |
+
+A client's own notes, recordings and data are **never** put in this repo. They stay in that client's folder outside it.
+
+## Decisions
+
+Confirmed by the user on 12–13 Nov 2026:
+
+| # | Decision | What it means |
+|---|---|---|
+| 1 | One product | No copy or fork per client. The profile is settings in the standard product, off by default |
+| 2 | One backend | The phone app is a second screen on the same API and database. It has no data store or business rules of its own |
+| 3 | Contract first | The mobile team builds from a written API contract. Each contract is agreed before the backend step that implements it |
+| 4 | Who orders | Sales agents create the orders, and the customer signs. The signature turns the quotation into a released sales order |
+| 5 | Payments | Out of scope. The job records paid or not paid, and the reason |
+| 6 | Installers | The company's own staff, in three roles: installer, technician, warranty |
+| 7 | Booking | Fixed time slots per installer per day, booked by the office. No free-time calculation |
+| 8 | Reminders | A filter-change (service) interval set per item, counted from the installation date |
+| 9 | Accounting | Stays in the company's own accounting system for now |
+| 10 | Installation date | The agent enters the customer's **preferred** date at signing. The office confirms the installer and slot. The phone design makes the date required and says the team is booked; that wording changes |
+| 11 | Business rules from the phone design | Taken as written, as profile settings: a price outside list −10% / +20% needs approval; an agent may add a COD customer; a rejected quotation is revised as a new revision; an order over the credit limit is signed first and then waits for approval |
+| 12 | Security rules | Ours stay: at least 10 characters, a single-use reset link, never a password by email. The phone design's wording (8 characters, temporary password) changes to match |
+| 13 | The phone app waits | Set aside by the user on 13 Nov 2026. The admin side and the installation module are built first; steps F2 and F4 and the two questions below wait until the user brings the app back |
+
+Open, parked with the phone app:
+
+| # | Question | Proposal |
+|---|---|---|
+| O4 | Staying signed in on a phone | A device token that can be revoked per phone (FR-SEC-066), instead of the 30-minute idle rule of the website |
+| O5 | Phone app technology and start date | The user's team decides. It does not change the contract |
+
+To ask the client (does not block F1 or F2):
+- Does the installer collect the unit through the warehouse scan?
+- What do the logistics, admin and accounts stages check, and can any be dropped?
+- How are commission and installer fees worked out?
+- How does their accounting system take data in: a file or an API?
+- How many agents, installers and orders a month?
+
+## The flow
+
+| Step | Standard (unchanged) | Profile on |
+|---|---|---|
+| Enquiry | The office logs it | Hidden and refused |
+| Draft quotation | The office drafts, then releases | Hidden. The agent builds the quotation on the phone |
+| Quotation | Sent; the customer orders later | *Awaiting signature* until the customer signs. The office sees a read-only list |
+| Sales order | The office makes it from the quotation | Made by the signature and released at once, if the credit policy allows |
+| Price approval | A discount over the limit (15%) | A price outside the allowed range |
+| New customer | Master Data Admin, in Core | An agent adds a COD customer with no credit; the office completes it |
+| Installation | — | A released order with an installation option makes a job *Not booked* |
+| Delivery, invoice, returns, purchasing | As built | The same |
+
+## Sales changes
+
+- **Switches** live in `sal_setting`, beside today's policies, and show on Operation Policies. Each defaults to today's behaviour:
+  - enquiries on or off
+  - the draft-quotation step on or off
+  - a customer signature releases the order
+  - the price rule: discount limit (today) or allowed range, with the two percentages
+  - agents may add COD customers
+- The menu, the routes and the server all follow the switches. A hidden step is refused by the API too, not only hidden.
+- **Packages** are maintained in Core: a package code, its items and quantities, one price, the free gifts to choose from, and the dates it runs. On an order a package is one line with its items under it.
+- **Order lines new to Sales:** a free gift at RM 0.00 that prints as *Free*; a voucher or rebate as its own line that lowers the total; an installation option per order (installation, delivery only, or collect).
+- **Signature:** the image, the signer's name and position, the date and time, and the location if the customer allows it, kept with the order as an attachment.
+- These change finished Sales rules (rules 3, 5, 6 and 14, and Core decision 2). **Each is confirmed with the user at its step, and each has tests with the switch on and off.**
+
+## Installation module
+
+A new module with its own tables (`svc_`), its own launcher tile and its own permissions. It never imports `sales/`; it listens to `sales.order.released` the way Purchase does.
+
+| Part | What it does |
+|---|---|
+| Jobs | Types: installation, service, warranty, repair. A job comes from a released order or is added by the office. Numbered by `NumberingService` |
+| Booking board | One day at a time, a row per installer. The office picks the installer, the date, a slot group and a slot. Two jobs for one installer can never overlap |
+| Slot groups | Set by the company, for example 2-hour slots, 1-hour slots for service and warranty, and one long slot for heavy work |
+| Stages | Not booked → Booked → Accepted → Done → Checked → Closed, or Cancelled. The checking stages are settings, so a company keeps only the ones it uses |
+| Installer's part | Accept the job; when finished: a photo (required), the status (complete, partial, postponed with a reason), paid or not paid with a reason, the claim and other fees |
+| Fees and commission | The installer's fee per job and the agent's commission, worked out by rules the company sets, with a report |
+| Warranty and reminders | Warranty jobs against the unit installed; a reminder when an item's service interval is due |
+
+The installer's part is used on a phone, so it is in the mobile contract too.
+
+## Mobile API contract
+
+- The phone app uses the **same endpoints** as the website wherever they exist. A phone-only endpoint is added only where the website has none.
+- **New for phones:** sign-in that returns a device token (O4), and upload of a signature or photo.
+- **Where it is written:** `docs/integration/MOBILE_API.md`, one part for the agent's screens (F2) and one for the installer's (F4). For each screen: the calls, the fields, the errors and one example.
+- Rules stay on the server. The app shows `allowedActions` and server totals, as the website does.
+
+## Screen codes (proposed)
+
+`F` for the phone screens in the contract, `V` for the installation module, and the next free Core codes for packages. Fixed in F0 with the mockups.
+
+## Build order for phase 5 (stop after each step for the user to review)
+
+**F0 · Planning and design.** This section; mockups for the changed Sales screens, the package screens and the installation module, in the app's current layout; a neutral seed file; the screen list in `SCREENS.md`.
+
+**F1 · Sales flow switches and package order entry.** The switches; packages in Core; package, gift and voucher lines; the installation option; the signed order. Built in parts, each reviewed by the user:
+- *Part 1 (done, 13 Nov 2026):* the two step switches on a new page, Sales Flow (S34): *Use enquiries* and *Office drafts quotations*, both on by default (`sal_setting`, `sales/settings/sales-flow.rules.ts`). With enquiries off the server refuses a new enquiry (409 `ENQUIRIES_OFF`) and the menu, the home tiles and the page search drop Enquiry and Enquiry Types; with drafts off the menu drops Draft Quotation. Enquiries already made stay readable. The Sales menu is read through `modules/sales/flow.ts`. Tests: `sales-flow.rules.spec.ts`, `test/sales-flow.e2e-spec.ts`.
+- *Next parts:* packages in Core; package, gift and voucher lines; the installation option; the price range; agents adding customers; the signed order.
+
+**F2 · Mobile contract, agent screens.** `MOBILE_API.md` part 1 and phone sign-in. Can run beside F1.
+
+**F3 · Installation jobs.** The module, jobs from released orders, the booking board, slot groups and stages.
+
+**F4 · Mobile contract, installer screens.** `MOBILE_API.md` part 2 and the installer's endpoints.
+
+**F5 · Installer fees and commission.** Rules, calculation and report.
+
+**F6 · Warranty jobs and reminders.**
+
+**F7 · Journeys.** End-to-end tests for the profile, the handbook, and a final review of the module boundaries.
+
+**Definition of done for every step of this phase:** as for Configuration, plus: with every switch off, all existing tests, seed checks and journeys pass unchanged; with the profile on, the step has its own end-to-end test; no client name or client data is in the repo.

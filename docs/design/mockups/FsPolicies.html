@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sales · Sales flow</title>
+</head>
+<body>
+<div class="mockup-root">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0;font-family:'Inter',system-ui,sans-serif;color:#1E2233;background:#F3F4F8}
+a{color:#2563EB;text-decoration:none}
+.card{background:#FFFFFF;border:1px solid #E4E6EE;border-radius:12px;box-sizing:border-box}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#5E6478;padding:10px 10px;background:#F7F8FB;border-bottom:1px solid #E4E6EE;white-space:nowrap}
+.tbl td{padding:11px 10px;border-bottom:1px solid #EEF0F4;vertical-align:middle}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tr.sub td{padding:6px 10px;color:#5E6478;font-size:12px;background:#FBFBFD}
+.nw{white-space:nowrap}
+.muted{color:#5E6478}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#5E6478}
+.inp{min-height:38px;width:100%;box-sizing:border-box;border:1px solid #D9DCE6;border-radius:8px;padding:0 12px;font-family:inherit;font-size:13px;color:#1E2233;background:#FFFFFF;display:flex;align-items:center;justify-content:space-between}
+.inp.ro{background:#F7F8FB;color:#475069}
+.btn{height:36px;padding:0 16px;border-radius:8px;border:1px solid transparent;font-family:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;white-space:nowrap}
+.b-blue{background:#2563EB;color:#FFFFFF}
+.b-prim{background:#6D45DB;color:#FFFFFF}
+.b-ghost{background:#FFFFFF;color:#1E2233;border-color:#D9DCE6}
+.b-green{background:#15803D;color:#FFFFFF}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;white-space:nowrap}
+.st-green{background:#DCFCE7;color:#166534}
+.st-red{background:#FEE2E2;color:#991B1B}
+.st-grey{background:#EEF0F4;color:#475069}
+.st-amber{background:#FEF3C7;color:#92400E}
+.st-blue{background:#DBEAFE;color:#1E40AF}
+.st-mod{background:#EDE7FD;color:#5A37C2}
+.tabs{display:flex;gap:24px;border-bottom:1px solid #E4E6EE;font-size:13px}
+.tab{padding:0 0 10px;color:#5E6478;font-weight:600}
+.tab.on{color:#5A37C2;border-bottom:2px solid #7B4FE0}
+.h2{margin:0;font-size:15px;font-weight:700}
+.note{border-radius:10px;padding:10px 14px;font-size:13px;display:flex;gap:10px;align-items:flex-start;line-height:1.45}
+.n-info{background:#F8F5FF;border:1px solid #DDD2FB;color:#5A37C2}
+.n-warn{background:#FFF8E6;border:1px solid #F6D58E;color:#8A5300}
+.toggle{display:flex;align-items:flex-start;gap:12px;font-size:13px;color:#1E2233;padding:12px 0;border-bottom:1px solid #EEF0F4}
+.toggle b{font-weight:600}
+.toggle small{display:block;color:#5E6478;font-size:12px;margin-top:2px;line-height:1.4}
+.sw{flex:none;width:34px;height:20px;border-radius:10px;background:#D9DCE6;position:relative;display:inline-block;margin-top:1px}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:8px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.sw.on{background:#7B4FE0}
+.sw.on::after{left:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px 18px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px 18px}
+.span2{grid-column:span 2}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.kpi .v{font-size:24px;font-weight:700}
+.kpi .l{font-size:12px;color:#5E6478;font-weight:500}
+.row{display:flex;gap:12px}
+.col{display:flex;flex-direction:column;gap:12px}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:8px 12px;font-size:13px}
+.kv span:nth-child(odd){color:#5E6478}
+.act{display:flex;flex-direction:column;gap:2px;font-size:12px;padding:8px 0;border-bottom:1px solid #EEF0F4}
+.radio{display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-right:16px}
+.radio i{width:14px;height:14px;border-radius:7px;border:1.5px solid #9AA0B4;display:inline-block;box-sizing:border-box}
+.radio.on i{border:4px solid #7B4FE0}
+</style>
+<div style="width:1440px;min-height:1000px;position:relative;background:#F3F4F8;overflow:hidden">
+<nav aria-label="Module groups" style="position:absolute;left:12px;top:12px;bottom:12px;width:56px;border-radius:16px;background:#7B4FE0;display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:8px;box-sizing:border-box">
+<a href="Launcher.html" title="All modules" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></a>
+<div style="width:28px;height:1px;background:rgba(255,255,255,.25);margin:4px 0"></div>
+<a href="FsOrder.html" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;" title="Sales Transaction"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></a><a href="InvoiceList.html" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;" title="Billing"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg></a><a href="FsPolicies.html" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.18)" title="Operation Policies"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg></a><a href="SalesReports.html" style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;" title="Reports"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></a>
+<div style="flex:1"></div>
+<div style="width:28px;height:1px;background:rgba(255,255,255,.25);margin:4px 0"></div>
+<a href="Main.html" title="Module home" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></a>
+<a href="Launcher.html" title="Sign out" style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></a>
+</nav><aside style="position:absolute;left:80px;top:12px;bottom:12px;width:206px;border-radius:16px;background:#FFFFFF;border:1px solid #E4E6EE;box-sizing:border-box">
+<div style="padding:18px 16px 14px;border-bottom:1px solid #EEF0F4"><div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#5E6478">SALES</div><div style="font-size:15px;font-weight:700;margin-top:2px">Operation Policies</div></div>
+<div style="display:flex;flex-direction:column;gap:2px;padding:10px 8px"><a href="Policies.html" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13px;color:#475069;font-weight:500"><span style="width:6px;height:6px;border-radius:3px;background:#C9CCD8"></span>Credit Control</a><a href="FsPolicies.html" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13px;background:#F8F5FF;color:#5A37C2;font-weight:600"><span style="width:6px;height:6px;border-radius:3px;background:#7B4FE0"></span>Sales Flow</a><a href="DocTypes.html" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13px;color:#475069;font-weight:500"><span style="width:6px;height:6px;border-radius:3px;background:#C9CCD8"></span>Document Types</a><a href="ExcludedItems.html" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13px;color:#475069;font-weight:500"><span style="width:6px;height:6px;border-radius:3px;background:#C9CCD8"></span>Excluded Items</a><a href="EmailTemplates.html" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:13px;color:#475069;font-weight:500"><span style="width:6px;height:6px;border-radius:3px;background:#C9CCD8"></span>Email Templates</a></div>
+</aside><main style="margin-left:302px;padding:12px 24px 24px 0;display:flex;flex-direction:column;gap:12px;box-sizing:border-box">
+<header style="height:48px;border-radius:16px;background:#FFFFFF;border:1px solid #E4E6EE;display:flex;align-items:center;gap:16px;padding:0 20px;box-sizing:border-box">
+<div style="width:180px;font-size:12px;font-weight:500;color:#5E6478">Tuesday, September 29</div>
+<div style="flex:1;display:flex;justify-content:center"><div style="width:380px;height:32px;border-radius:16px;border:1px solid #E4E6EE;background:#F7F8FB;display:flex;align-items:center;gap:8px;padding:0 14px;font-size:13px;color:#9AA0B4">Search pages, modules...</div></div>
+<div style="display:flex;align-items:center;gap:16px"><span style="font-size:12px;font-weight:600;color:#475069;border:1px solid #E4E6EE;border-radius:8px;padding:5px 10px">All my branches ▾</span><span style="font-size:12px;color:#5E6478">10:15 AM</span><span style="width:1px;height:16px;background:#E4E6EE"></span>
+<span style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:28px;height:28px;border-radius:14px;background:#EDE7FD;color:#5A37C2;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">A</span>admin@warehouse.com</span></div>
+</header>
+<div style="font-size:12px;padding:2px 0"><a href="Main.html" style="color:#2563EB">Home</a> <span class="muted">›</span> <span style="color:#1E2233;font-weight:600">Operation Policies</span> <span class="muted">›</span> <span style="color:#1E2233;font-weight:600">Sales Flow</span></div>
+<section class="card" style="padding:18px 24px;display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+<div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;align-items:center;gap:10px"><h1 style="margin:0;font-size:18px;font-weight:700">Sales Flow</h1></div>
+<div style="font-size:13px;color:#5E6478">Which steps your company uses. Everything here is off for a company that sells from the office with enquiries and quotations.</div></div>
+<div style="display:flex;gap:8px"><span class="btn b-ghost">Cancel</span><span class="btn b-prim">Save changes</span></div></div>
+<div class="note n-info">These settings are on in this example. Turning one off brings the standard step back for new documents. Documents already made keep working.</div>
+<div class="row" style="gap:32px">
+<div style="flex:1"><h2 class="h2" style="margin-bottom:4px">Steps</h2>
+<div class="toggle"><span class="sw "></span><span><b>Use enquiries</b><small>Off: Enquiry is hidden from the menu and cannot be created.</small></span></div>
+<div class="toggle"><span class="sw "></span><span><b>Office drafts quotations</b><small>Off: Draft Quotation is hidden. Sales agents build the quotation with the customer.</small></span></div>
+<div class="toggle"><span class="sw on"></span><span><b>Customer signature confirms the order</b><small>A signed quotation becomes a released sales order at once. No customer PO is needed.</small></span></div>
+<div class="toggle"><span class="sw on"></span><span><b>Sales agents may add customers</b><small>A new customer starts on COD with no credit limit. The office completes the record later.</small></span></div>
+</div>
+<div style="flex:1"><h2 class="h2" style="margin-bottom:4px">Price approval</h2>
+<div style="padding:12px 0;border-bottom:1px solid #EEF0F4"><span class="radio"><i></i>Discount limit</span><span class="radio on"><i></i>Allowed price range</span>
+<div class="muted" style="font-size:12px;margin-top:6px">A price outside the range needs Sales Manager approval before the customer signs.</div></div>
+<div class="grid2" style="padding:14px 0"><label class="fld ">Lowest price without approval<span class="inp">10% below list</span></label><label class="fld ">Highest price without approval<span class="inp">20% above list</span></label></div>
+<div class="muted" style="font-size:12px">Example: list price RM 250.00 → RM 225.00 to RM 300.00. A package keeps its package price.</div>
+<h2 class="h2" style="margin:18px 0 4px">Installation</h2>
+<div class="toggle"><span class="sw on"></span><span><b>Ask for an installation option on the order</b><small>Installation, delivery only, or collect. An order with installation makes a job for the office to book.</small></span></div>
+</div></div>
+<div style="border-top:1px solid #EEF0F4;padding-top:12px"><h2 class="h2" style="margin-bottom:6px">Recent changes</h2>
+<div class="act"><span><b>Customer signature confirms the order</b> turned on</span><span class="muted">29 Sep 2026, 9:02 AM · Admin</span></div>
+<div class="act"><span><b>Use enquiries</b> turned off</span><span class="muted">29 Sep 2026, 9:01 AM · Admin</span></div></div>
+</section>
+</main>
+</div>
+</div>
+</body>
+</html>

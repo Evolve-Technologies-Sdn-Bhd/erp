@@ -1153,6 +1153,19 @@ export interface CreditControlData {
   saved?: string[]
 }
 
+/** S34 · which steps the company uses. Both are on in the standard flow. */
+export interface SalesFlowSwitches {
+  useEnquiries: boolean
+  officeDraftsQuotations: boolean
+}
+
+export interface SalesFlowData {
+  switches: SalesFlowSwitches
+  labels: Record<keyof SalesFlowSwitches, string>
+  history: SettingChange[]
+  saved?: string[]
+}
+
 export interface DocumentTypesData {
   sequences: { docType: string; name: string; format: string; nextNumber: string | null; resetEvery: 'NEVER' | 'MONTH'; perBranch: boolean; printTemplate: string | null }[]
   orderTypes: { code: string; name: string; meaning: string; isDefault: boolean; isActive: boolean }[]

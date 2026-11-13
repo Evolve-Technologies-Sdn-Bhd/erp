@@ -2631,6 +2631,9 @@ model SalSetting {
   skipCreditForSystem  Boolean  @default(true)
   discountApprovalPct  Decimal  @default(15) @db.Decimal(7, 4)
   quoteExpiryWarnDays  Int      @default(3)
+  // Sales flow (S34, phase 5). Defaults are the standard flow, so a company that never opens the page sees no change.
+  useEnquiries           Boolean  @default(true) // off: Enquiry is hidden and new enquiries are refused
+  officeDraftsQuotations Boolean  @default(true) // off: Draft Quotation is hidden from the menu
   updatedAt            DateTime @updatedAt @db.DateTime(3)
   updatedBy            String   @db.VarChar(20)
 
@@ -2656,7 +2659,7 @@ model SalCreditRule {
 model SalSettingChange {
   id        String   @id @default(uuid()) @db.Char(36)
   tenantId  String   @db.Char(36)
-  area      String   @db.VarChar(30) // CREDIT_CONTROL, DOCUMENT_TYPES, ENQUIRY_TYPES, EXCLUDED_ITEMS, EMAIL_TEMPLATES
+  area      String   @db.VarChar(30) // CREDIT_CONTROL, SALES_FLOW, DOCUMENT_TYPES, ENQUIRY_TYPES, EXCLUDED_ITEMS, EMAIL_TEMPLATES
   message   String   @db.VarChar(300)
   userCode  String   @db.VarChar(20)
   userName  String   @db.VarChar(100)

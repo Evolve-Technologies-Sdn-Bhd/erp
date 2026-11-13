@@ -5,7 +5,7 @@ import KpiCard from '@/components/erp/KpiCard.vue'
 import { useViewBranch } from '@/composables/useViewBranch'
 import { formatMoney } from '@/utils/format'
 import { salesApi } from '../api/sales'
-import { SALES_MENU } from '../menu'
+import { loadSalesFlow, salesMenu } from '../flow'
 import type { SalesDashboard } from '../types'
 
 /** S01 · Sales home: four group tiles, the KPI cards and the person's charts (Main.html). */
@@ -29,6 +29,7 @@ async function load() {
   }
 }
 onMounted(load)
+loadSalesFlow()
 
 // Group tiles, darkest first (Sales Transaction, Billing, Operation Policies, Reports)
 const TILE_SHADES = ['bg-mod-tile-1', 'bg-mod-tile-2', 'bg-mod-tile-3', 'bg-mod-tile-4']
@@ -51,7 +52,7 @@ const kpis = computed(() => {
   <!-- Group tiles -->
   <div class="flex gap-4">
     <RouterLink
-      v-for="(g, i) in SALES_MENU"
+      v-for="(g, i) in salesMenu()"
       :key="g.key"
       :to="g.to"
       class="flex h-[100px] w-[132px] flex-col items-center justify-center gap-2 rounded-xl p-2 text-center text-xs font-semibold text-erp-on-dark"

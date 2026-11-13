@@ -3,7 +3,8 @@ import type { RequestContext } from '../../platform/context/request-context';
 import { ConfigurationError, ValidationFailedError } from '../../platform/http/errors';
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
-import type { AddOrderTypeDto, SaveCreditControlDto, SaveDocumentTypesDto } from './dto/settings.dto';
+import type { AddOrderTypeDto, SaveCreditControlDto, SaveDocumentTypesDto, SaveSalesFlowDto } from './dto/settings.dto';
+import { flowChanges, FLOW_SWITCHES, type FlowSwitches } from './sales-flow.rules';
 import { codeFromName, creditChanges, CREDIT_DOCS, normaliseRule, numberingChanges, ruleProblems, TOGGLES, type CreditRuleView, type ToggleKey } from './settings.rules';
 
 /** Order of the Sales documents on Document types (S30). */
@@ -98,6 +99,28 @@ export class SalesPoliciesService {
       });
     }
     return { ...(await this.creditControl(ctx)), saved: changes };
+  }
+
+  // ── Sales flow (S34) ──────────────────────────────────────────────────────
+
+  /** Which steps the company uses. Anyone in Sales reads it: the menu and the forms follow it. */
+  async salesFlow(ctx: RequestContext) {
+    const [s, history] = await Promise.all([this.setting(ctx.tenantId), this.history(ctx.tenantId, 'SALES_FLOW')]);
+    const switches: FlowSwitches = { useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations };
+    return { switches, labels: FLOW_SWITCHES, history };
+  }
+
+  async saveSalesFlow(ctx: RequestContext, dto: SaveSalesFlowDto) {
+    const s = await this.setting(ctx.tenantId);
+    const after: FlowSwitches = { useEnquiries: dto.useEnquiries, officeDraftsQuotations: dto.officeDraftsQuotations };
+    const changes = flowChanges({ useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations }, after);
+    if (changes.length) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.salSetting.update({ where: { tenantId: ctx.tenantId }, data: { ...after, updatedBy: ctx.user.code } });
+        await this.logChanges(tx, ctx, 'SALES_FLOW', changes);
+      });
+    }
+    return { ...(await this.salesFlow(ctx)), saved: changes };
   }
 
   // ── Document types and numbering (S30) ────────────────────────────────────

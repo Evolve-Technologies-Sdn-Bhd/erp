@@ -28,6 +28,7 @@ const DebitNoteForm = () => import('./views/DebitNoteFormView.vue')
 const CashSaleList = () => import('./views/CashSaleListView.vue')
 const CashSaleForm = () => import('./views/CashSaleFormView.vue')
 const CreditControl = () => import('./views/CreditControlView.vue')
+const SalesFlow = () => import('./views/SalesFlowView.vue')
 const DocumentTypes = () => import('./views/DocumentTypesView.vue')
 const EnquiryTypes = () => import('./views/EnquiryTypesView.vue')
 const ExcludedItems = () => import('./views/ExcludedItemsView.vue')
@@ -96,6 +97,7 @@ const SCREENS: ScreenDef[] = [
   { code: 'S27', path: 'returns', name: 'sales-returns', title: 'Sales Return', group: 'billing', item: 'returns', step: 8, mockup: 'SalesReturnList.html', component: ReturnList },
   { code: 'S28', path: 'returns/:id', name: 'sales-return', title: 'Sales return', group: 'billing', item: 'returns', step: 8, mockup: 'SalesReturn.html', parent: doc('Sales Return', '/sales/returns'), component: ReturnForm },
   { code: 'S29', path: 'settings/credit-control', name: 'sales-credit-control', title: 'Credit Control', group: 'policies', item: 'credit-control', step: 9, mockup: 'Policies.html', component: CreditControl },
+  { code: 'S34', path: 'settings/sales-flow', name: 'sales-flow', title: 'Sales Flow', group: 'policies', item: 'sales-flow', step: 9, mockup: 'FsPolicies.html', component: SalesFlow },
   { code: 'S30', path: 'settings/document-types', name: 'sales-document-types', title: 'Document Types', group: 'policies', item: 'document-types', step: 9, mockup: 'DocTypes.html', component: DocumentTypes },
   { code: 'S31', path: 'settings/enquiry-types', name: 'sales-enquiry-types', title: 'Enquiry Types', group: 'policies', item: 'enquiry-types', step: 9, mockup: 'EnquiryTypes.html', component: EnquiryTypes },
   { code: 'S32', path: 'settings/excluded-items', name: 'sales-excluded-items', title: 'Excluded Items', group: 'policies', item: 'excluded-items', step: 9, mockup: 'ExcludedItems.html', component: ExcludedItems },
