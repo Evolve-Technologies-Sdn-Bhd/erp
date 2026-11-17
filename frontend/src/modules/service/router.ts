@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 
-const Placeholder = () => import('./views/ServicePlaceholderView.vue')
+const Board = () => import('./views/BoardView.vue')
+const Settings = () => import('./views/SettingsView.vue')
 
 /** The Service module (phase 5, F3). The launcher shows its tile only where the server runs it (SERVICE_MODULE=on). */
 export const serviceRoutes: RouteRecordRaw[] = [
@@ -13,7 +14,7 @@ export const serviceRoutes: RouteRecordRaw[] = [
   {
     path: '/service/board',
     name: 'service-board',
-    component: Placeholder,
+    component: Board,
     meta: { code: 'V02', title: 'Planning Board', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'board', mockup: 'SvcBoard.html' },
   },
   {
@@ -34,7 +35,7 @@ export const serviceRoutes: RouteRecordRaw[] = [
   {
     path: '/service/settings',
     name: 'service-settings',
-    component: Placeholder,
+    component: Settings,
     meta: { code: 'V05', title: 'Slots and Stages', module: 'service', layout: 'module', menuGroup: 'setup', menuItem: 'settings', mockup: 'SvcSettings.html' },
   },
 ]

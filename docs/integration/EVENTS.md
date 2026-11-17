@@ -106,7 +106,8 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 | Event | When | Main payload | Who listens |
 |---|---|---|---|
 | `service.job.created` | A job made from a released order or added by the office | jobNo, jobType, typeLabel, branchCode, customerCode, salesOrderNo or null, preferredDate, afterStock | Phone app, Sales (the job on the order) — later |
-| `service.job.cancelled` | The office cancelled a job not booked yet | jobNo, jobType, customerCode, salesOrderNo, reason | — |
+| `service.job.booked` | A job booked or moved on the Planning Board | jobNo, jobType, personId, personName, date, start and end (minutes from midnight), moved | Phone app — later |
+| `service.job.cancelled` | The office cancelled a job not done yet (a booked one frees its slot) | jobNo, jobType, customerCode, salesOrderNo, reason | — |
 
 ## Service listens to
 

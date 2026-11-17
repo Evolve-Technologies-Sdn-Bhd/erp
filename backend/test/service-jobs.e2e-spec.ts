@@ -61,7 +61,7 @@ describe('Service jobs (end to end)', () => {
     const row = await jobFor(so.docNo);
     expect(row).toMatchObject({ docNo: 'JB-0001', jobType: 'INSTALLATION', typeLabel: 'Installation', customerName: 'Villa Damai Resort', whenText: 'Asks for Thu, 1 Oct', stage: 'NOT_BOOKED', stageLabel: 'Not booked' });
     const job = await api.get<Job>(`service/jobs/${row.id}`);
-    expect(job).toMatchObject({ source: 'SALES_ORDER', preferredDate: '2026-10-01', afterStock: false, contactName: 'Mr. Daniel Wong', allowedActions: ['edit', 'cancel'] });
+    expect(job).toMatchObject({ source: 'SALES_ORDER', preferredDate: '2026-10-01', afterStock: false, contactName: 'Mr. Daniel Wong', allowedActions: ['edit', 'cancel', 'book'] });
     expect(job.siteAddress).toContain('Villa Damai Resort');
     expect(job.items).toEqual([{ lineNo: 1, itemCode: 'TB-DIN-06', itemName: expect.any(String), qty: '1.0000', uomCode: 'PCS', serialNo: null }]);
     expect(job.activity[0]).toMatchObject({ action: 'created', message: `Created from ${so.docNo}` });
@@ -101,5 +101,76 @@ describe('Service jobs (end to end)', () => {
     const home = await api.get<{ notBooked: { count: number }; waiting: JobRow[] }>('service/home');
     expect(home.notBooked.count).toBe(2);
     expect(home.waiting.map((w) => w.whenText)).toEqual(['Asks for Thu, 1 Oct', 'After stock arrives']);
+  });
+
+  // ── Part 2: people, slot groups and the Planning Board ──────────────────────
+
+  interface Settings { people: { id: string; name: string; role: string; version: number }[]; slotGroups: { code: string; name: string; slotsText: string }[] }
+  interface Board { notBooked: { id: string; docNo: string; asksForThisDay: boolean }[]; people: { name: string; jobTypes: string[]; jobs: { docNo: string; slotText: string }[] }[] }
+  const people: Record<string, string> = {};
+  const jobId = async (whenText: string) => (await api.get<{ items: JobRow[] }>('service/jobs?status=notBooked')).items.find((j) => j.whenText === whenText)!.id;
+  const book = async (id: string, personId: string, date: string, slotGroupCode: string, start: number) => {
+    const job = await api.get<Job>(`service/jobs/${id}`);
+    return api.call<Job & { booking: { text: string } | null; code?: string; message?: string }>('POST', `service/jobs/${id}/book`, 'ADM', { version: job.version, personId, date, slotGroupCode, start });
+  };
+
+  it('starts with the four slot groups of the design, and people the office adds', async () => {
+    const s = await api.get<Settings>('service/settings');
+    expect(s.slotGroups.map((g) => `${g.name}: ${g.slotsText}`)).toEqual([
+      'Standard: 10 AM – 12 PM · 12 PM – 2 PM · 2 PM – 4 PM · 4 PM – 6 PM',
+      'Early: 9 AM – 11 AM · 11 AM – 1 PM · 1 PM – 3 PM · 3 PM – 5 PM',
+      'Short: 8 slots, 9 AM – 5 PM',
+      'Long: 10 AM – 2 PM · 2 PM – 6 PM',
+    ]);
+    for (const [name, role] of [['Hafiz Rahman', 'INSTALLER'], ['Lee Jun Wei', 'INSTALLER'], ['Suresh Nair', 'TECHNICIAN']]) {
+      const r = await api.call<Settings>('POST', 'service/settings/people', 'ADM', { name, role, phone: '012-345 6789' });
+      expect(r.status).toBe(201);
+      people[name!] = r.body.people.find((p) => p.name === name)!.id;
+    }
+    expect((await api.call('POST', 'service/settings/people', 'AR', { name: 'X', role: 'INSTALLER' })).status).toBe(403);
+  });
+
+  it('books a job in a free slot of someone who takes it, and never lets two jobs overlap', async () => {
+    const board = await api.get<Board>('service/board?date=2026-10-01');
+    expect(board.notBooked.find((j) => j.asksForThisDay)?.docNo).toBe('JB-0001');
+    expect(board.people.map((p) => `${p.name}: ${p.jobTypes.join(',')}`)).toEqual(['Hafiz Rahman: INSTALLATION', 'Lee Jun Wei: INSTALLATION', 'Suresh Nair: SERVICE,REPAIR']);
+
+    const first = await jobId('Asks for Thu, 1 Oct');
+    expect(await book(first, people['Suresh Nair']!, '2026-10-01', 'STANDARD', 720)).toMatchObject({ status: 409, body: { message: 'Suresh Nair is Technician and does not take installation jobs.' } });
+    const booked = await book(first, people['Hafiz Rahman']!, '2026-10-01', 'STANDARD', 720);
+    expect(booked.body).toMatchObject({ stage: 'BOOKED', personName: 'Hafiz Rahman', whenText: 'Thu, 1 Oct · 12 PM – 2 PM', allowedActions: ['edit', 'cancel', 'book', 'unbook', 'done'] });
+    expect(booked.body.activity[0]!.message).toBe('Booked for Hafiz Rahman, Thu, 1 Oct, 12 PM – 2 PM');
+
+    const second = await jobId('After stock arrives');
+    expect(await book(second, people['Hafiz Rahman']!, '2026-10-01', 'LONG', 600)).toMatchObject({ status: 409, body: { message: 'Hafiz Rahman already has JB-0001 at 12 PM – 2 PM that day.' } });
+    expect(await book(second, people['Hafiz Rahman']!, '2026-10-01', 'STANDARD', 660)).toMatchObject({ status: 409, body: { message: '11 AM is not a start time of the Standard slot group.' } });
+    expect((await book(second, people['Hafiz Rahman']!, '2026-10-01', 'STANDARD', 600)).body.stage).toBe('BOOKED');
+
+    const after = await api.get<Board>('service/board?date=2026-10-01');
+    expect(after.people[0]!.jobs.map((j) => `${j.docNo} ${j.slotText}`)).toEqual(['JB-0002 10 AM – 12 PM', 'JB-0001 12 PM – 2 PM']);
+    expect(after.notBooked).toEqual([]);
+  });
+
+  it('moves a booked job, takes it off the board, and frees the slot when it is cancelled', async () => {
+    const list = await api.get<{ items: JobRow[] }>('service/jobs?status=booked');
+    const second = list.items.find((j) => j.docNo === 'JB-0002')!;
+    const moved = await book(second.id, people['Lee Jun Wei']!, '2026-10-01', 'STANDARD', 600);
+    expect(moved.body.activity[0]!.message).toBe('Moved to Lee Jun Wei, Thu, 1 Oct, 10 AM – 12 PM');
+    const off = await api.call<Job>('POST', `service/jobs/${second.id}/unbook`, 'ADM', { version: moved.body.version });
+    expect(off.body).toMatchObject({ stage: 'NOT_BOOKED', personName: null, whenText: 'After stock arrives' });
+    const again = await book(second.id, people['Lee Jun Wei']!, '2026-10-01', 'STANDARD', 600);
+    const cancelled = await api.call<Job>('POST', `service/jobs/${second.id}/cancel`, 'ADM', { version: again.body.version, reason: 'Customer cancelled the order' });
+    expect(cancelled.body).toMatchObject({ stage: 'CANCELLED', personName: null });
+    expect((await api.get<Board>('service/board?date=2026-10-01')).people[1]!.jobs).toEqual([]);
+  });
+
+  it('marks a job done and closes it, then keeps it as it was', async () => {
+    const booked = (await api.get<{ items: JobRow[] }>('service/jobs?status=booked')).items[0]!;
+    const job = await api.get<Job>(`service/jobs/${booked.id}`);
+    const done = await api.call<Job>('POST', `service/jobs/${job.id}/done`, 'ADM', { version: job.version, note: 'Table assembled, customer happy' });
+    expect(done.body).toMatchObject({ stage: 'DONE', allowedActions: ['close'] });
+    const closed = await api.call<Job>('POST', `service/jobs/${job.id}/close`, 'ADM', { version: done.body.version });
+    expect(closed.body).toMatchObject({ stage: 'CLOSED', allowedActions: [] });
+    expect((await api.call('POST', `service/jobs/${job.id}/unbook`, 'ADM', { version: closed.body.version })).status).toBe(409);
   });
 });

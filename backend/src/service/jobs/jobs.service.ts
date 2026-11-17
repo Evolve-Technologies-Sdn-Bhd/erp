@@ -10,11 +10,15 @@ import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { SVC_DOC_TYPE, SVC_ENTITY, SVC_EVENT, SVC_SEQUENCES } from '../service.constants';
-import type { CancelJobDto, CreateJobDto, UpdateJobDto } from './dto/job.dto';
-import { allowedJobActions, JOB_TYPE_LABEL, manualJobErrors, type JobStage, type JobType, type ReleasedOrder } from './jobs.rules';
+import type { BookJobDto, CancelJobDto, CreateJobDto, DoneJobDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import { bookingRefusal, slotLabel } from '../board/booking.rules';
+import { ServiceSettingsService } from '../settings/settings.service';
+import { allowedJobActions, JOB_STAGE_LABEL, JOB_TYPE_LABEL, manualJobErrors, shortDay, type JobAction, type JobStage, type JobType, type ReleasedOrder } from './jobs.rules';
 import { JobsQuery } from './jobs.query';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+/** What taking a job off the board clears. */
+const FREE_SLOT = { personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null } as const;
 const trimOrNull = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null);
 
 /**
@@ -30,6 +34,7 @@ export class JobsService {
     private readonly activity: ActivityService,
     private readonly outbox: OutboxWriter,
     private readonly clock: ClockService,
+    private readonly settings: ServiceSettingsService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -77,7 +82,7 @@ export class JobsService {
 
   async update(ctx: RequestContext, id: string, dto: UpdateJobDto) {
     const job = await this.query.load(ctx.tenantId, id);
-    this.require(job.stage as JobStage, 'edit', `${job.docNo} is ${job.stage === 'CANCELLED' ? 'cancelled' : 'booked'} and can no longer be changed here.`);
+    this.require(job.stage as JobStage, 'edit', `${job.docNo} is ${JOB_STAGE_LABEL[job.stage as JobStage].toLowerCase()} and can no longer be changed.`);
     const preferredDate = dto.preferredDate === undefined ? undefined : dto.preferredDate || null;
     if (preferredDate && preferredDate < this.clock.today()) throw ValidationFailedError.field('preferredDate', 'The preferred date cannot be in the past.');
     if (dto.siteAddress !== undefined && !dto.siteAddress.trim()) throw ValidationFailedError.field('siteAddress', 'Type the address the installer goes to.');
@@ -90,7 +95,7 @@ export class JobsService {
       ...(dto.note !== undefined && { note: trimOrNull(dto.note) }),
     };
     await this.prisma.$transaction(async (tx) => {
-      await this.bump(tx, ctx, job.id, dto.version, data, 'NOT_BOOKED');
+      await this.bump(tx, ctx, job.id, dto.version, data, ['NOT_BOOKED', 'BOOKED']);
       await this.log(tx, ctx, job.id, job.docNo, 'saved', `Saved by ${ctx.user.name}`);
     });
     return this.query.detail(ctx, id);
@@ -98,15 +103,94 @@ export class JobsService {
 
   async cancel(ctx: RequestContext, id: string, dto: CancelJobDto) {
     const job = await this.query.load(ctx.tenantId, id);
-    this.require(job.stage as JobStage, 'cancel', job.stage === 'CANCELLED' ? `${job.docNo} is cancelled already.` : `${job.docNo} is booked. Cancelling a booked job comes with the planning board.`);
+    this.require(job.stage as JobStage, 'cancel', `${job.docNo} is ${JOB_STAGE_LABEL[job.stage as JobStage].toLowerCase()} and can no longer be cancelled.`);
     const reason = dto.reason.trim();
     await this.prisma.$transaction(async (tx) => {
-      await this.bump(tx, ctx, job.id, dto.version, { stage: 'CANCELLED', cancelReason: reason, cancelledAt: this.clock.now() }, 'NOT_BOOKED');
-      await this.log(tx, ctx, job.id, job.docNo, 'cancelled', `Cancelled by ${ctx.user.name}`, reason);
+      await this.bump(tx, ctx, job.id, dto.version, { stage: 'CANCELLED', cancelReason: reason, cancelledAt: this.clock.now(), ...FREE_SLOT }, ['NOT_BOOKED', 'BOOKED']);
+      await this.log(tx, ctx, job.id, job.docNo, 'cancelled', `Cancelled by ${ctx.user.name}${job.personName ? `; ${job.personName}'s slot is free again` : ''}`, reason);
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_CANCELLED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
         payload: { jobNo: job.docNo, jobType: job.jobType, customerCode: job.customerCode, salesOrderNo: job.salesOrderNo, reason },
       }]);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  // ── Planning Board (F3 part 2) ────────────────────────────────────────────
+
+  /**
+   * Books a job, or moves a booked one: one person, one day, one slot of a slot group. The person's row is locked
+   * while the booking is checked, so two bookings at the same moment can never overlap.
+   */
+  async book(ctx: RequestContext, id: string, dto: BookJobDto) {
+    const job = await this.query.load(ctx.tenantId, id);
+    this.require(job.stage as JobStage, 'book', `${job.docNo} is ${JOB_STAGE_LABEL[job.stage as JobStage].toLowerCase()} and cannot be booked.`);
+    await this.settings.ensureSlotGroups(ctx);
+    const [person, group] = await Promise.all([
+      this.prisma.svcPerson.findFirst({ where: { tenantId: ctx.tenantId, id: dto.personId } }),
+      this.prisma.svcSlotGroup.findFirst({ where: { tenantId: ctx.tenantId, code: dto.slotGroupCode } }),
+    ]);
+    if (!person) throw ValidationFailedError.field('personId', 'Pick a person from the list.');
+    if (!group) throw ValidationFailedError.field('slotGroupCode', 'Pick a slot group from the list.');
+    const moving = job.stage === 'BOOKED';
+
+    await this.prisma.$transaction(async (tx) => {
+      // Lock the person's row: bookings for the same person wait for each other.
+      await tx.$queryRaw`SELECT id FROM svc_person WHERE id = ${person.id} FOR UPDATE`;
+      const taken = await tx.svcJob.findMany({
+        where: { tenantId: ctx.tenantId, personId: person.id, jobDate: day(dto.date), stage: { notIn: ['CANCELLED', 'NOT_BOOKED'] }, id: { not: job.id } },
+        select: { docNo: true, slotStart: true, slotEnd: true },
+      });
+      const refusal = bookingRefusal({
+        jobNo: job.docNo, jobType: job.jobType as JobType, date: dto.date, today: this.clock.today(), start: dto.start,
+        person: { name: person.name, role: person.role, isActive: person.isActive },
+        group,
+        taken: taken.filter((t) => t.slotStart !== null && t.slotEnd !== null).map((t) => ({ docNo: t.docNo, start: t.slotStart!, end: t.slotEnd! })),
+      });
+      if (refusal) throw new BusinessRuleError('SLOT_NOT_FREE', refusal);
+      const end = dto.start + group.slotMinutes;
+      await this.bump(tx, ctx, job.id, dto.version, {
+        stage: 'BOOKED', personId: person.id, personName: person.name, jobDate: day(dto.date), slotStart: dto.start, slotEnd: end,
+        slotGroupCode: group.code, bookedAt: this.clock.now(),
+      }, ['NOT_BOOKED', 'BOOKED']);
+      await this.log(tx, ctx, job.id, job.docNo, moving ? 'moved' : 'booked', `${moving ? 'Moved to' : 'Booked for'} ${person.name}, ${shortDay(dto.date)}, ${slotLabel(dto.start, end)}`);
+      await this.outbox.publish(tx, ctx, [{
+        name: SVC_EVENT.JOB_BOOKED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
+        payload: { jobNo: job.docNo, jobType: job.jobType, personId: person.id, personName: person.name, date: dto.date, start: dto.start, end, moved: moving },
+      }]);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /** Takes a booked job off the board: it waits as Not booked again and the slot is free. */
+  async unbook(ctx: RequestContext, id: string, dto: VersionDto) {
+    const job = await this.query.load(ctx.tenantId, id);
+    this.require(job.stage as JobStage, 'unbook', `${job.docNo} is not booked.`);
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, job.id, dto.version, { stage: 'NOT_BOOKED', ...FREE_SLOT }, 'BOOKED');
+      await this.log(tx, ctx, job.id, job.docNo, 'unbooked', `Taken off the board by ${ctx.user.name}; the slot of ${job.personName} is free again`);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /** The work is done. The installer's own record (photo, paid on site) comes with F3 part 3. */
+  async done(ctx: RequestContext, id: string, dto: DoneJobDto) {
+    const job = await this.query.load(ctx.tenantId, id);
+    this.require(job.stage as JobStage, 'done', `${job.docNo} must be booked before it is done.`);
+    const note = dto.note?.trim() || null;
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, job.id, dto.version, { stage: 'DONE', doneAt: this.clock.now(), doneNote: note }, 'BOOKED');
+      await this.log(tx, ctx, job.id, job.docNo, 'done', `Marked done by ${ctx.user.name}`, note);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  async close(ctx: RequestContext, id: string, dto: VersionDto) {
+    const job = await this.query.load(ctx.tenantId, id);
+    this.require(job.stage as JobStage, 'close', `${job.docNo} must be done before it is closed.`);
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, job.id, dto.version, { stage: 'CLOSED', closedAt: this.clock.now() }, 'DONE');
+      await this.log(tx, ctx, job.id, job.docNo, 'closed', `Closed by ${ctx.user.name}`);
     });
     return this.query.detail(ctx, id);
   }
@@ -159,13 +243,13 @@ export class JobsService {
   }
 
   /** The controller already checked the permission; what is left is whether the job's stage allows the action. */
-  private require(stage: JobStage, action: 'edit' | 'cancel', message: string) {
-    if (!allowedJobActions(stage, true).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
+  private require(stage: JobStage, action: JobAction, message: string) {
+    if (!allowedJobActions(stage, { edit: true, book: true }).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
   }
 
   /** Optimistic lock and stage guard: refuses if someone else changed the job meanwhile. */
-  private async bump(tx: Tx, ctx: RequestContext, id: string, version: number, data: Prisma.SvcJobUpdateManyMutationInput, stage: JobStage) {
-    const result = await tx.svcJob.updateMany({ where: { id, tenantId: ctx.tenantId, version, stage }, data: { ...data, version: { increment: 1 }, updatedBy: ctx.user.code } });
+  private async bump(tx: Tx, ctx: RequestContext, id: string, version: number, data: Prisma.SvcJobUpdateManyMutationInput, stage: JobStage | JobStage[]) {
+    const result = await tx.svcJob.updateMany({ where: { id, tenantId: ctx.tenantId, version, stage: Array.isArray(stage) ? { in: stage } : stage }, data: { ...data, version: { increment: 1 }, updatedBy: ctx.user.code } });
     if (result.count === 0) throw new StaleVersionError();
   }
 

@@ -36,11 +36,18 @@ describe('waitingText', () => {
 });
 
 describe('allowedJobActions', () => {
-  it('lets the office change or cancel only a job not booked yet', () => {
-    expect(allowedJobActions('NOT_BOOKED', true)).toEqual(['edit', 'cancel']);
-    expect(allowedJobActions('BOOKED', true)).toEqual([]);
-    expect(allowedJobActions('CANCELLED', true)).toEqual([]);
-    expect(allowedJobActions('NOT_BOOKED', false)).toEqual([]);
+  const all = { edit: true, book: true };
+  it('follows the simple stages: not booked, booked, done, closed', () => {
+    expect(allowedJobActions('NOT_BOOKED', all)).toEqual(['edit', 'cancel', 'book']);
+    expect(allowedJobActions('BOOKED', all)).toEqual(['edit', 'cancel', 'book', 'unbook', 'done']);
+    expect(allowedJobActions('DONE', all)).toEqual(['close']);
+    expect(allowedJobActions('CLOSED', all)).toEqual([]);
+    expect(allowedJobActions('CANCELLED', all)).toEqual([]);
+  });
+  it('gives each permission only its own actions', () => {
+    expect(allowedJobActions('NOT_BOOKED', { edit: false, book: true })).toEqual(['book']);
+    expect(allowedJobActions('BOOKED', { edit: true, book: false })).toEqual(['edit', 'cancel']);
+    expect(allowedJobActions('NOT_BOOKED', { edit: false, book: false })).toEqual([]);
   });
 });
 

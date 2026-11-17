@@ -142,11 +142,32 @@ async function cancelJob() {
 const STAGES: { key: JobStage; label: string }[] = [
   { key: 'NOT_BOOKED', label: 'Not booked' },
   { key: 'BOOKED', label: 'Booked' },
-  { key: 'ACCEPTED', label: 'Accepted' },
   { key: 'DONE', label: 'Done' },
-  { key: 'CHECKED', label: 'Checked' },
   { key: 'CLOSED', label: 'Closed' },
 ]
+
+// ── Board actions: take off the board, mark done, close ──────────────────────
+const doneOpen = ref(false)
+const doneNote = ref('')
+async function run(action: 'unbook' | 'done' | 'close') {
+  const j = job.value!
+  saving.value = true
+  try {
+    const result = action === 'unbook' ? await serviceJobsApi.unbook(j.id, j.version) : action === 'done' ? await serviceJobsApi.done(j.id, j.version, doneNote.value.trim() || undefined) : await serviceJobsApi.close(j.id, j.version)
+    show(result)
+    doneOpen.value = false
+    doneNote.value = ''
+    toast.add({ severity: 'success', summary: action === 'unbook' ? `${j.docNo} taken off the board` : action === 'done' ? `${j.docNo} done` : `${j.docNo} closed`, life: 3000 })
+  } finally {
+    saving.value = false
+  }
+}
+/** Book or Move opens the board on the booked day, else the day the customer asks for, with this job picked. */
+const boardLink = computed(() => {
+  const j = job.value
+  const date = j?.booking?.date ?? j?.preferredDate ?? undefined
+  return { path: '/service/board', query: { job: j?.id, ...(date ? { date } : {}) } }
+})
 const stageIndex = computed(() => STAGES.findIndex((s) => s.key === job.value?.stage))
 const subtitle = computed(() => {
   const j = job.value
@@ -174,7 +195,11 @@ const asksFor = computed(() => {
       <template #actions>
         <RouterLink to="/service/jobs" class="erp-btn erp-btn-secondary">Back</RouterLink>
         <button v-if="job?.allowedActions.includes('cancel')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelOpen = true">Cancel job</button>
-        <button v-if="editable" type="button" class="erp-btn erp-btn-primary" :disabled="saving || (!isNew && !dirty)" @click="save">{{ isNew ? 'Add job' : 'Save' }}</button>
+        <button v-if="job?.allowedActions.includes('unbook')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="run('unbook')">Take off the board</button>
+        <RouterLink v-if="job?.allowedActions.includes('book')" :to="boardLink" class="erp-btn erp-btn-secondary">{{ job.stage === 'BOOKED' ? 'Move' : 'Book on the board' }}</RouterLink>
+        <button v-if="editable" type="button" class="erp-btn" :class="job?.allowedActions.includes('done') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="saving || (!isNew && !dirty)" @click="save">{{ isNew ? 'Add job' : 'Save' }}</button>
+        <button v-if="job?.allowedActions.includes('done')" type="button" class="erp-btn erp-btn-primary" :disabled="saving || dirty" @click="doneOpen = true">Mark as done</button>
+        <button v-if="job?.allowedActions.includes('close')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="run('close')">Close job</button>
       </template>
     </PageHeader>
 
@@ -279,11 +304,20 @@ const asksFor = computed(() => {
         <SideCard title="Booking">
           <div class="flex flex-col gap-1.5 text-[13px]">
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Type</span><span>{{ job?.typeLabel ?? JOB_TYPE_OPTIONS.find((t) => t.value === form.jobType)?.label }}</span></div>
-            <div class="flex justify-between gap-3"><span class="text-erp-muted">Person</span><span>Not booked</span></div>
+            <div class="flex justify-between gap-3"><span class="text-erp-muted">Person</span><span>{{ job?.booking?.personName ?? 'Not booked' }}</span></div>
+            <div v-if="job?.booking" class="flex justify-between gap-3"><span class="text-erp-muted">Date and slot</span><span class="text-right">{{ job.booking.text }}</span></div>
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Customer asks for</span><span>{{ job ? asksFor : form.preferredDate ? formatDate(form.preferredDate) : '—' }}</span></div>
             <div v-if="job" class="flex justify-between gap-3"><span class="text-erp-muted">Branch</span><span>{{ job.branch.name }}</span></div>
           </div>
-          <p class="m-0 text-xs text-erp-muted">The office books the person, the day and the slot on the planning board (F3 part 2).</p>
+          <p v-if="!job?.booking" class="m-0 text-xs text-erp-muted">The office books the person, the day and the slot on the Planning Board.</p>
+        </SideCard>
+        <SideCard v-if="job?.doneAt" title="Done">
+          <div class="flex flex-col gap-1.5 text-[13px]">
+            <div class="flex justify-between gap-3"><span class="text-erp-muted">Done</span><span>{{ formatDateTime(job.doneAt) }}</span></div>
+            <div v-if="job.closedAt" class="flex justify-between gap-3"><span class="text-erp-muted">Closed</span><span>{{ formatDateTime(job.closedAt) }}</span></div>
+          </div>
+          <p v-if="job.doneNote" class="m-0 text-[13px]">“{{ job.doneNote }}”</p>
+          <p class="m-0 text-xs text-erp-muted">The installer's own record (photo, paid on site) comes with the next part.</p>
         </SideCard>
         <SideCard v-if="job?.salesOrderNo" title="Linked documents">
           <div class="flex justify-between gap-3 text-[13px]">
@@ -304,6 +338,19 @@ const asksFor = computed(() => {
       <template #footer>
         <button type="button" class="erp-btn erp-btn-secondary" @click="cancelOpen = false">Keep the job</button>
         <button type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelJob">Cancel job</button>
+      </template>
+    </Dialog>
+
+    <Dialog v-model:visible="doneOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="`${job?.docNo} done?`">
+      <div class="flex flex-col gap-3">
+        <p class="m-0 text-[13px]">The work at the site is finished. Close the job once the office has nothing left to do on it.</p>
+        <FormField label="Note (optional)" for="job-done-note">
+          <textarea id="job-done-note" v-model="doneNote" rows="3" class="erp-input h-auto py-2" maxlength="500" placeholder="What was done, anything to follow up" />
+        </FormField>
+      </div>
+      <template #footer>
+        <button type="button" class="erp-btn erp-btn-secondary" @click="doneOpen = false">Not yet</button>
+        <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="run('done')">Mark as done</button>
       </template>
     </Dialog>
   </template>

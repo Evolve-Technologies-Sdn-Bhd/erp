@@ -2885,6 +2885,17 @@ model SvcJob {
   preferredDate DateTime?    @db.Date // the customer asks for this day; the office books the slot
   afterStock    Boolean      @default(false) // items were short at release: arranged when stock arrives
   note          String?      @db.Text // note to the installer
+  // Booking (F3 part 2): one person, one day, one slot of a slot group. Minutes from midnight.
+  personId      String?      @db.Char(36)
+  personName    String?      @db.VarChar(100)
+  jobDate       DateTime?    @db.Date
+  slotStart     Int?
+  slotEnd       Int?
+  slotGroupCode String?      @db.VarChar(20)
+  bookedAt      DateTime?    @db.DateTime(3)
+  doneAt        DateTime?    @db.DateTime(3)
+  doneNote      String?      @db.VarChar(500)
+  closedAt      DateTime?    @db.DateTime(3)
   cancelReason  String?      @db.VarChar(300)
   cancelledAt   DateTime?    @db.DateTime(3)
   version       Int          @default(1)
@@ -2898,6 +2909,8 @@ model SvcJob {
   @@unique([tenantId, salesOrderId])
   @@index([tenantId, stage])
   @@index([tenantId, customerCode])
+  @@index([tenantId, personId, jobDate])
+  @@index([tenantId, jobDate])
   @@map("svc_job")
 }
 
@@ -2916,4 +2929,44 @@ model SvcJobItem {
   @@unique([jobId, lineNo])
   @@index([tenantId, itemCode])
   @@map("svc_job_item")
+}
+
+/// The people the office books (F3 part 2): installers, technicians and warranty staff. Kept by Service; they need no
+/// ERP sign-in until the phone app comes. The role decides which job types they take.
+model SvcPerson {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  name      String   @db.VarChar(100)
+  role      String   @db.VarChar(12) // INSTALLER, TECHNICIAN, WARRANTY
+  phone     String?  @db.VarChar(40)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  createdBy String   @db.VarChar(20)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  updatedBy String   @db.VarChar(20)
+
+  @@index([tenantId, isActive])
+  @@map("svc_person")
+}
+
+/// The time slots the planning board offers (SvcSettings.html): slots of one length from the first start to the last end.
+model SvcSlotGroup {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  code        String   @db.VarChar(20) // STANDARD
+  name        String   @db.VarChar(60)
+  slotMinutes Int
+  firstStart  Int // minutes from midnight: 600 = 10:00 AM
+  lastEnd     Int
+  jobTypes    String   @db.VarChar(60) // INSTALLATION,SERVICE …
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  version     Int      @default(1)
+  updatedAt   DateTime @updatedAt @db.DateTime(3)
+  updatedBy   String   @db.VarChar(20)
+
+  @@unique([tenantId, code])
+  @@map("svc_slot_group")
 }

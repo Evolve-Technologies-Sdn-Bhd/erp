@@ -12,7 +12,8 @@ import { PrismaService } from '../../platform/prisma/prisma.service';
 import { SVC_ENTITY } from '../service.constants';
 import { SERVICE_PERMISSIONS as P } from '../service.permissions';
 import type { JobListQueryDto } from './dto/job.dto';
-import { allowedJobActions, JOB_STAGE_LABEL, JOB_STAGES, JOB_TYPE_LABEL, waitingText, type JobStage, type JobType } from './jobs.rules';
+import { slotLabel } from '../board/booking.rules';
+import { allowedJobActions, JOB_STAGE_LABEL, JOB_STAGES, JOB_TYPE_LABEL, shortDay, waitingText, type JobStage, type JobType } from './jobs.rules';
 
 export type JobWithItems = SvcJob & { items: SvcJobItem[] };
 
@@ -85,7 +86,13 @@ export class JobsQuery {
       items: job.items.map((i) => ({ lineNo: i.lineNo, itemCode: i.itemCode, itemName: i.itemName, qty: toQty(i.qty), uomCode: i.uomCode, serialNo: i.serialNo })),
       activity,
       version: job.version,
-      allowedActions: allowedJobActions(job.stage as JobStage, this.permissions.has(ctx.user.roles, P.JOB_EDIT)),
+      booking: job.jobDate && job.slotStart !== null && job.slotEnd !== null
+        ? { personId: job.personId, personName: job.personName, date: iso(job.jobDate), start: job.slotStart, end: job.slotEnd, slotGroupCode: job.slotGroupCode, text: `${shortDay(iso(job.jobDate)!)} · ${slotLabel(job.slotStart, job.slotEnd)}` }
+        : null,
+      doneAt: job.doneAt?.toISOString() ?? null,
+      doneNote: job.doneNote,
+      closedAt: job.closedAt?.toISOString() ?? null,
+      allowedActions: allowedJobActions(job.stage as JobStage, { edit: this.permissions.has(ctx.user.roles, P.JOB_EDIT), book: this.permissions.has(ctx.user.roles, P.JOB_BOOK) }),
     };
   }
 
@@ -119,9 +126,12 @@ export class JobsQuery {
       customerName: j.customerName,
       area: j.area,
       salesOrderNo: j.salesOrderNo,
-      /** Booking (part 2) fills the person and the slot; until then the list says what the customer asks for. */
-      personName: null as string | null,
-      whenText: waitingText({ preferredDate: iso(j.preferredDate), afterStock: j.afterStock }),
+      preferredDate: iso(j.preferredDate),
+      personName: j.personName,
+      /** "Tue, 29 Sep · 10 AM – 12 PM" once booked; before that, what the customer asks for. */
+      whenText: j.jobDate && j.slotStart !== null && j.slotEnd !== null
+        ? `${shortDay(iso(j.jobDate)!)} · ${slotLabel(j.slotStart, j.slotEnd)}`
+        : waitingText({ preferredDate: iso(j.preferredDate), afterStock: j.afterStock }),
       stage: j.stage,
       stageLabel: JOB_STAGE_LABEL[j.stage as JobStage],
       createdAt: j.createdAt.toISOString(),

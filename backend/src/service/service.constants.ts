@@ -15,6 +15,7 @@ export const SVC_SEQUENCES = [{ docType: SVC_DOC_TYPE.JOB, name: 'Service job', 
 export const SVC_EVENT = {
   JOB_CREATED: 'service.job.created',
   JOB_CANCELLED: 'service.job.cancelled',
+  JOB_BOOKED: 'service.job.booked',
 } as const;
 
 /** Who makes a job from a released sales order. */

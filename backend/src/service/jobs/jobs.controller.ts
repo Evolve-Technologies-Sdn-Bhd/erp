@@ -5,7 +5,8 @@ import { CurrentContext, RequirePermission } from '../../platform/context/contex
 import type { RequestContext } from '../../platform/context/request-context';
 import { ServiceOnGuard } from '../service-on.guard';
 import { SERVICE_PERMISSIONS as P } from '../service.permissions';
-import { CancelJobDto, CreateJobDto, JobListQueryDto, UpdateJobDto } from './dto/job.dto';
+import { BookJobDto, CancelJobDto, CreateJobDto, DoneJobDto, JobListQueryDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import { BoardQuery } from '../board/board.query';
 import { JobsQuery } from './jobs.query';
 import { JobsService } from './jobs.service';
 
@@ -54,6 +55,31 @@ export class ServiceJobsController {
   cancel(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CancelJobDto) {
     return this.service.cancel(ctx, id, dto);
   }
+
+  /** Book a job, or move a booked one, on the Planning Board. */
+  @Post(':id/book')
+  @RequirePermission(P.JOB_BOOK)
+  book(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: BookJobDto) {
+    return this.service.book(ctx, id, dto);
+  }
+
+  @Post(':id/unbook')
+  @RequirePermission(P.JOB_BOOK)
+  unbook(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
+    return this.service.unbook(ctx, id, dto);
+  }
+
+  @Post(':id/done')
+  @RequirePermission(P.JOB_BOOK)
+  done(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: DoneJobDto) {
+    return this.service.done(ctx, id, dto);
+  }
+
+  @Post(':id/close')
+  @RequirePermission(P.JOB_BOOK)
+  close(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
+    return this.service.close(ctx, id, dto);
+  }
 }
 
 /** V01 · Service home and the pickers — /api/v1/service. */
@@ -62,13 +88,15 @@ export class ServiceJobsController {
 export class ServiceHomeController {
   constructor(
     private readonly query: JobsQuery,
+    private readonly board: BoardQuery,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
   @Get('home')
   @RequirePermission(P.VIEW)
-  home(@CurrentContext() ctx: RequestContext) {
-    return this.query.home(ctx);
+  async home(@CurrentContext() ctx: RequestContext) {
+    const [home, byPerson] = await Promise.all([this.query.home(ctx), this.board.todayByPerson(ctx)]);
+    return { ...home, byPerson, today: { jobs: byPerson.reduce((s, p) => s + p.jobs, 0), done: byPerson.reduce((s, p) => s + p.done, 0) }, date: home.today };
   }
 
   /** Customers for a job added by hand: active ones and prospects, with the site details to copy. */

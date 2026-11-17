@@ -1,0 +1,255 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
+import { ChevronLeft, ChevronRight, Plus } from '@lucide/vue'
+import PageHeader from '@/components/erp/PageHeader.vue'
+import { useSession } from '@/composables/useSession'
+import { formatDate } from '@/utils/format'
+import { serviceApi, serviceJobsApi } from '../api/service'
+import type { Board, BoardWaiting, JobType, SlotGroup } from '../types'
+import { TYPE_BLOCK, TYPE_DOT } from './stages'
+
+/**
+ * V02 · Planning Board (SvcBoard.html, kept simple): one day at a time. Pick a job, a slot group, then a free slot on
+ * someone who takes that job. Two jobs for one person can never overlap; the server checks again on booking.
+ */
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
+const confirm = useConfirm()
+const { can } = useSession()
+
+const board = ref<Board | null>(null)
+const loading = ref(true)
+const busy = ref(false)
+/** The job being booked: one waiting on the left, or a booked one being moved (?job=). */
+const picked = ref<(BoardWaiting & { moving?: boolean; bookedPerson?: string | null }) | null>(null)
+const groupCode = ref('')
+
+const date = computed(() => (typeof route.query.date === 'string' ? route.query.date : ''))
+
+async function load() {
+  loading.value = true
+  try {
+    board.value = await serviceApi.board(date.value || undefined)
+    await pickFromQuery()
+  } finally {
+    loading.value = false
+  }
+}
+onMounted(load)
+watch(() => route.query.date, load)
+
+/** ?job= picks a job when the board opens: from the job page's Book or Move. */
+async function pickFromQuery() {
+  const id = typeof route.query.job === 'string' ? route.query.job : null
+  if (!id || picked.value?.id === id) return
+  const waiting = board.value?.notBooked.find((j) => j.id === id)
+  if (waiting) return pick(waiting)
+  const j = await serviceJobsApi.get(id)
+  if (j.stage !== 'BOOKED') return
+  pick({
+    id: j.id, docNo: j.docNo, jobType: j.jobType, typeLabel: j.typeLabel, customerName: j.customerName, area: j.area, salesOrderNo: j.salesOrderNo,
+    preferredDate: j.preferredDate, afterStock: j.afterStock, whenText: j.whenText, version: j.version, asksForThisDay: false, moving: true, bookedPerson: j.booking?.personName ?? null,
+  })
+}
+
+function pick(j: (BoardWaiting & { moving?: boolean; bookedPerson?: string | null }) | null) {
+  picked.value = picked.value?.id === j?.id ? null : j
+  const groups = picked.value ? groupsFor(picked.value.jobType) : []
+  if (!groups.some((g) => g.code === groupCode.value)) groupCode.value = groups[0]?.code ?? ''
+}
+
+function goTo(d: string) {
+  void router.replace({ query: { ...route.query, date: d } })
+}
+function shift(days: number) {
+  const base = new Date(`${board.value?.date ?? date.value}T00:00:00Z`)
+  base.setUTCDate(base.getUTCDate() + days)
+  goTo(base.toISOString().slice(0, 10))
+}
+
+const groupsFor = (type: JobType): SlotGroup[] => board.value?.slotGroups.filter((g) => g.jobTypes.includes(type)) ?? []
+const group = computed(() => board.value?.slotGroups.find((g) => g.code === groupCode.value) ?? null)
+const past = computed(() => Boolean(board.value && board.value.date < board.value.today))
+
+// ── The time grid ────────────────────────────────────────────────────────────
+const dayStart = computed(() => Math.min(540, ...(board.value?.slotGroups.map((g) => g.firstStart) ?? [])))
+const dayEnd = computed(() => Math.max(1080, ...(board.value?.slotGroups.map((g) => g.lastEnd) ?? [])))
+const hours = computed(() => {
+  const out: number[] = []
+  for (let m = dayStart.value; m < dayEnd.value; m += 60) out.push(m)
+  return out
+})
+const pct = (m: number) => ((m - dayStart.value) / (dayEnd.value - dayStart.value)) * 100
+const hourLabel = (m: number) => {
+  const h = Math.floor(m / 60)
+  return `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+/** Free slots of the chosen group for a person who takes the picked job: none that overlap their other jobs. */
+function freeSlots(personId: string) {
+  const p = board.value?.people.find((x) => x.id === personId)
+  if (!p || !picked.value || !group.value || past.value || !p.jobTypes.includes(picked.value.jobType)) return []
+  const others = p.jobs.filter((j) => j.id !== picked.value!.id)
+  return group.value.slots.filter((s) => !others.some((o) => s.start < o.end && o.start < s.end))
+}
+const takes = (personJobTypes: JobType[]) => !picked.value || personJobTypes.includes(picked.value.jobType)
+const hidden = computed(() => (picked.value ? (board.value?.people.filter((p) => !p.jobTypes.includes(picked.value!.jobType)) ?? []) : []))
+
+function bookSlot(personId: string, slot: { start: number; end: number; label: string }) {
+  const j = picked.value
+  const p = board.value?.people.find((x) => x.id === personId)
+  if (!j || !p || !group.value) return
+  const g = group.value
+  confirm.require({
+    header: `${j.moving ? 'Move' : 'Book'} ${j.docNo}?`,
+    message: `${j.typeLabel} for ${j.customerName}: ${p.name}, ${board.value!.dateText}, ${slot.label} (${g.name}).`,
+    acceptLabel: j.moving ? 'Move' : 'Book',
+    rejectLabel: 'Cancel',
+    accept: async () => {
+      busy.value = true
+      try {
+        const latest = await serviceJobsApi.get(j.id)
+        await serviceJobsApi.book(j.id, { version: latest.version, personId, date: board.value!.date, slotGroupCode: g.code, start: slot.start })
+        toast.add({ severity: 'success', summary: `${j.docNo} ${j.moving ? 'moved' : 'booked'}`, detail: `${p.name}, ${board.value!.dateText}, ${slot.label}`, life: 3500 })
+        picked.value = null
+        if (route.query.job) await router.replace({ query: { ...route.query, job: undefined } })
+        await load()
+      } catch {
+        await load()
+      } finally {
+        busy.value = false
+      }
+    },
+  })
+}
+</script>
+
+<template>
+  <section class="erp-card flex grow flex-col gap-4 px-6 py-[18px]">
+    <PageHeader title="Planning Board" subtitle="One day at a time. Pick a job, a person and a free slot. Two jobs for one person can never overlap.">
+      <template #actions>
+        <RouterLink v-if="can('service.job.edit')" to="/service/jobs/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New job</RouterLink>
+      </template>
+    </PageHeader>
+
+    <div v-if="board" class="flex items-center gap-2">
+      <button type="button" class="erp-btn erp-btn-secondary h-9 w-9 justify-center px-0" aria-label="Day before" @click="shift(-1)"><ChevronLeft :size="16" /></button>
+      <span class="min-w-[170px] text-center text-[15px] font-bold">{{ board.dateText }} {{ board.date.slice(0, 4) }}</span>
+      <button type="button" class="erp-btn erp-btn-secondary h-9 w-9 justify-center px-0" aria-label="Next day" @click="shift(1)"><ChevronRight :size="16" /></button>
+      <button v-if="board.date !== board.today" type="button" class="erp-btn erp-btn-secondary" @click="goTo(board.today)">Today</button>
+      <span v-if="past" class="text-xs text-erp-muted">A day that has passed: nothing can be booked on it.</span>
+    </div>
+
+    <div v-if="loading && !board" class="py-10 text-center text-[13px] text-erp-muted">Loading…</div>
+
+    <div v-else-if="board" class="grid items-start gap-4 grid-cols-[290px_minmax(0,1fr)]">
+      <!-- Waiting to be booked -->
+      <aside class="flex flex-col gap-2">
+        <h2 class="m-0 text-[13px] font-bold">Not booked ({{ board.notBooked.length }})</h2>
+        <p v-if="!board.notBooked.length && !picked?.moving" class="m-0 text-xs text-erp-muted">Everything is booked.</p>
+        <div
+          v-if="picked?.moving"
+          class="rounded-lg border-2 border-mod-primary bg-mod-light px-3 py-2 text-[13px]"
+        >
+          <div class="font-semibold">Moving {{ picked.docNo }} · {{ picked.typeLabel }}</div>
+          <div class="text-xs text-erp-muted">{{ picked.customerName }} · now with {{ picked.bookedPerson }}</div>
+        </div>
+        <button
+          v-for="j in board.notBooked"
+          :key="j.id"
+          type="button"
+          class="flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left text-[13px] transition-colors"
+          :class="picked?.id === j.id ? 'border-2 border-mod-primary bg-mod-light' : 'border-erp-border bg-erp-card hover:border-mod-line'"
+          @click="pick(j)"
+        >
+          <span class="flex items-center gap-1.5 font-semibold">
+            <span class="h-2 w-2 rounded-full" :class="TYPE_DOT[j.jobType]" aria-hidden="true" />{{ j.docNo }} · {{ j.typeLabel }}
+            <span v-if="j.asksForThisDay" class="text-attention" title="The customer asks for this day">★</span>
+          </span>
+          <span class="text-xs">{{ j.customerName }}<template v-if="j.area"> · {{ j.area }}</template></span>
+          <span class="text-xs text-erp-muted">{{ j.salesOrderNo ? `${j.salesOrderNo} · ` : '' }}{{ j.whenText.toLowerCase() === '—' ? 'no date asked' : j.whenText.replace('Asks', 'asks') }}</span>
+        </button>
+
+        <div v-if="picked" class="mt-2 flex flex-col gap-2 rounded-lg border border-erp-border bg-erp-head px-3 py-3 text-[13px]">
+          <label class="flex flex-col gap-1 font-semibold">
+            Slot group
+            <select v-model="groupCode" class="erp-input">
+              <option v-for="g in groupsFor(picked.jobType)" :key="g.code" :value="g.code">{{ g.name }} · {{ g.slotMinutes / 60 }} h</option>
+            </select>
+          </label>
+          <p v-if="!groupsFor(picked.jobType).length" class="m-0 text-xs text-note-error-text">No slot group is for {{ picked.typeLabel.toLowerCase() }} jobs. Add one in Slots and Stages.</p>
+          <p v-else class="m-0 text-xs text-erp-muted">Click a free slot on the right to {{ picked.moving ? 'move' : 'book' }} {{ picked.docNo }}.</p>
+          <button type="button" class="erp-btn erp-btn-secondary" @click="pick(null)">Cancel</button>
+        </div>
+      </aside>
+
+      <!-- The day -->
+      <div class="flex min-w-0 flex-col gap-2">
+        <p v-if="!board.people.length" class="m-0 rounded-lg border border-dashed border-erp-border px-4 py-6 text-center text-[13px] text-erp-muted">
+          Nobody to book yet. Add your installers and technicians in <RouterLink to="/service/settings" class="erp-link">Slots and Stages</RouterLink>.
+        </p>
+        <template v-else>
+          <div class="grid grid-cols-[170px_minmax(0,1fr)] text-[11px] font-semibold text-erp-muted">
+            <span />
+            <div class="relative h-4">
+              <span v-for="h in hours" :key="h" class="absolute -translate-x-1/2" :style="{ left: `${pct(h)}%` }">{{ hourLabel(h) }}</span>
+            </div>
+          </div>
+          <div
+            v-for="p in board.people"
+            :key="p.id"
+            class="grid grid-cols-[170px_minmax(0,1fr)] items-stretch rounded-lg border border-erp-border"
+            :class="{ 'opacity-40': !takes(p.jobTypes) }"
+          >
+            <div class="flex flex-col justify-center border-r border-erp-border px-3 py-2">
+              <span class="text-[13px] font-semibold">{{ p.name }}</span>
+              <span class="text-xs text-erp-muted">{{ p.roleLabel }} · {{ p.jobs.length }} job{{ p.jobs.length === 1 ? '' : 's' }}</span>
+            </div>
+            <div class="relative h-[64px]">
+              <span v-for="h in hours" :key="h" class="absolute top-0 bottom-0 border-l border-erp-row" :style="{ left: `${pct(h)}%` }" aria-hidden="true" />
+              <RouterLink
+                v-for="j in p.jobs"
+                :key="j.id"
+                :to="`/service/jobs/${j.id}`"
+                class="absolute top-1.5 bottom-1.5 flex flex-col justify-center overflow-hidden rounded-md border text-[11px] leading-tight"
+                :class="[TYPE_BLOCK[j.jobType], picked?.id === j.id ? 'ring-2 ring-mod-primary' : '', j.end - j.start <= 60 ? 'px-1' : 'px-2']"
+                :style="{ left: `${pct(j.start)}%`, width: `${pct(j.end) - pct(j.start)}%` }"
+                :title="`${j.docNo} · ${j.typeLabel} · ${j.customerName} · ${j.slotText} · ${j.stageLabel}`"
+              >
+                <span class="truncate font-semibold">{{ j.end - j.start <= 60 ? j.docNo : `${j.docNo} · ${j.typeLabel}` }}</span>
+                <span class="truncate">{{ j.customerName }}</span>
+                <span class="truncate opacity-75">{{ j.stageLabel }}</span>
+              </RouterLink>
+              <button
+                v-for="s in freeSlots(p.id)"
+                :key="s.start"
+                type="button"
+                class="absolute top-1.5 bottom-1.5 rounded-md border-2 border-dashed border-mod-line bg-mod-light text-[11px] font-semibold text-mod-accent hover:bg-mod-chip-bg"
+                :style="{ left: `${pct(s.start)}%`, width: `${pct(s.end) - pct(s.start)}%` }"
+                :disabled="busy"
+                :aria-label="`Book ${p.name}, ${s.label}`"
+                @click="bookSlot(p.id, s)"
+              >
+                Free · {{ s.label }}
+              </button>
+            </div>
+          </div>
+          <p v-if="hidden.length" class="m-0 text-xs text-erp-muted">
+            Greyed out for {{ picked?.docNo }}: {{ hidden.map((p) => `${p.name} (${p.roleLabel})`).join(', ') }} do not take {{ picked?.typeLabel.toLowerCase() }} jobs.
+          </p>
+          <div class="flex flex-wrap gap-4 pt-1 text-xs text-erp-muted">
+            <span v-for="t in (['INSTALLATION', 'SERVICE', 'WARRANTY', 'REPAIR'] as JobType[])" :key="t" class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full" :class="TYPE_DOT[t]" aria-hidden="true" />{{ t.charAt(0) + t.slice(1).toLowerCase() }}
+            </span>
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-4 rounded-sm border-2 border-dashed border-mod-line bg-mod-light" aria-hidden="true" />Free slot</span>
+            <span v-if="board.date !== board.today">Showing {{ formatDate(board.date) }}</span>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+</template>

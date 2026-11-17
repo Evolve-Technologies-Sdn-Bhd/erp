@@ -76,3 +76,39 @@ export class CancelJobDto {
   @MaxLength(300)
   reason!: string;
 }
+
+export class VersionDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  version!: number;
+}
+
+/** Book a job, or move a booked one (Planning Board, F3 part 2). */
+export class BookJobDto extends VersionDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Pick a person from the list.' })
+  @MaxLength(36)
+  personId!: string;
+
+  @Matches(DATE_ONLY, { message: 'Date must look like 2026-10-01.' })
+  date!: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Pick a slot group from the list.' })
+  @MaxLength(20)
+  slotGroupCode!: string;
+
+  /** Minutes from midnight: 720 = 12 PM. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  start!: number;
+}
+
+export class DoneJobDto extends VersionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}

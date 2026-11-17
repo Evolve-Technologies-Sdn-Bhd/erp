@@ -17,7 +17,7 @@ export const JOB_STAGE_LABEL: Record<JobStage, string> = {
   NOT_BOOKED: 'Not booked', BOOKED: 'Booked', ACCEPTED: 'Accepted', DONE: 'Done', CHECKED: 'Checked', CLOSED: 'Closed', CANCELLED: 'Cancelled',
 };
 
-export type JobAction = 'edit' | 'cancel';
+export type JobAction = 'edit' | 'cancel' | 'book' | 'unbook' | 'done' | 'close';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -27,10 +27,22 @@ export function shortDay(iso: string): string {
   return `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
-/** What the office may do with a job. Only a job nobody has booked can be changed or cancelled in this part. */
-export function allowedJobActions(stage: JobStage, canEdit: boolean): JobAction[] {
-  if (!canEdit) return [];
-  return stage === 'NOT_BOOKED' ? ['edit', 'cancel'] : [];
+/**
+ * What the office may do with a job. Stages kept simple (user, 17 Nov 2026): Not booked → Booked → Done → Closed, or
+ * Cancelled. Accepted and Checked stay unused until the phone app or an office check is asked for.
+ * - Not booked: change, cancel, book.
+ * - Booked: change, cancel, move to another slot, take off the board, mark done.
+ * - Done: close. Closed and Cancelled are kept as they are.
+ */
+export function allowedJobActions(stage: JobStage, can: { edit: boolean; book: boolean }): JobAction[] {
+  const out: JobAction[] = [];
+  if (stage === 'NOT_BOOKED' || stage === 'BOOKED') {
+    if (can.edit) out.push('edit', 'cancel');
+    if (can.book) out.push('book');
+    if (can.book && stage === 'BOOKED') out.push('unbook', 'done');
+  }
+  if (stage === 'DONE' && can.book) out.push('close');
+  return out;
 }
 
 /** "Asks for Thu, 1 Oct", "After stock arrives" or "—": what the customer wants, for a job not booked yet (SvcJobs.html). */

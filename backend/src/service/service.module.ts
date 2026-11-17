@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env';
 import { PermissionCatalogue } from '../platform/context/permission-catalogue';
 import { ScopeRegistry } from '../platform/scope/scope.registry';
+import { ServiceBoardController, ServiceSettingsController } from './board/board.controller';
+import { BoardQuery } from './board/board.query';
 import { ServiceHomeController, ServiceJobsController } from './jobs/jobs.controller';
+import { ServiceSettingsService } from './settings/settings.service';
 import { JobsQuery } from './jobs/jobs.query';
 import { JobsService } from './jobs/jobs.service';
 import { JobFromOrderListener } from './sales-link/job-from-order.listener';
@@ -17,8 +20,8 @@ import { SERVICE_SCOPE_RULES } from './service.scope';
  * server runs with SERVICE_MODULE=on: no permissions in the role editor, no listener, and its routes answer 404.
  */
 @Module({
-  controllers: [ServiceJobsController, ServiceHomeController],
-  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener],
+  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController],
+  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, BoardQuery, ServiceSettingsService],
 })
 export class ServiceModule implements OnModuleInit {
   constructor(

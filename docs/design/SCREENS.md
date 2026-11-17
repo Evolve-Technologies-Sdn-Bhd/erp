@@ -199,9 +199,9 @@ The Service module is new: orange (side `#C2410C`, primary `#9A3412`, light `#FF
 | C15 | Package list. **Built (F1, parts 2 and 3)**, the Orders column from the record-usage check · `GET /api/v1/core/packages` | `CorePackages.html` | `/core/packages` |
 | C16 | Package: items, package price, free gift. **Built (F1, part 2)**, without branches and gift stock · `GET, POST, PATCH, DELETE /api/v1/core/packages/:id`, `POST …/end`, `GET /api/v1/core/lookups/active-items?q=` (gift picker) | `CorePackageForm.html` | `/core/packages/:id` |
 | V01 | Service home. **Built (F3, part 1):** not booked, oldest waiting, waiting to be booked · `GET /api/v1/service/home`; today by person comes with the booking board | `SvcHome.html` | `/service` |
-| V02 | Planning Board (named as in the user's Service design) | `SvcBoard.html` | `/service/board` |
+| V02 | Planning Board (named as in the user's Service design). **Built (F3, part 2):** one day, a row per person, free slots for the picked job, book and move · `GET /api/v1/service/board?date=`, `POST /api/v1/service/jobs/:id/book` | `SvcBoard.html` | `/service/board` |
 | V03 | Job list. **Built (F3, part 1)**, person and slot fill in with the booking board · `GET /api/v1/service/jobs` | `SvcJobs.html` | `/service/jobs` |
 | V04 | Job: stages, booking, what the installer recorded, fees. **Built (F3, part 1):** customer and site, preferred date, note, items, activity, stage bar, cancel; and a job added by the office (`/service/jobs/new`) · `GET`, `POST`, `PATCH /api/v1/service/jobs/:id`, `POST …/cancel`, `GET /api/v1/service/lookups/customers` | `SvcJob.html` | `/service/jobs/:id` |
-| V05 | Slots and stages | `SvcSettings.html` | `/service/settings` |
+| V05 | Slots and stages. **Built (F3, part 2):** people (kept by Service), slot groups, who takes which job, the fixed stages · `GET /api/v1/service/settings`, `POST`, `PATCH …/people`, `…/slot-groups` | `SvcSettings.html` | `/service/settings` |
 
 Still to draw, with the step that needs them: the quotation list as the office sees it with the profile on (F1), fee and commission rules and their report (F5), warranty jobs and service reminders (F6).
