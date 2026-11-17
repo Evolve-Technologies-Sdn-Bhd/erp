@@ -106,14 +106,14 @@ export class SalesPoliciesService {
   /** Which steps the company uses. Anyone in Sales reads it: the menu and the forms follow it. */
   async salesFlow(ctx: RequestContext) {
     const [s, history] = await Promise.all([this.setting(ctx.tenantId), this.history(ctx.tenantId, 'SALES_FLOW')]);
-    const switches: FlowSwitches = { useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations };
+    const switches: FlowSwitches = { useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations, askInstallation: s.askInstallation };
     return { switches, labels: FLOW_SWITCHES, history };
   }
 
   async saveSalesFlow(ctx: RequestContext, dto: SaveSalesFlowDto) {
     const s = await this.setting(ctx.tenantId);
-    const after: FlowSwitches = { useEnquiries: dto.useEnquiries, officeDraftsQuotations: dto.officeDraftsQuotations };
-    const changes = flowChanges({ useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations }, after);
+    const after: FlowSwitches = { useEnquiries: dto.useEnquiries, officeDraftsQuotations: dto.officeDraftsQuotations, askInstallation: dto.askInstallation };
+    const changes = flowChanges({ useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations, askInstallation: s.askInstallation }, after);
     if (changes.length) {
       await this.prisma.$transaction(async (tx) => {
         await tx.salSetting.update({ where: { tenantId: ctx.tenantId }, data: { ...after, updatedBy: ctx.user.code } });

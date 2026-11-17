@@ -21,6 +21,7 @@ import type { MdCustomer } from '../../master-data/master-data.port';
 import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.constants';
 import type { CreateOrderDto, RequestApprovalDto, UpdateOrderDto } from './dto/order.dto';
 import { ORDER_LOCKED_MESSAGE, stockShortfall, type OrderAction } from './order.rules';
+import { installationErrors, installationFields, releaseInstallation } from './installation.rules';
 import { OrdersQuery, type OrderWithLines } from './orders.query';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -67,9 +68,10 @@ export class OrdersService {
     const priced = await this.withVouchers(ctx.tenantId, lines.lines, dto.vouchers ?? []);
     const built = { ...lines, totals: priced.totals, vouchers: priced.vouchers };
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(built.totals.total), branchCode });
+    const install = await this.installation(ctx.tenantId, docDate, { option: dto.installOption, date: dto.installDate });
     const warehouseCode = await this.docs.warehouseFor(ctx, branchCode);
     const agent = await this.docs.agentFor(ctx, customer);
-    return { dto, docDate, customer, branchCode, built, credit, warehouseCode, agent };
+    return { dto, docDate, customer, branchCode, built, credit, warehouseCode, agent, install };
   }
 
   /** Writes a prepared draft order in the caller's transaction: number, lines, activity. */
@@ -79,7 +81,7 @@ export class OrdersService {
     prepared: Awaited<ReturnType<OrdersService['prepareDraft']>>,
     source: { quotationId?: string; quotationNo?: string; enquiryNo?: string | null; agent?: { code: string; name: string }; message?: string },
   ): Promise<{ id: string; docNo: string }> {
-    const { dto, docDate, customer, branchCode, built, credit, warehouseCode } = prepared;
+    const { dto, docDate, customer, branchCode, built, credit, warehouseCode, install } = prepared;
     const agent = source.agent ?? prepared.agent;
     const docNo = await this.numbering.next(tx, ctx.tenantId, SAL_DOC_TYPE.ORDER, { date: docDate, branchCode });
     const order = await tx.salSalesOrder.create({
@@ -90,6 +92,7 @@ export class OrdersService {
         currency: 'MYR', taxMode: 'EXCLUSIVE', creditTermDays: customer.creditTermDays, priceListCode: customer.priceListCode,
         customerPoRef: dto.customerPoRef?.trim() || null, project: dto.project?.trim() || null,
         deliveryAddress: dto.deliveryAddress?.trim() || customer.deliveryAddress, remarks: dto.remarks?.trim() || null,
+        installOption: install.installOption, installDate: install.installDate ? day(install.installDate) : null,
         quotationId: source.quotationId ?? null, quotationNo: source.quotationNo ?? null, enquiryNo: source.enquiryNo ?? null,
         ...built.totals, creditResult: credit.check.result, creditSnapshot: credit.snapshot,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
@@ -115,6 +118,7 @@ export class OrdersService {
     const priced = built || dto.vouchers
       ? await this.withVouchers(ctx.tenantId, built?.lines ?? order.lines, dto.vouchers ?? order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: v.amount, description: v.description, taxCode: v.taxCode })))
       : null;
+    const install = await this.installation(ctx.tenantId, docDate, { option: dto.installOption, date: dto.installDate }, { option: order.installOption, date: order.installDate ? iso(order.installDate) : null });
     const total = priced ? priced.totals.total : order.total;
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(total), branchCode, excludeOrderId: order.id });
 
@@ -132,6 +136,7 @@ export class OrdersService {
         ...(dto.deliveryAddress !== undefined && { deliveryAddress: dto.deliveryAddress.trim() || null }),
         ...(dto.orderTypeCode && { orderTypeCode: dto.orderTypeCode }),
         ...(dto.remarks !== undefined && { remarks: dto.remarks.trim() || null }),
+        installOption: install.installOption, installDate: install.installDate ? day(install.installDate) : null,
         ...(customerChanged && {
           customerId: customer.id, customerCode: customer.code, customerName: customer.name, branchCode, creditTermDays: customer.creditTermDays,
           priceListCode: customer.priceListCode, warehouseCode: await this.docs.warehouseFor(ctx, branchCode),
@@ -239,10 +244,15 @@ export class OrdersService {
       itemCode: l.itemCode, qty: l.orderedQty, isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
       onHand: stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === order.warehouseCode).reduce((sum, s) => sum.add(dec(s.onHand)), dec(0)),
     })));
+    // Installation (phase 5): the date is needed when every item is in stock; short or bought-to-order items wait for stock.
+    const allInStock = !shortfall && !order.lines.some((l) => l.isBuyToOrder);
+    const install = releaseInstallation({ installOption: order.installOption, installDate: order.installDate ? iso(order.installDate) : null }, allInStock);
+    if (install.refusal) throw new BusinessRuleError('INSTALL_DATE_REQUIRED', install.refusal);
     const now = this.clock.now();
 
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, order.id, version, {
+        installAfterStock: install.afterStock,
         status: 'RELEASED', releasedAt: now, releasedByCode: ctx.user.code, releasedByName: ctx.user.name,
         ...(credit && !order.approvedAt && { creditResult: credit.check.result, creditSnapshot: credit.snapshot }),
       }, 'DRAFT');
@@ -255,6 +265,9 @@ export class OrdersService {
           soNo: order.docNo, docDate: iso(order.docDate), branchCode: order.branchCode, customerCode: customer.code, customerName: customer.name,
           total: toMoney(order.total), deliveryWantedBy: order.deliveryWantedBy ? iso(order.deliveryWantedBy) : null, warehouseCode: order.warehouseCode,
           lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder, lineKind: l.lineKind, packageCode: l.packageCode })),
+          installation: order.installOption
+            ? { option: order.installOption, preferredDate: order.installDate ? iso(order.installDate) : null, afterStock: install.afterStock }
+            : null,
           vouchers: order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: toMoney(v.amount), taxCode: v.taxCode, taxAmount: toMoney(v.taxAmount) })),
         },
       }]);
@@ -263,6 +276,15 @@ export class OrdersService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /** The installation option and preferred date the order keeps (phase 5): only when the company asks for them. */
+  private async installation(tenantId: string, docDate: string, input: { option?: string | null; date?: string | null }, current: { option: string | null; date: string | null } | null = null) {
+    const setting = await this.prisma.salSetting.findUnique({ where: { tenantId }, select: { askInstallation: true } });
+    const fields = installationFields(Boolean(setting?.askInstallation), input, current);
+    const errors = installationErrors(fields, docDate);
+    if (errors.length) throw new ValidationFailedError(errors);
+    return fields;
+  }
 
   /** Prices the order's vouchers against its lines and works out the totals with them (phase 5, F1 part 4). */
   private async withVouchers(tenantId: string, lines: TaxedLine[], input: VoucherInput[]) {

@@ -128,6 +128,15 @@ class OrderFieldsDto {
   @IsIn(['STD', 'BTO', 'PRJ'], { message: 'Pick an order type from the list.' })
   orderTypeCode?: string;
 
+  /** Phase 5: asked only when the company turns on "Ask for an installation option on the order". */
+  @IsOptional()
+  @IsIn(['INSTALLATION', 'DELIVERY', 'COLLECT'], { message: 'Pick installation, delivery only or collect.' })
+  installOption?: string | null;
+
+  @IsOptional()
+  @Matches(DATE_ONLY, { message: 'Preferred date must look like 2026-10-01.' })
+  installDate?: string | null;
+
   @IsOptional()
   @IsString()
   @MaxLength(2000)

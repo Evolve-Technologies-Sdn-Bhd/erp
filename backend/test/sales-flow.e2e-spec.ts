@@ -1,7 +1,7 @@
 import { reseed, startApi, type Api } from './e2e-helpers';
 
 interface Flow {
-  switches: { useEnquiries: boolean; officeDraftsQuotations: boolean };
+  switches: { useEnquiries: boolean; officeDraftsQuotations: boolean; askInstallation: boolean };
   labels: Record<string, string>;
   history: { message: string; userName: string }[];
   saved?: string[];
@@ -34,13 +34,13 @@ describe('Sales flow switches (end to end)', () => {
 
   it('starts on the standard flow: both steps on, nothing in the history', async () => {
     const flow = await api.get<Flow>('sales/settings/sales-flow', 'AR');
-    expect(flow.switches).toEqual({ useEnquiries: true, officeDraftsQuotations: true });
-    expect(flow.labels).toEqual({ useEnquiries: 'Use enquiries', officeDraftsQuotations: 'Office drafts quotations' });
+    expect(flow.switches).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false });
+    expect(flow.labels).toEqual({ useEnquiries: 'Use enquiries', officeDraftsQuotations: 'Office drafts quotations', askInstallation: 'Ask for an installation option on the order' });
     expect(flow.history).toEqual([]);
   });
 
   it('lets only someone with Operation Policies rights change it', async () => {
-    const r = await api.call('PUT', 'sales/settings/sales-flow', 'AR', { useEnquiries: false, officeDraftsQuotations: false });
+    const r = await api.call('PUT', 'sales/settings/sales-flow', 'AR', { useEnquiries: false, officeDraftsQuotations: false, askInstallation: false });
     expect(r).toMatchObject({ status: 403, body: { message: 'Your role cannot do this. Permission needed: sales.settings.manage.' } });
     expect((await api.get<Flow>('sales/settings/sales-flow', 'AR')).switches.useEnquiries).toBe(true);
   });
@@ -51,10 +51,10 @@ describe('Sales flow switches (end to end)', () => {
   });
 
   it('turns the steps off, writes the history, and then refuses a new enquiry', async () => {
-    const saved = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: false, officeDraftsQuotations: false });
+    const saved = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: false, officeDraftsQuotations: false, askInstallation: false });
     expect(saved.status).toBe(200);
     expect(saved.body.saved).toEqual(['Use enquiries: On → Off', 'Office drafts quotations: On → Off']);
-    expect(saved.body.switches).toEqual({ useEnquiries: false, officeDraftsQuotations: false });
+    expect(saved.body.switches).toEqual({ useEnquiries: false, officeDraftsQuotations: false, askInstallation: false });
     expect(saved.body.history.map((h) => h.message).sort()).toEqual(['Office drafts quotations: On → Off', 'Use enquiries: On → Off']);
 
     const refused = await api.call('POST', 'sales/enquiries', 'AR', await enquiry());
@@ -71,13 +71,13 @@ describe('Sales flow switches (end to end)', () => {
   });
 
   it('saving the same values again changes nothing', async () => {
-    const again = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: false, officeDraftsQuotations: false });
+    const again = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: false, officeDraftsQuotations: false, askInstallation: false });
     expect(again.body.saved).toEqual([]);
     expect(again.body.history).toHaveLength(2);
   });
 
   it('turns enquiries back on, and a new enquiry is taken again', async () => {
-    const saved = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: true, officeDraftsQuotations: true });
+    const saved = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false });
     expect(saved.body.saved).toEqual(['Use enquiries: Off → On', 'Office drafts quotations: Off → On']);
     const made = await api.call('POST', 'sales/enquiries', 'AR', await enquiry());
     expect(made).toMatchObject({ status: 201, body: { docNo: 'EQ-2609-0011', status: 'NEW' } });

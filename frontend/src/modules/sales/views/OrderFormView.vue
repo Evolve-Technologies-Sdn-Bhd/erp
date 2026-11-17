@@ -24,8 +24,9 @@ import { isPositiveDecimal, previewSaleLine, sumMoney } from '@/utils/money'
 import { salesDeliveriesApi, salesLookupsApi, salesOrdersApi, salesProformasApi } from '../api/sales'
 import ItemPickerDialog from '../components/ItemPickerDialog.vue'
 import PackagePickerDialog from '../components/PackagePickerDialog.vue'
+import { salesFlow } from '../flow'
 import { docRoute } from '../routes'
-import type { CustomerOption, OrderAction, OrderDetail, OrderLine, PackageOption, SaleItemOption } from '../types'
+import type { CustomerOption, InstallOption, OrderAction, OrderDetail, OrderLine, PackageOption, SaleItemOption } from '../types'
 
 /** S11 · Sales order (SalesOrderForm.html) and S12 · Credit check failed (CreditApproval.html). */
 const route = useRoute()
@@ -102,6 +103,8 @@ const form = reactive({
   customerPoRef: '',
   project: '',
   deliveryAddress: '',
+  installOption: 'INSTALLATION' as InstallOption,
+  installDate: '',
   lines: [] as FormLine[],
   vouchers: [] as EditVoucher[],
 })
@@ -111,6 +114,21 @@ const dateToIso = (value: unknown) => (value instanceof Date ? `${value.getFullY
 const trimPrice = (v: string) => v.replace(/(\.\d\d)00$/, '$1')
 
 const saved = ref('')
+// ── Installation (phase 5): asked when the company turns it on in Sales Flow (S34) ──
+const INSTALL_OPTIONS: { value: InstallOption; label: string }[] = [
+  { value: 'INSTALLATION', label: 'Installation' },
+  { value: 'DELIVERY', label: 'Delivery only' },
+  { value: 'COLLECT', label: 'Collect' },
+]
+/** A new order follows the switch; a saved one shows what it was saved with. */
+const askInstallation = computed(() => (order.value ? order.value.installation.asked || order.value.installation.option !== null : salesFlow.value.askInstallation))
+const installHint = computed(() => {
+  const i = order.value?.installation
+  if (form.installOption !== 'INSTALLATION') return 'No installation job. Delivery or collection is arranged as usual.'
+  if (i?.afterStock) return 'Some items are short: the office arranges installation when stock arrives.'
+  return 'The office books the installer and slot. Needed to release when every item is in stock.'
+})
+
 const snapshot = () =>
   JSON.stringify({
     ...form,
@@ -131,6 +149,8 @@ function fillForm(o: OrderDetail | null) {
     form.customerPoRef = o.customerPoRef ?? ''
     form.project = o.project ?? ''
     form.deliveryAddress = o.deliveryAddress ?? ''
+    form.installOption = o.installation.option ?? 'INSTALLATION'
+    form.installDate = o.installation.preferredDate ?? ''
     form.lines = toFormLines(o.lines)
     form.vouchers = o.vouchers.map((v) => ({ key: nextKey++, voucherNo: v.voucherNo, description: v.description, amount: v.amount, taxCode: v.taxCode, invoiceNo: v.invoiceNo ?? null }))
   } else {
@@ -141,6 +161,8 @@ function fillForm(o: OrderDetail | null) {
     form.customerPoRef = ''
     form.project = ''
     form.deliveryAddress = ''
+    form.installOption = 'INSTALLATION'
+    form.installDate = ''
     form.lines = []
     form.vouchers = []
   }
@@ -393,6 +415,7 @@ async function save(): Promise<OrderDetail | null> {
       customerPoRef: form.customerPoRef,
       project: form.project,
       deliveryAddress: form.deliveryAddress,
+      ...(askInstallation.value && { installOption: form.installOption, installDate: form.installOption === 'INSTALLATION' ? form.installDate || null : null }),
       lines: form.lines.map((l) =>
         l.kind === 'package'
           ? { packageCode: l.code, qty: l.qty.trim(), giftItemCode: l.giftItemCode }
@@ -417,6 +440,12 @@ async function release() {
   if (dirty.value && !(await save())) return
   const o = order.value!
   if (!o.allowedActions.includes('release')) return
+  // The app's rule: with every item in stock, the installation needs the customer's preferred date (phase 5).
+  if (o.installation.dateNeeded && !o.installation.preferredDate) {
+    errors.value = { ...errors.value, installDate: "Pick the customer's preferred installation date. It is needed when every item is in stock." }
+    document.getElementById('so-install-date')?.focus()
+    return
+  }
   confirm.require({
     header: `Release ${o.docNo}?`,
     message: `${o.docNo} is locked and shown in the delivery list. After release, change it by revision or cancel the undelivered balance.`,
@@ -669,6 +698,37 @@ const viewRows = computed<ViewRow[]>(() => {
             <input v-if="editable" id="so-address" v-model="form.deliveryAddress" class="erp-input" maxlength="300" />
             <div v-else class="erp-input-ro">{{ form.deliveryAddress || '—' }}</div>
           </FormField>
+
+          <template v-if="askInstallation">
+            <FormField label="Installation" for="so-install">
+              <select v-if="editable" id="so-install" v-model="form.installOption" class="erp-input">
+                <option v-for="o in INSTALL_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+              <div v-else class="erp-input-ro">{{ order?.installation.optionLabel ?? '—' }}</div>
+            </FormField>
+            <FormField label="Preferred date" :error="errors.installDate" for="so-install-date">
+              <DatePicker
+                v-if="editable"
+                input-id="so-install-date"
+                :model-value="isoToDate(form.installDate)"
+                :min-date="isoToDate(form.docDate) ?? undefined"
+                :disabled="form.installOption !== 'INSTALLATION'"
+                date-format="d M yy"
+                show-icon
+                show-button-bar
+                fluid
+                class="erp-date"
+                :invalid="Boolean(errors.installDate)"
+                @update:model-value="form.installDate = dateToIso($event)"
+              />
+              <div v-else class="erp-input-ro">
+                {{ order?.installation.option !== 'INSTALLATION' ? '—' : order.installation.preferredDate ? formatDate(order.installation.preferredDate) : order.installation.afterStock ? 'After stock arrives' : 'Not set' }}
+              </div>
+            </FormField>
+            <p class="col-span-2 m-0 self-end pb-2 text-xs" :class="editable && order?.installation.dateNeeded && !form.installDate && form.installOption === 'INSTALLATION' ? 'text-attention' : 'text-erp-muted'">
+              {{ editable ? installHint : order?.installation.option === 'INSTALLATION' ? 'The office books the installer and slot.' : '' }}
+            </p>
+          </template>
         </section>
 
         <!-- Lines -->

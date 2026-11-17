@@ -2082,59 +2082,62 @@ enum SalOrderStatus {
 }
 
 model SalSalesOrder {
-  id               String              @id @default(uuid()) @db.Char(36)
-  tenantId         String              @db.Char(36)
-  docNo            String              @db.VarChar(30)
-  revision         Int                 @default(0)
-  docDate          DateTime            @db.Date
-  status           SalOrderStatus      @default(DRAFT)
-  balanceCancelled Boolean             @default(false)
-  branchCode       String              @db.VarChar(10)
-  orderTypeCode    String              @default("STD") @db.VarChar(10)
-  customerId       String              @db.Char(36)
-  customerCode     String              @db.VarChar(20)
-  customerName     String              @db.VarChar(150)
-  contactName      String?             @db.VarChar(100)
-  agentCode        String              @db.VarChar(20)
-  agentName        String              @db.VarChar(100)
-  warehouseCode    String              @db.VarChar(20) // deliver from
-  deliveryWantedBy DateTime?           @db.Date
-  promisedDate     DateTime?           @db.Date
-  currency         String              @default("MYR") @db.Char(3)
-  taxMode          String              @default("EXCLUSIVE") @db.VarChar(10)
-  creditTermDays   Int                 @default(30)
-  priceListCode    String              @db.VarChar(20)
-  customerPoRef    String?             @db.VarChar(50)
-  project          String?             @db.VarChar(100)
-  deliveryAddress  String?             @db.VarChar(300)
-  quotationId      String?             @db.Char(36)
-  quotationNo      String?             @db.VarChar(30)
-  enquiryNo        String?             @db.VarChar(30)
-  subtotal         Decimal             @default(0) @db.Decimal(18, 2)
-  discountTotal    Decimal             @default(0) @db.Decimal(18, 2)
-  voucherTotal     Decimal             @default(0) @db.Decimal(18, 2) // vouchers off, before tax (phase 5)
-  taxTotal         Decimal             @default(0) @db.Decimal(18, 2)
-  rounding         Decimal             @default(0) @db.Decimal(18, 2)
-  total            Decimal             @default(0) @db.Decimal(18, 2)
-  creditResult     String?             @db.VarChar(20) // PASSED, OVER_LIMIT, WARNED
-  creditSnapshot   Json? // "Credit at save": limits, owed, this order, headroom, scope, checkedAt
-  approvalRequired Boolean             @default(false)
-  approvedAt       DateTime?           @db.DateTime(3)
-  releasedAt       DateTime?           @db.DateTime(3)
-  releasedByCode   String?             @db.VarChar(20)
-  releasedByName   String?             @db.VarChar(100)
-  remarks          String?             @db.Text
-  version          Int                 @default(1)
-  isMigrated       Boolean             @default(false)
-  createdAt        DateTime            @default(now()) @db.DateTime(3)
-  createdBy        String              @db.VarChar(20)
-  updatedAt        DateTime            @updatedAt @db.DateTime(3)
-  updatedBy        String              @db.VarChar(20)
-  lines            SalSalesOrderLine[]
-  vouchers         SalOrderVoucher[]
-  deliveries       SalDelivery[]
-  proformas        SalProforma[]
-  cancelOrders     SalCancelOrder[]
+  id                String              @id @default(uuid()) @db.Char(36)
+  tenantId          String              @db.Char(36)
+  docNo             String              @db.VarChar(30)
+  revision          Int                 @default(0)
+  docDate           DateTime            @db.Date
+  status            SalOrderStatus      @default(DRAFT)
+  balanceCancelled  Boolean             @default(false)
+  branchCode        String              @db.VarChar(10)
+  orderTypeCode     String              @default("STD") @db.VarChar(10)
+  customerId        String              @db.Char(36)
+  customerCode      String              @db.VarChar(20)
+  customerName      String              @db.VarChar(150)
+  contactName       String?             @db.VarChar(100)
+  agentCode         String              @db.VarChar(20)
+  agentName         String              @db.VarChar(100)
+  warehouseCode     String              @db.VarChar(20) // deliver from
+  deliveryWantedBy  DateTime?           @db.Date
+  promisedDate      DateTime?           @db.Date
+  currency          String              @default("MYR") @db.Char(3)
+  taxMode           String              @default("EXCLUSIVE") @db.VarChar(10)
+  creditTermDays    Int                 @default(30)
+  priceListCode     String              @db.VarChar(20)
+  customerPoRef     String?             @db.VarChar(50)
+  project           String?             @db.VarChar(100)
+  deliveryAddress   String?             @db.VarChar(300)
+  installOption     String?             @db.VarChar(12) // INSTALLATION, DELIVERY, COLLECT; null when the company does not ask (phase 5)
+  installDate       DateTime?           @db.Date // the customer's preferred installation date; the office books the slot
+  installAfterStock Boolean             @default(false) // released with items short: installation is arranged when stock arrives
+  quotationId       String?             @db.Char(36)
+  quotationNo       String?             @db.VarChar(30)
+  enquiryNo         String?             @db.VarChar(30)
+  subtotal          Decimal             @default(0) @db.Decimal(18, 2)
+  discountTotal     Decimal             @default(0) @db.Decimal(18, 2)
+  voucherTotal      Decimal             @default(0) @db.Decimal(18, 2) // vouchers off, before tax (phase 5)
+  taxTotal          Decimal             @default(0) @db.Decimal(18, 2)
+  rounding          Decimal             @default(0) @db.Decimal(18, 2)
+  total             Decimal             @default(0) @db.Decimal(18, 2)
+  creditResult      String?             @db.VarChar(20) // PASSED, OVER_LIMIT, WARNED
+  creditSnapshot    Json? // "Credit at save": limits, owed, this order, headroom, scope, checkedAt
+  approvalRequired  Boolean             @default(false)
+  approvedAt        DateTime?           @db.DateTime(3)
+  releasedAt        DateTime?           @db.DateTime(3)
+  releasedByCode    String?             @db.VarChar(20)
+  releasedByName    String?             @db.VarChar(100)
+  remarks           String?             @db.Text
+  version           Int                 @default(1)
+  isMigrated        Boolean             @default(false)
+  createdAt         DateTime            @default(now()) @db.DateTime(3)
+  createdBy         String              @db.VarChar(20)
+  updatedAt         DateTime            @updatedAt @db.DateTime(3)
+  updatedBy         String              @db.VarChar(20)
+  lines             SalSalesOrderLine[]
+  vouchers          SalOrderVoucher[]
+  deliveries        SalDelivery[]
+  proformas         SalProforma[]
+  cancelOrders      SalCancelOrder[]
 
   @@unique([tenantId, docNo, revision])
   @@index([tenantId, status, docDate])
@@ -2726,6 +2729,7 @@ model SalSetting {
   // Sales flow (S34, phase 5). Defaults are the standard flow, so a company that never opens the page sees no change.
   useEnquiries           Boolean  @default(true) // off: Enquiry is hidden and new enquiries are refused
   officeDraftsQuotations Boolean  @default(true) // off: Draft Quotation is hidden from the menu
+  askInstallation        Boolean  @default(false) // on: the order asks installation, delivery only or collect (phase 5)
   updatedAt              DateTime @updatedAt @db.DateTime(3)
   updatedBy              String   @db.VarChar(20)
 

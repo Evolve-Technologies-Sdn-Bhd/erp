@@ -4,12 +4,13 @@
 export const FLOW_SWITCHES = {
   useEnquiries: 'Use enquiries',
   officeDraftsQuotations: 'Office drafts quotations',
+  askInstallation: 'Ask for an installation option on the order',
 } as const;
 export type FlowSwitchKey = keyof typeof FLOW_SWITCHES;
 export type FlowSwitches = Record<FlowSwitchKey, boolean>;
 
-/** What a company gets before anyone touches the page: the standard flow. */
-export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true };
+/** What a company gets before anyone touches the page: the standard flow (no installation asked). */
+export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false };
 
 /** Change-history lines, in the wording of the other policies: "Use enquiries: On → Off". */
 export function flowChanges(before: FlowSwitches, after: FlowSwitches): string[] {

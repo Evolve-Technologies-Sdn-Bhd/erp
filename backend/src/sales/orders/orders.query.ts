@@ -16,6 +16,7 @@ import { CreditService, type CreditOutcome } from '../shared/credit.service';
 import { SalesLinkedDocsService } from '../shared/linked-docs.service';
 import { CREDIT_DOC, SAL_ENTITY } from '../shared/sales.constants';
 import { taxLinesWithVouchers } from '../shared/voucher.rules';
+import { INSTALL_OPTION_LABEL, installationText, type InstallOption } from './installation.rules';
 import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
 
@@ -161,6 +162,12 @@ export class OrdersQuery {
       itemCode: l.itemCode, qty: l.orderedQty, onHand: onHand(l.itemCode), isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
     })));
     const releaseNote = activity.find((a) => a.action === 'stock_warning')?.message ?? null;
+    // Installation (phase 5): a draft is judged on stock now; a released order keeps what release decided.
+    const setting = await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { askInstallation: true } });
+    const draft = order.status === 'DRAFT' || order.status === 'PENDING_APPROVAL';
+    const allInStock = !shortfall && !order.lines.some((l) => l.isBuyToOrder);
+    const installDate = order.installDate ? iso(order.installDate) : null;
+    const afterStock = draft ? order.installOption === 'INSTALLATION' && !installDate && !allInStock : order.installAfterStock;
     // Vouchers (phase 5) lower the tax of the items they are on.
     const taxLines = taxLinesWithVouchers(order.lines, order.vouchers).map((t) => ({ code: t.code, name: taxName(t.code), amount: toMoney(t.amount) }));
     const quotation = order.quotationId ? await this.prisma.salQuotation.findFirst({ where: { id: order.quotationId }, select: { id: true, docNo: true } }) : null;
@@ -189,6 +196,16 @@ export class OrdersQuery {
       customerPoRef: order.customerPoRef,
       project: order.project,
       deliveryAddress: order.deliveryAddress,
+      installation: {
+        asked: Boolean(setting?.askInstallation),
+        option: order.installOption,
+        optionLabel: order.installOption ? (INSTALL_OPTION_LABEL[order.installOption as InstallOption] ?? order.installOption) : null,
+        preferredDate: installDate,
+        afterStock,
+        /** A draft installation whose items are all in stock needs the date before release. */
+        dateNeeded: draft && order.installOption === 'INSTALLATION' && allInStock,
+        text: installationText({ installOption: order.installOption, installDate, afterStock }),
+      },
       orderTypeCode: order.orderTypeCode,
       quotation: quotation ? { id: quotation.id, no: quotation.docNo } : null,
       enquiryNo: order.enquiryNo,

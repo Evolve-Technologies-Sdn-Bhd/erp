@@ -38,6 +38,7 @@ export class SaveCreditControlDto {
 export class SaveSalesFlowDto {
   @IsBoolean() useEnquiries!: boolean;
   @IsBoolean() officeDraftsQuotations!: boolean;
+  @IsBoolean() askInstallation!: boolean;
 }
 
 export class SequenceDto {

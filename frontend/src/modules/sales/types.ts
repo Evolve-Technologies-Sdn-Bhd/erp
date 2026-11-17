@@ -229,6 +229,7 @@ export interface OrderDetail {
   lines: OrderLine[]
   totals: SaleTotals
   vouchers: OrderVoucher[]
+  installation: OrderInstallation
   quantities: { ordered: string; delivered: string; uomCode: string }
   credit: { result: string | null; snapshot: CreditSnapshot | null; live: boolean; needsApproval: boolean; blocked: boolean; approverRole: string | null }
   approval: {
@@ -268,6 +269,22 @@ export interface OrderInput {
   /** An item with its price, or a package (phase 5) with whole sets and the chosen gift. */
   lines: (OrderLineInput | { packageCode: string; qty: string; giftItemCode: string | null })[]
   vouchers?: { voucherNo: string; amount: string; description?: string; taxCode?: string | null }[]
+  installOption?: InstallOption | null
+  installDate?: string | null
+}
+
+/** Phase 5: installation, delivery only or collect, asked when the company turns it on (S34). */
+export type InstallOption = 'INSTALLATION' | 'DELIVERY' | 'COLLECT'
+export interface OrderInstallation {
+  asked: boolean
+  option: InstallOption | null
+  optionLabel: string | null
+  preferredDate: string | null
+  /** Some items are short: installation is arranged when stock arrives. */
+  afterStock: boolean
+  /** A draft installation whose items are all in stock needs the date before release. */
+  dateNeeded: boolean
+  text: string | null
 }
 
 // ── Approvals (S02) ─────────────────────────────────────────────────────────
@@ -1206,6 +1223,7 @@ export interface CreditControlData {
 export interface SalesFlowSwitches {
   useEnquiries: boolean
   officeDraftsQuotations: boolean
+  askInstallation: boolean
 }
 
 export interface SalesFlowData {

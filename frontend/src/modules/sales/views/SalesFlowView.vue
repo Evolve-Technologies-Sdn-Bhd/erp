@@ -31,6 +31,7 @@ const ORDER: (keyof SalesFlowSwitches)[] = ['useEnquiries', 'officeDraftsQuotati
 const HINT: Record<keyof SalesFlowSwitches, string> = {
   useEnquiries: 'Off: Enquiry is hidden from the menu and cannot be created.',
   officeDraftsQuotations: 'Off: Draft Quotation is hidden. Sales agents build the quotation with the customer.',
+  askInstallation: 'Installation, delivery only, or collect. An order with installation makes a job for the office to book.',
 }
 
 async function save() {
@@ -69,6 +70,15 @@ async function save() {
       </div>
       <p class="m-0 text-xs text-erp-muted">Turning a step off hides it for new documents. Documents already made keep working.</p>
       <p v-if="!canManage" class="m-0 text-xs text-erp-muted">Only an admin with Operation Policies rights can change these.</p>
+    </section>
+
+    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+      <h2 class="m-0 text-[15px] font-bold">Installation</h2>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.askInstallation }}</span><span class="text-xs text-erp-subtle">{{ HINT.askInstallation }}</span></span>
+        <SwitchToggle v-model="draft.askInstallation" :label="data.labels.askInstallation" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">When it is on, the customer's preferred installation date is needed to release an order whose items are all in stock. With items short, installation is arranged when stock arrives.</p>
     </section>
 
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
