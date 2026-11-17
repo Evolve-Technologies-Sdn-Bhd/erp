@@ -1,6 +1,6 @@
 import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
-import type { Board, JobDetail, JobInput, JobRow, PersonRole, ServiceCustomerOption, ServiceHome, ServiceSettings } from '../types'
+import type { Board, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ServiceCustomerOption, ServiceHome, ServiceSettings, VisitInput } from '../types'
 
 /** The Service module's API (phase 5, F3) — /api/v1/service. */
 export const serviceApi = {
@@ -33,6 +33,16 @@ export const serviceJobsApi = {
   book: (id: string, body: { version: number; personId: string; date: string; slotGroupCode: string; start: number }) =>
     api<JobDetail>(`/service/jobs/${id}/book`, { method: 'POST', body }),
   unbook: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/unbook`, { method: 'POST', body: { version } }),
-  done: (id: string, version: number, note?: string) => api<JobDetail>(`/service/jobs/${id}/done`, { method: 'POST', body: { version, note } }),
+  record: (id: string, body: VisitInput & { version: number }) => api<JobDetail>(`/service/jobs/${id}/record`, { method: 'POST', body }),
+  followUp: (id: string) => api<JobDetail>(`/service/jobs/${id}/follow-up`, { method: 'POST' }),
+  /** A photo of the work, attached to the job straight away. */
+  uploadPhoto: (id: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('kind', 'JOB_PHOTO')
+    form.append('entityType', 'SVC_JOB')
+    form.append('entityId', id)
+    return api<JobPhoto>('/attachments', { method: 'POST', body: form })
+  },
   close: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/close`, { method: 'POST', body: { version } }),
 }

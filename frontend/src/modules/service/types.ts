@@ -2,7 +2,7 @@
 
 export type JobType = 'INSTALLATION' | 'SERVICE' | 'WARRANTY' | 'REPAIR'
 export type JobStage = 'NOT_BOOKED' | 'BOOKED' | 'ACCEPTED' | 'DONE' | 'CHECKED' | 'CLOSED' | 'CANCELLED'
-export type JobAction = 'edit' | 'cancel' | 'book' | 'unbook' | 'done' | 'close'
+export type JobAction = 'edit' | 'cancel' | 'book' | 'unbook' | 'record' | 'close' | 'followUp'
 
 export interface JobRow {
   id: string
@@ -20,7 +20,33 @@ export interface JobRow {
   whenText: string
   stage: JobStage
   stageLabel: string
+  /** Paid on site: Paid, Not paid, No charge, or null before the visit. */
+  paidLabel: string | null
+  result: VisitResult | null
   createdAt: string
+}
+
+export type VisitResult = 'COMPLETE' | 'PARTIAL' | 'POSTPONED'
+export type PaidStatus = 'PAID' | 'NOT_PAID' | 'NO_CHARGE'
+export type PaidMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CHEQUE'
+
+export interface JobPhoto {
+  id: string
+  fileName: string
+  mimeType: string
+  downloadUrl: string
+}
+
+export interface VisitInput {
+  result: VisitResult
+  reason?: string
+  arrivedAt?: string
+  finishedAt?: string
+  paidStatus?: PaidStatus
+  paidMethod?: PaidMethod
+  notPaidReason?: string
+  note?: string
+  nextDate?: string
 }
 
 export interface JobDetail extends JobRow {
@@ -42,6 +68,23 @@ export interface JobDetail extends JobRow {
   doneAt: string | null
   doneNote: string | null
   closedAt: string | null
+  visit: {
+    result: VisitResult
+    resultLabel: string
+    reason: string | null
+    arrivedAt: string | null
+    finishedAt: string | null
+    paidStatus: PaidStatus | null
+    paidLabel: string | null
+    paidMethod: string | null
+    notPaidReason: string | null
+    recordedBy: string | null
+    recordedAt: string | null
+  } | null
+  postponed: { reason: string | null; count: number } | null
+  photos: JobPhoto[]
+  followUpOf: { id: string; docNo: string | null } | null
+  followUpJob: { id: string; docNo: string } | null
   version: number
   allowedActions: JobAction[]
 }
@@ -61,6 +104,7 @@ export interface ServiceHome {
   date: string
   today: { jobs: number; done: number }
   notBooked: { count: number; oldestDays: number | null }
+  doneNotPaid: number
   stages: Record<string, number>
   waiting: JobRow[]
   byPerson: (Person & { jobs: number; done: number })[]

@@ -5,7 +5,7 @@ import { CurrentContext, RequirePermission } from '../../platform/context/contex
 import type { RequestContext } from '../../platform/context/request-context';
 import { ServiceOnGuard } from '../service-on.guard';
 import { SERVICE_PERMISSIONS as P } from '../service.permissions';
-import { BookJobDto, CancelJobDto, CreateJobDto, DoneJobDto, JobListQueryDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import { BookJobDto, CancelJobDto, CreateJobDto, JobListQueryDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
 import { BoardQuery } from '../board/board.query';
 import { JobsQuery } from './jobs.query';
 import { JobsService } from './jobs.service';
@@ -69,10 +69,18 @@ export class ServiceJobsController {
     return this.service.unbook(ctx, id, dto);
   }
 
-  @Post(':id/done')
-  @RequirePermission(P.JOB_BOOK)
-  done(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: DoneJobDto) {
-    return this.service.done(ctx, id, dto);
+  /** What happened at the visit (F3 part 3). */
+  @Post(':id/record')
+  @RequirePermission(P.JOB_RECORD)
+  record(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: RecordVisitDto) {
+    return this.service.record(ctx, id, dto);
+  }
+
+  /** A partly done job's follow-up job. */
+  @Post(':id/follow-up')
+  @RequirePermission(P.JOB_EDIT)
+  followUp(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.followUp(ctx, id);
   }
 
   @Post(':id/close')

@@ -7,6 +7,7 @@ import { useToast } from 'primevue/usetoast'
 import { Check } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import ActivityList from '@/components/erp/ActivityList.vue'
+import FileTiles from '@/components/erp/FileTiles.vue'
 import FormField from '@/components/erp/FormField.vue'
 import MasterDataPicker from '@/components/erp/MasterDataPicker.vue'
 import NoticeBanner from '@/components/erp/NoticeBanner.vue'
@@ -17,7 +18,7 @@ import { usePageCrumb } from '@/composables/usePageCrumb'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatDateTime, formatQty } from '@/utils/format'
 import { serviceApi, serviceJobsApi } from '../api/service'
-import type { JobDetail, JobStage, JobType, ServiceCustomerOption } from '../types'
+import type { JobDetail, JobStage, JobType, PaidMethod, PaidStatus, ServiceCustomerOption, VisitResult } from '../types'
 import { JOB_TYPE_OPTIONS, STAGE_GROUP } from './stages'
 
 /** V04 · Job (SvcJob.html), and a job the office adds by hand. Booking and the installer's part come in F3 parts 2 and 3. */
@@ -146,18 +147,71 @@ const STAGES: { key: JobStage; label: string }[] = [
   { key: 'CLOSED', label: 'Closed' },
 ]
 
-// ── Board actions: take off the board, mark done, close ──────────────────────
-const doneOpen = ref(false)
-const doneNote = ref('')
-async function run(action: 'unbook' | 'done' | 'close') {
+// ── Board actions: take off the board, close, follow-up ──────────────────────
+async function run(action: 'unbook' | 'close') {
   const j = job.value!
   saving.value = true
   try {
-    const result = action === 'unbook' ? await serviceJobsApi.unbook(j.id, j.version) : action === 'done' ? await serviceJobsApi.done(j.id, j.version, doneNote.value.trim() || undefined) : await serviceJobsApi.close(j.id, j.version)
+    show(action === 'unbook' ? await serviceJobsApi.unbook(j.id, j.version) : await serviceJobsApi.close(j.id, j.version))
+    toast.add({ severity: 'success', summary: action === 'unbook' ? `${j.docNo} taken off the board` : `${j.docNo} closed`, life: 3000 })
+  } finally {
+    saving.value = false
+  }
+}
+async function addFollowUp() {
+  saving.value = true
+  try {
+    const next = await serviceJobsApi.followUp(job.value!.id)
+    toast.add({ severity: 'success', summary: `${next.docNo} added`, detail: `Follow-up of ${job.value!.docNo}, waiting to be booked.`, life: 3500 })
+    await router.push(`/service/jobs/${next.id}`)
+  } finally {
+    saving.value = false
+  }
+}
+
+// ── Record the visit (F3 part 3): result, photos, paid or not ────────────────
+const RESULTS: { value: VisitResult; label: string; hint: string }[] = [
+  { value: 'COMPLETE', label: 'Complete', hint: 'The work is finished.' },
+  { value: 'PARTIAL', label: 'Partly done', hint: 'Something is left: a follow-up job can be added.' },
+  { value: 'POSTPONED', label: 'Postponed', hint: 'Nothing done today: the job waits to be booked again.' },
+]
+const PAID: { value: PaidStatus; label: string }[] = [
+  { value: 'PAID', label: 'Paid on site' },
+  { value: 'NOT_PAID', label: 'Not paid' },
+  { value: 'NO_CHARGE', label: 'No charge' },
+]
+const METHODS: { value: PaidMethod; label: string }[] = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'TRANSFER', label: 'Bank transfer' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'CHEQUE', label: 'Cheque' },
+]
+const recordOpen = ref(false)
+const visit = reactive({ result: 'COMPLETE' as VisitResult, reason: '', arrivedAt: '', finishedAt: '', paidStatus: '' as PaidStatus | '', paidMethod: '' as PaidMethod | '', notPaidReason: '', note: '', nextDate: '' })
+const visitErrors = ref<Record<string, string>>({})
+function openRecord() {
+  Object.assign(visit, { result: 'COMPLETE', reason: '', arrivedAt: '', finishedAt: '', paidStatus: '', paidMethod: '', notPaidReason: '', note: '', nextDate: '' })
+  visitErrors.value = {}
+  recordOpen.value = true
+}
+async function uploadPhoto(file: File) {
+  const photo = await serviceJobsApi.uploadPhoto(job.value!.id, file)
+  job.value = { ...job.value!, photos: [...job.value!.photos, photo] }
+}
+async function saveVisit() {
+  const j = job.value!
+  saving.value = true
+  try {
+    const result = await serviceJobsApi.record(j.id, {
+      version: j.version, result: visit.result, reason: visit.reason.trim() || undefined, arrivedAt: visit.arrivedAt || undefined, finishedAt: visit.finishedAt || undefined,
+      ...(visit.result !== 'POSTPONED' && { paidStatus: visit.paidStatus || undefined, paidMethod: visit.paidStatus === 'PAID' ? visit.paidMethod || undefined : undefined, notPaidReason: visit.paidStatus === 'NOT_PAID' ? visit.notPaidReason.trim() || undefined : undefined, note: visit.note.trim() || undefined }),
+      ...(visit.result === 'POSTPONED' && visit.nextDate && { nextDate: visit.nextDate }),
+    })
     show(result)
-    doneOpen.value = false
-    doneNote.value = ''
-    toast.add({ severity: 'success', summary: action === 'unbook' ? `${j.docNo} taken off the board` : action === 'done' ? `${j.docNo} done` : `${j.docNo} closed`, life: 3000 })
+    recordOpen.value = false
+    toast.add({ severity: 'success', summary: visit.result === 'POSTPONED' ? `${j.docNo} postponed` : `${j.docNo} done`, detail: visit.result === 'POSTPONED' ? 'It waits to be booked again.' : undefined, life: 3500 })
+  } catch (error) {
+    if (error instanceof ApiError) visitErrors.value = error.fieldErrors
   } finally {
     saving.value = false
   }
@@ -197,8 +251,9 @@ const asksFor = computed(() => {
         <button v-if="job?.allowedActions.includes('cancel')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelOpen = true">Cancel job</button>
         <button v-if="job?.allowedActions.includes('unbook')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="run('unbook')">Take off the board</button>
         <RouterLink v-if="job?.allowedActions.includes('book')" :to="boardLink" class="erp-btn erp-btn-secondary">{{ job.stage === 'BOOKED' ? 'Move' : 'Book on the board' }}</RouterLink>
-        <button v-if="editable" type="button" class="erp-btn" :class="job?.allowedActions.includes('done') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="saving || (!isNew && !dirty)" @click="save">{{ isNew ? 'Add job' : 'Save' }}</button>
-        <button v-if="job?.allowedActions.includes('done')" type="button" class="erp-btn erp-btn-primary" :disabled="saving || dirty" @click="doneOpen = true">Mark as done</button>
+        <button v-if="editable" type="button" class="erp-btn" :class="job?.allowedActions.includes('record') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="saving || (!isNew && !dirty)" @click="save">{{ isNew ? 'Add job' : 'Save' }}</button>
+        <button v-if="job?.allowedActions.includes('record')" type="button" class="erp-btn erp-btn-primary" :disabled="saving || dirty" @click="openRecord">Record the visit</button>
+        <button v-if="job?.allowedActions.includes('followUp')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="addFollowUp">Add follow-up job</button>
         <button v-if="job?.allowedActions.includes('close')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="run('close')">Close job</button>
       </template>
     </PageHeader>
@@ -217,6 +272,12 @@ const asksFor = computed(() => {
     </section>
     <NoticeBanner v-else-if="job" kind="error">
       Cancelled {{ job.cancelledAt ? formatDateTime(job.cancelledAt) : '' }}<template v-if="job.cancelReason">: “{{ job.cancelReason }}”</template>.
+    </NoticeBanner>
+    <NoticeBanner v-if="job?.postponed && job.stage === 'NOT_BOOKED'" kind="warning">
+      Postponed{{ job.postponed.count > 1 ? ` ${job.postponed.count} times` : '' }}<template v-if="job.postponed.reason">: “{{ job.postponed.reason }}”</template>. It waits to be booked again on the Planning Board.
+    </NoticeBanner>
+    <NoticeBanner v-if="job?.followUpOf">
+      Follow-up of <RouterLink :to="`/service/jobs/${job.followUpOf.id}`" class="erp-link font-semibold">{{ job.followUpOf.docNo }}</RouterLink>, which was partly done.
     </NoticeBanner>
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
@@ -297,6 +358,27 @@ const asksFor = computed(() => {
           </table>
         </section>
 
+        <!-- What the installer recorded (SvcJob.html) -->
+        <section v-if="job?.visit" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+          <h2 class="m-0 text-[15px] font-bold">What the installer recorded</h2>
+          <div class="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
+            <span class="text-erp-muted">Result</span><span class="font-semibold">{{ job.visit.resultLabel }}<template v-if="job.visit.reason"> · {{ job.visit.reason }}</template></span>
+            <template v-if="job.visit.arrivedAt"><span class="text-erp-muted">Arrived</span><span>{{ job.visit.arrivedAt }}</span></template>
+            <template v-if="job.visit.finishedAt"><span class="text-erp-muted">Finished</span><span>{{ job.visit.finishedAt }}</span></template>
+            <span class="text-erp-muted">Paid on site</span>
+            <span>{{ job.visit.paidLabel }}<template v-if="job.visit.paidMethod"> · {{ job.visit.paidMethod }}</template><template v-if="job.visit.notPaidReason">: {{ job.visit.notPaidReason }}</template></span>
+            <template v-if="job.doneNote"><span class="text-erp-muted">Work done</span><span>{{ job.doneNote }}</span></template>
+            <span class="text-erp-muted">Recorded</span><span>{{ job.visit.recordedBy }}<template v-if="job.visit.recordedAt">, {{ formatDateTime(job.visit.recordedAt) }}</template></span>
+          </div>
+          <p class="m-0 text-xs text-erp-muted">Payments are not kept in this system yet. “Paid on site” is the installer's note for the office to check against the bank.</p>
+        </section>
+
+        <section v-if="job && (job.photos.length || job.allowedActions.includes('record'))" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+          <h2 class="m-0 text-[15px] font-bold">Photos</h2>
+          <FileTiles :files="job.photos" :editable="job.allowedActions.includes('record')" add-label="+ Add photo" accept="image/*" :upload="uploadPhoto" />
+          <p v-if="job.allowedActions.includes('record')" class="m-0 text-xs text-erp-muted">At least one photo of the work is needed to record a complete or partly done visit.</p>
+        </section>
+
         <ActivityList v-if="job" :items="job.activity" />
       </div>
 
@@ -316,14 +398,17 @@ const asksFor = computed(() => {
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Done</span><span>{{ formatDateTime(job.doneAt) }}</span></div>
             <div v-if="job.closedAt" class="flex justify-between gap-3"><span class="text-erp-muted">Closed</span><span>{{ formatDateTime(job.closedAt) }}</span></div>
           </div>
-          <p v-if="job.doneNote" class="m-0 text-[13px]">“{{ job.doneNote }}”</p>
-          <p class="m-0 text-xs text-erp-muted">The installer's own record (photo, paid on site) comes with the next part.</p>
         </SideCard>
-        <SideCard v-if="job?.salesOrderNo" title="Linked documents">
-          <div class="flex justify-between gap-3 text-[13px]">
-            <span class="font-semibold">{{ job.salesOrderNo }}</span><span class="text-erp-muted">Sales order</span>
+        <SideCard v-if="job && (job.salesOrderNo || job.followUpOf || job.followUpJob)" title="Linked documents">
+          <div class="flex flex-col gap-1.5 text-[13px]">
+            <div v-if="job.salesOrderNo" class="flex justify-between gap-3"><span class="font-semibold">{{ job.salesOrderNo }}</span><span class="text-erp-muted">Sales order</span></div>
+            <div v-if="job.followUpOf" class="flex justify-between gap-3">
+              <RouterLink :to="`/service/jobs/${job.followUpOf.id}`" class="erp-link font-semibold">{{ job.followUpOf.docNo }}</RouterLink><span class="text-erp-muted">Partly done job</span>
+            </div>
+            <div v-if="job.followUpJob" class="flex justify-between gap-3">
+              <RouterLink :to="`/service/jobs/${job.followUpJob.id}`" class="erp-link font-semibold">{{ job.followUpJob.docNo }}</RouterLink><span class="text-erp-muted">Follow-up job</span>
+            </div>
           </div>
-          <p class="m-0 text-xs text-erp-muted">The job was made when the order was released with installation.</p>
         </SideCard>
       </aside>
     </div>
@@ -341,16 +426,60 @@ const asksFor = computed(() => {
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="doneOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="`${job?.docNo} done?`">
-      <div class="flex flex-col gap-3">
-        <p class="m-0 text-[13px]">The work at the site is finished. Close the job once the office has nothing left to do on it.</p>
-        <FormField label="Note (optional)" for="job-done-note">
-          <textarea id="job-done-note" v-model="doneNote" rows="3" class="erp-input h-auto py-2" maxlength="500" placeholder="What was done, anything to follow up" />
+    <Dialog v-model:visible="recordOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '560px' }" :header="`Record the visit · ${job?.docNo}`">
+      <div class="flex flex-col gap-4 text-[13px]">
+        <p v-if="job?.booking" class="m-0 text-erp-muted">{{ job.booking.personName }} · {{ job.booking.text }}</p>
+
+        <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+          <legend class="mb-1 text-xs font-medium text-erp-muted">Result</legend>
+          <label v-for="r in RESULTS" :key="r.value" class="flex items-start gap-2">
+            <input v-model="visit.result" type="radio" name="visit-result" :value="r.value" class="mt-0.5" />
+            <span><span class="font-semibold">{{ r.label }}</span> <span class="text-erp-muted">· {{ r.hint }}</span></span>
+          </label>
+        </fieldset>
+
+        <FormField v-if="visit.result !== 'COMPLETE'" :label="visit.result === 'POSTPONED' ? 'Why is it postponed?' : 'What is left to do?'" :error="visitErrors.reason" for="visit-reason">
+          <input id="visit-reason" v-model="visit.reason" class="erp-input" maxlength="300" :aria-invalid="Boolean(visitErrors.reason)" />
         </FormField>
+
+        <FormField v-if="visit.result === 'POSTPONED'" label="New date the customer asks for (optional)" :error="visitErrors.nextDate" for="visit-next">
+          <DatePicker input-id="visit-next" :model-value="isoToDate(visit.nextDate)" :min-date="isoToDate(today) ?? undefined" date-format="d M yy" show-icon show-button-bar fluid class="erp-date" @update:model-value="visit.nextDate = dateToIso($event)" />
+        </FormField>
+
+        <div class="grid grid-cols-2 gap-3">
+          <FormField label="Arrived (optional)" :error="visitErrors.arrivedAt" for="visit-arrived"><input id="visit-arrived" v-model="visit.arrivedAt" type="time" class="erp-input" /></FormField>
+          <FormField label="Finished (optional)" :error="visitErrors.finishedAt" for="visit-finished"><input id="visit-finished" v-model="visit.finishedAt" type="time" class="erp-input" /></FormField>
+        </div>
+
+        <template v-if="visit.result !== 'POSTPONED'">
+          <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+            <legend class="mb-1 text-xs font-medium text-erp-muted">Did the customer pay on site?</legend>
+            <div class="flex flex-wrap gap-4">
+              <label v-for="p in PAID" :key="p.value" class="flex items-center gap-1.5"><input v-model="visit.paidStatus" type="radio" name="visit-paid" :value="p.value" />{{ p.label }}</label>
+            </div>
+            <span v-if="visitErrors.paidStatus" class="text-xs text-note-error-text">{{ visitErrors.paidStatus }}</span>
+          </fieldset>
+          <FormField v-if="visit.paidStatus === 'PAID'" label="How (optional)" for="visit-method">
+            <select id="visit-method" v-model="visit.paidMethod" class="erp-input">
+              <option value="">—</option>
+              <option v-for="m in METHODS" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+          </FormField>
+          <FormField v-if="visit.paidStatus === 'NOT_PAID'" label="Why not?" :error="visitErrors.notPaidReason" for="visit-notpaid">
+            <input id="visit-notpaid" v-model="visit.notPaidReason" class="erp-input" maxlength="300" :aria-invalid="Boolean(visitErrors.notPaidReason)" />
+          </FormField>
+          <FormField label="Work done (optional)" for="visit-note">
+            <textarea id="visit-note" v-model="visit.note" rows="2" class="erp-input h-auto py-2" maxlength="500" />
+          </FormField>
+          <p class="m-0 text-xs" :class="visitErrors.photos ? 'font-semibold text-note-error-text' : 'text-erp-muted'">
+            {{ job?.photos.length ? `${job.photos.length} photo${job.photos.length === 1 ? '' : 's'} on the job.` : 'No photo yet: add one under Photos on the job page first.' }}
+            <template v-if="visitErrors.photos"> {{ visitErrors.photos }}</template>
+          </p>
+        </template>
       </div>
       <template #footer>
-        <button type="button" class="erp-btn erp-btn-secondary" @click="doneOpen = false">Not yet</button>
-        <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="run('done')">Mark as done</button>
+        <button type="button" class="erp-btn erp-btn-secondary" @click="recordOpen = false">Cancel</button>
+        <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="saveVisit">Save the visit</button>
       </template>
     </Dialog>
   </template>

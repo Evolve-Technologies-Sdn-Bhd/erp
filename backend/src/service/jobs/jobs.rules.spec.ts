@@ -36,17 +36,20 @@ describe('waitingText', () => {
 });
 
 describe('allowedJobActions', () => {
-  const all = { edit: true, book: true };
+  const all = { edit: true, book: true, record: true };
   it('follows the simple stages: not booked, booked, done, closed', () => {
     expect(allowedJobActions('NOT_BOOKED', all)).toEqual(['edit', 'cancel', 'book']);
-    expect(allowedJobActions('BOOKED', all)).toEqual(['edit', 'cancel', 'book', 'unbook', 'done']);
+    expect(allowedJobActions('BOOKED', all)).toEqual(['edit', 'cancel', 'book', 'unbook', 'record']);
     expect(allowedJobActions('DONE', all)).toEqual(['close']);
+    expect(allowedJobActions('DONE', all, { partial: true })).toEqual(['close', 'followUp']);
+    expect(allowedJobActions('DONE', all, { partial: true, hasFollowUp: true })).toEqual(['close']);
     expect(allowedJobActions('CLOSED', all)).toEqual([]);
     expect(allowedJobActions('CANCELLED', all)).toEqual([]);
   });
   it('gives each permission only its own actions', () => {
     expect(allowedJobActions('NOT_BOOKED', { edit: false, book: true })).toEqual(['book']);
     expect(allowedJobActions('BOOKED', { edit: true, book: false })).toEqual(['edit', 'cancel']);
+    expect(allowedJobActions('BOOKED', { edit: false, book: false, record: true })).toEqual(['record']);
     expect(allowedJobActions('NOT_BOOKED', { edit: false, book: false })).toEqual([]);
   });
 });

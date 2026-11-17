@@ -2867,43 +2867,56 @@ enum SvcJobStage {
 }
 
 model SvcJob {
-  id            String       @id @default(uuid()) @db.Char(36)
-  tenantId      String       @db.Char(36)
-  docNo         String       @db.VarChar(30) // JB-0001
-  jobType       SvcJobType
-  stage         SvcJobStage  @default(NOT_BOOKED)
-  branchCode    String       @db.VarChar(10)
-  customerCode  String       @db.VarChar(20)
-  customerName  String       @db.VarChar(150)
-  contactName   String?      @db.VarChar(100)
-  phone         String?      @db.VarChar(40)
-  siteAddress   String?      @db.VarChar(300)
-  area          String?      @db.VarChar(60)
-  source        String       @default("MANUAL") @db.VarChar(12) // SALES_ORDER, MANUAL
-  salesOrderId  String?      @db.Char(36) // from the event; Service never reads sal_ tables
-  salesOrderNo  String?      @db.VarChar(30)
-  preferredDate DateTime?    @db.Date // the customer asks for this day; the office books the slot
-  afterStock    Boolean      @default(false) // items were short at release: arranged when stock arrives
-  note          String?      @db.Text // note to the installer
+  id             String       @id @default(uuid()) @db.Char(36)
+  tenantId       String       @db.Char(36)
+  docNo          String       @db.VarChar(30) // JB-0001
+  jobType        SvcJobType
+  stage          SvcJobStage  @default(NOT_BOOKED)
+  branchCode     String       @db.VarChar(10)
+  customerCode   String       @db.VarChar(20)
+  customerName   String       @db.VarChar(150)
+  contactName    String?      @db.VarChar(100)
+  phone          String?      @db.VarChar(40)
+  siteAddress    String?      @db.VarChar(300)
+  area           String?      @db.VarChar(60)
+  source         String       @default("MANUAL") @db.VarChar(12) // SALES_ORDER, MANUAL
+  salesOrderId   String?      @db.Char(36) // from the event; Service never reads sal_ tables
+  salesOrderNo   String?      @db.VarChar(30)
+  preferredDate  DateTime?    @db.Date // the customer asks for this day; the office books the slot
+  afterStock     Boolean      @default(false) // items were short at release: arranged when stock arrives
+  note           String?      @db.Text // note to the installer
   // Booking (F3 part 2): one person, one day, one slot of a slot group. Minutes from midnight.
-  personId      String?      @db.Char(36)
-  personName    String?      @db.VarChar(100)
-  jobDate       DateTime?    @db.Date
-  slotStart     Int?
-  slotEnd       Int?
-  slotGroupCode String?      @db.VarChar(20)
-  bookedAt      DateTime?    @db.DateTime(3)
-  doneAt        DateTime?    @db.DateTime(3)
-  doneNote      String?      @db.VarChar(500)
-  closedAt      DateTime?    @db.DateTime(3)
-  cancelReason  String?      @db.VarChar(300)
-  cancelledAt   DateTime?    @db.DateTime(3)
-  version       Int          @default(1)
-  createdAt     DateTime     @default(now()) @db.DateTime(3)
-  createdBy     String       @db.VarChar(20)
-  updatedAt     DateTime     @updatedAt @db.DateTime(3)
-  updatedBy     String       @db.VarChar(20)
-  items         SvcJobItem[]
+  personId       String?      @db.Char(36)
+  personName     String?      @db.VarChar(100)
+  jobDate        DateTime?    @db.Date
+  slotStart      Int?
+  slotEnd        Int?
+  slotGroupCode  String?      @db.VarChar(20)
+  bookedAt       DateTime?    @db.DateTime(3)
+  doneAt         DateTime?    @db.DateTime(3)
+  doneNote       String?      @db.VarChar(500)
+  // What the installer recorded (F3 part 3). The office records it for them until the phone app comes.
+  result         String?      @db.VarChar(12) // COMPLETE, PARTIAL (a follow-up job is offered); POSTPONED goes back to Not booked
+  resultReason   String?      @db.VarChar(300) // why partly done or postponed
+  arrivedAt      String?      @db.Char(5) // "10:06"
+  finishedAt     String?      @db.Char(5)
+  paidStatus     String?      @db.VarChar(10) // PAID, NOT_PAID, NO_CHARGE: the installer's note, not a payment
+  paidMethod     String?      @db.VarChar(20) // CASH, TRANSFER, CARD, CHEQUE
+  notPaidReason  String?      @db.VarChar(300)
+  recordedBy     String?      @db.VarChar(100)
+  recordedAt     DateTime?    @db.DateTime(3)
+  postponedCount Int          @default(0)
+  followUpOfId   String?      @db.Char(36) // this job finishes a partly done one
+  followUpOfNo   String?      @db.VarChar(30)
+  closedAt       DateTime?    @db.DateTime(3)
+  cancelReason   String?      @db.VarChar(300)
+  cancelledAt    DateTime?    @db.DateTime(3)
+  version        Int          @default(1)
+  createdAt      DateTime     @default(now()) @db.DateTime(3)
+  createdBy      String       @db.VarChar(20)
+  updatedAt      DateTime     @updatedAt @db.DateTime(3)
+  updatedBy      String       @db.VarChar(20)
+  items          SvcJobItem[]
 
   @@unique([tenantId, docNo])
   @@unique([tenantId, salesOrderId])

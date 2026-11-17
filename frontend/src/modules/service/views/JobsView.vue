@@ -77,6 +77,9 @@ watch(search, (v) => {
       <Column header="Date and slot">
         <template #body="{ data }: { data: JobRow }"><span class="whitespace-nowrap">{{ data.whenText }}</span></template>
       </Column>
+      <Column header="Paid on site">
+        <template #body="{ data }: { data: JobRow }"><span :class="data.paidLabel === 'Not paid' ? 'font-semibold text-attention' : ''">{{ data.paidLabel ?? '—' }}</span></template>
+      </Column>
       <Column header="Stage">
         <template #body="{ data }: { data: JobRow }"><StatusChip :status="data.stage" :label="data.stageLabel" :group="STAGE_GROUP[data.stage]" /></template>
       </Column>

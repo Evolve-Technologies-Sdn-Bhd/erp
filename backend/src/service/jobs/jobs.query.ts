@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SvcJob, SvcJobItem } from '@prisma/client';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { AttachmentsService } from '../../platform/attachments/attachments.service';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ClockService } from '../../platform/clock/clock.service';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
@@ -14,6 +15,7 @@ import { SERVICE_PERMISSIONS as P } from '../service.permissions';
 import type { JobListQueryDto } from './dto/job.dto';
 import { slotLabel } from '../board/booking.rules';
 import { allowedJobActions, JOB_STAGE_LABEL, JOB_STAGES, JOB_TYPE_LABEL, shortDay, waitingText, type JobStage, type JobType } from './jobs.rules';
+import { METHOD_LABEL, PAID_LABEL, RESULT_LABEL, type PaidMethod, type PaidStatus, type VisitResult } from './visit.rules';
 
 export type JobWithItems = SvcJob & { items: SvcJobItem[] };
 
@@ -28,6 +30,7 @@ export class JobsQuery {
     private readonly activity: ActivityService,
     private readonly permissions: PermissionRegistry,
     private readonly clock: ClockService,
+    private readonly attachments: AttachmentsService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -64,9 +67,11 @@ export class JobsQuery {
   /** V04 · Job. */
   async detail(ctx: RequestContext, id: string) {
     const job = await this.load(ctx.tenantId, id);
-    const [activity, customer] = await Promise.all([
+    const [activity, customer, photos, followUp] = await Promise.all([
       this.activity.listFor(ctx.tenantId, SVC_ENTITY.JOB, job.id),
       this.masterData.findCustomer(ctx.tenantId, job.customerCode),
+      this.attachments.listFor(ctx.tenantId, SVC_ENTITY.JOB, job.id),
+      this.prisma.svcJob.findFirst({ where: { tenantId: ctx.tenantId, followUpOfId: job.id }, select: { id: true, docNo: true } }),
     ]);
     const branches = await this.masterData.listBranches(ctx.tenantId);
     return {
@@ -91,8 +96,26 @@ export class JobsQuery {
         : null,
       doneAt: job.doneAt?.toISOString() ?? null,
       doneNote: job.doneNote,
+      /** What the installer recorded (F3 part 3): null until the visit is recorded as complete or partly done. */
+      visit: job.result && job.result !== 'POSTPONED'
+        ? {
+            result: job.result, resultLabel: RESULT_LABEL[job.result as VisitResult], reason: job.resultReason, arrivedAt: job.arrivedAt, finishedAt: job.finishedAt,
+            paidStatus: job.paidStatus, paidLabel: job.paidStatus ? PAID_LABEL[job.paidStatus as PaidStatus] : null,
+            paidMethod: job.paidMethod ? METHOD_LABEL[job.paidMethod as PaidMethod] : null, notPaidReason: job.notPaidReason,
+            recordedBy: job.recordedBy, recordedAt: job.recordedAt?.toISOString() ?? null,
+          }
+        : null,
+      /** The last postponement, while the job waits to be booked again. */
+      postponed: job.result === 'POSTPONED' ? { reason: job.resultReason, count: job.postponedCount } : null,
+      photos,
+      followUpOf: job.followUpOfId ? { id: job.followUpOfId, docNo: job.followUpOfNo } : null,
+      followUpJob: followUp,
       closedAt: job.closedAt?.toISOString() ?? null,
-      allowedActions: allowedJobActions(job.stage as JobStage, { edit: this.permissions.has(ctx.user.roles, P.JOB_EDIT), book: this.permissions.has(ctx.user.roles, P.JOB_BOOK) }),
+      allowedActions: allowedJobActions(
+        job.stage as JobStage,
+        { edit: this.permissions.has(ctx.user.roles, P.JOB_EDIT), book: this.permissions.has(ctx.user.roles, P.JOB_BOOK), record: this.permissions.has(ctx.user.roles, P.JOB_RECORD) },
+        { partial: job.result === 'PARTIAL', hasFollowUp: Boolean(followUp) },
+      ),
     };
   }
 
@@ -100,16 +123,19 @@ export class JobsQuery {
   async home(ctx: RequestContext) {
     const today = this.clock.today();
     const where = { tenantId: ctx.tenantId, stage: 'NOT_BOOKED' as const };
-    const [waiting, count, grouped] = await Promise.all([
+    const [waiting, count, grouped, notPaid] = await Promise.all([
       this.prisma.svcJob.findMany({ where, orderBy: [{ createdAt: 'asc' }, { docNo: 'asc' }], take: 10 }),
       this.prisma.svcJob.count({ where }),
       this.prisma.svcJob.groupBy({ by: ['stage'], where: { tenantId: ctx.tenantId }, _count: { _all: true } }),
+      this.prisma.svcJob.count({ where: { tenantId: ctx.tenantId, stage: 'DONE', paidStatus: 'NOT_PAID' } }),
     ]);
     const oldest = waiting[0];
     const days = oldest ? Math.max(0, Math.floor((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${iso(oldest.createdAt)}T00:00:00Z`)) / DAY_MS)) : null;
     return {
       today,
       notBooked: { count, oldestDays: days },
+      /** Done jobs the customer did not pay for on site: the office follows them up before closing. */
+      doneNotPaid: notPaid,
       stages: buildStatusCounts(grouped.map((g) => ({ status: g.stage as JobStage, _count: g._count })), JOB_STAGES),
       waiting: waiting.map((j) => this.row(j)),
     };
@@ -134,6 +160,9 @@ export class JobsQuery {
         : waitingText({ preferredDate: iso(j.preferredDate), afterStock: j.afterStock }),
       stage: j.stage,
       stageLabel: JOB_STAGE_LABEL[j.stage as JobStage],
+      /** SvcJobs.html "Paid on site": Paid, Not paid, No charge, or null before the visit. */
+      paidLabel: j.paidStatus ? PAID_LABEL[j.paidStatus as PaidStatus].replace(' on site', '') : null,
+      result: j.result,
       createdAt: j.createdAt.toISOString(),
     };
   }

@@ -12,6 +12,8 @@ export const SERVICE_PERMISSIONS = {
   JOB_EDIT: 'service.job.edit',
   /** Book, move and take jobs off the Planning Board; mark them done and close them. */
   JOB_BOOK: 'service.job.book',
+  /** Record what happened at the visit: result, photos, paid or not (F3 part 3). Installers on the phone app later. */
+  JOB_RECORD: 'service.job.record',
   /** People and slot groups (V05). */
   SETTINGS_MANAGE: 'service.settings.manage',
 } as const;
@@ -25,7 +27,8 @@ export const SERVICE_PERMISSION_CATALOGUE: ModulePermissions = {
   permissions: [
     { key: P.VIEW, object: 'Service', action: 'View' },
     { key: P.JOB_EDIT, object: 'Job', action: 'Edit and cancel' },
-    { key: P.JOB_BOOK, object: 'Job', action: 'Book, mark done and close' },
+    { key: P.JOB_BOOK, object: 'Job', action: 'Book and close' },
+    { key: P.JOB_RECORD, object: 'Job', action: 'Record the visit' },
     { key: P.SETTINGS_MANAGE, object: 'Service', action: 'People and slots' },
   ],
   starterGrants: {},

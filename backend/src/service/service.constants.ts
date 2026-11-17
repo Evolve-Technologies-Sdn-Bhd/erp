@@ -16,6 +16,8 @@ export const SVC_EVENT = {
   JOB_CREATED: 'service.job.created',
   JOB_CANCELLED: 'service.job.cancelled',
   JOB_BOOKED: 'service.job.booked',
+  /** The visit is recorded as complete or partly done: what fees and commission will count (F5). */
+  JOB_DONE: 'service.job.done',
 } as const;
 
 /** Who makes a job from a released sales order. */

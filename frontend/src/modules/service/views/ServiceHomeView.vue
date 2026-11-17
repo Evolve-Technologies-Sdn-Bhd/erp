@@ -65,7 +65,7 @@ const bookLink = (j: JobRow) => ({ path: '/service/board', query: { job: j.id, .
     <KpiCard label="Jobs today" :value="data?.today.jobs ?? ''" :sub="`${data?.today.done ?? 0} done · ${toGo} to go`" :loading="loading" to="/service/board" />
     <KpiCard label="Not booked" :value="data?.notBooked.count ?? ''" :sub="oldest" :loading="loading" to="/service/jobs?status=notBooked" :tone="(data?.notBooked.count ?? 0) > 0 ? 'warning' : 'default'" />
     <KpiCard label="Booked" :value="s('booked')" sub="Waiting for their day" :loading="loading" to="/service/jobs?status=booked" />
-    <KpiCard label="Done, not closed" :value="s('done')" sub="Close them when nothing is left to do" :loading="loading" to="/service/jobs?status=done" />
+    <KpiCard label="Done, not closed" :value="s('done')" :sub="data?.doneNotPaid ? `${data.doneNotPaid} not paid on site` : 'Close them when nothing is left to do'" :tone="data?.doneNotPaid ? 'warning' : 'default'" :loading="loading" to="/service/jobs?status=done" />
   </div>
 
   <div class="grid items-start gap-4 grid-cols-[minmax(0,1fr)_340px]">

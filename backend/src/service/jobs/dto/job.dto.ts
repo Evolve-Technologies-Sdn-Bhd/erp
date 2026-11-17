@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
 import { JOB_TYPES } from '../jobs.rules';
+import { PAID_METHODS, PAID_STATUSES, RESULTS, type PaidMethod, type PaidStatus, type VisitResult } from '../visit.rules';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -106,9 +107,47 @@ export class BookJobDto extends VersionDto {
   start!: number;
 }
 
-export class DoneJobDto extends VersionDto {
+/** What happened at the visit (F3 part 3). Photos are uploaded first, to /attachments with entity SVC_JOB. */
+export class RecordVisitDto extends VersionDto {
+  @IsIn([...RESULTS], { message: 'Pick complete, partly done or postponed.' })
+  result!: VisitResult;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  reason?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  arrivedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  finishedAt?: string;
+
+  @IsOptional()
+  @IsIn([...PAID_STATUSES], { message: 'Pick paid, not paid or no charge.' })
+  paidStatus?: PaidStatus;
+
+  @IsOptional()
+  @IsIn([...PAID_METHODS], { message: 'Pick cash, bank transfer, card or cheque.' })
+  paidMethod?: PaidMethod;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  notPaidReason?: string;
+
+  /** The work done, in a line or two. */
   @IsOptional()
   @IsString()
   @MaxLength(500)
   note?: string;
+
+  /** Postponed: the day the customer now asks for, if known. */
+  @IsOptional()
+  @Matches(DATE_ONLY, { message: 'Date must look like 2026-10-01.' })
+  nextDate?: string;
 }

@@ -138,7 +138,7 @@ describe('Service jobs (end to end)', () => {
     const first = await jobId('Asks for Thu, 1 Oct');
     expect(await book(first, people['Suresh Nair']!, '2026-10-01', 'STANDARD', 720)).toMatchObject({ status: 409, body: { message: 'Suresh Nair is Technician and does not take installation jobs.' } });
     const booked = await book(first, people['Hafiz Rahman']!, '2026-10-01', 'STANDARD', 720);
-    expect(booked.body).toMatchObject({ stage: 'BOOKED', personName: 'Hafiz Rahman', whenText: 'Thu, 1 Oct · 12 PM – 2 PM', allowedActions: ['edit', 'cancel', 'book', 'unbook', 'done'] });
+    expect(booked.body).toMatchObject({ stage: 'BOOKED', personName: 'Hafiz Rahman', whenText: 'Thu, 1 Oct · 12 PM – 2 PM', allowedActions: ['edit', 'cancel', 'book', 'unbook', 'record'] });
     expect(booked.body.activity[0]!.message).toBe('Booked for Hafiz Rahman, Thu, 1 Oct, 12 PM – 2 PM');
 
     const second = await jobId('After stock arrives');
@@ -164,13 +164,68 @@ describe('Service jobs (end to end)', () => {
     expect((await api.get<Board>('service/board?date=2026-10-01')).people[1]!.jobs).toEqual([]);
   });
 
-  it('marks a job done and closes it, then keeps it as it was', async () => {
-    const booked = (await api.get<{ items: JobRow[] }>('service/jobs?status=booked')).items[0]!;
-    const job = await api.get<Job>(`service/jobs/${booked.id}`);
-    const done = await api.call<Job>('POST', `service/jobs/${job.id}/done`, 'ADM', { version: job.version, note: 'Table assembled, customer happy' });
-    expect(done.body).toMatchObject({ stage: 'DONE', allowedActions: ['close'] });
+  // ── Part 3: what the installer records at the visit ─────────────────────────
+
+  interface Visit { result: string; resultLabel: string; paidLabel: string | null; paidMethod: string | null; recordedBy: string | null }
+  type Recorded = Job & { visit: Visit | null; postponed: { reason: string; count: number } | null; photos: { fileName: string }[]; followUpJob: { id: string; docNo: string } | null; followUpOf: { docNo: string } | null; note: string | null };
+  /** Uploads a small PNG to the job, as the job page does before recording the visit. */
+  const photo = async (jobId: string) => {
+    const base = `${(await api.app.getUrl()).replace('[::1]', '127.0.0.1')}/api/v1`;
+    const form = new FormData();
+    const png = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+    form.append('file', new Blob([png], { type: 'image/png' }), 'after.png');
+    form.append('kind', 'JOB_PHOTO');
+    form.append('entityType', 'SVC_JOB');
+    form.append('entityId', jobId);
+    const res = await fetch(`${base}/attachments`, { method: 'POST', headers: { 'x-dev-user': 'ADM' }, body: form });
+    expect(res.status).toBe(201);
+  };
+  const bookedVisit = async (start: number) => {
+    const made = await api.call<Job>('POST', 'service/jobs', 'ADM', { jobType: 'SERVICE', customerCode: 'C-0045', preferredDate: '2026-10-02' });
+    return (await book(made.body.id, people['Suresh Nair']!, '2026-10-02', 'SHORT', start)).body;
+  };
+  const record = async (job: Job, body: Record<string, unknown>) => {
+    const latest = await api.get<Job>(`service/jobs/${job.id}`);
+    return api.call<Recorded>('POST', `service/jobs/${job.id}/record`, 'ADM', { version: latest.version, ...body });
+  };
+
+  it('records a complete visit only with a photo and whether the customer paid, then closes it', async () => {
+    const job = await bookedVisit(540);
+    expect(job.allowedActions).toContain('record');
+    const missing = await record(job, { result: 'COMPLETE' });
+    expect(missing).toMatchObject({ status: 400, body: { errors: [{ field: 'photos', message: 'Add at least one photo of the work.' }, { field: 'paidStatus', message: 'Say whether the customer paid on site.' }] } });
+
+    await photo(job.id);
+    const done = await record(job, { result: 'COMPLETE', arrivedAt: '09:05', finishedAt: '09:50', paidStatus: 'PAID', paidMethod: 'TRANSFER', note: 'Cartridges changed' });
+    expect(done.status).toBe(201);
+    expect(done.body).toMatchObject({ stage: 'DONE', allowedActions: ['close'], visit: { result: 'COMPLETE', paidLabel: 'Paid on site', paidMethod: 'bank transfer', recordedBy: 'Admin for Suresh Nair' } });
+    expect(done.body.photos.map((p) => p.fileName)).toEqual(['after.png']);
+    expect(done.body.activity[0]!.message).toBe('Complete · paid on site by bank transfer · 1 photo, recorded by Admin for Suresh Nair');
+    const event = await api.prisma.sysOutbox.findFirstOrThrow({ where: { name: 'service.job.done', aggregateId: job.id } });
+    expect(event.payload).toMatchObject({ result: 'COMPLETE', paidStatus: 'PAID', personName: 'Suresh Nair', date: '2026-10-02' });
+    expect((await api.get<{ items: (JobRow & { paidLabel: string | null })[] }>(`service/jobs?q=${job.docNo}`)).items[0]!.paidLabel).toBe('Paid');
+
     const closed = await api.call<Job>('POST', `service/jobs/${job.id}/close`, 'ADM', { version: done.body.version });
     expect(closed.body).toMatchObject({ stage: 'CLOSED', allowedActions: [] });
     expect((await api.call('POST', `service/jobs/${job.id}/unbook`, 'ADM', { version: closed.body.version })).status).toBe(409);
+  });
+
+  it('puts a postponed visit back on the waiting list, with the reason and the new date', async () => {
+    const job = await bookedVisit(600);
+    const r = await record(job, { result: 'POSTPONED', reason: 'Customer not at home', nextDate: '2026-10-06' });
+    expect(r.body).toMatchObject({ stage: 'NOT_BOOKED', personName: null, whenText: 'Asks for Tue, 6 Oct', postponed: { reason: 'Customer not at home', count: 1 }, visit: null });
+    expect(r.body.activity[0]).toMatchObject({ message: 'Postponed, recorded by Admin for Suresh Nair; waiting to be booked again, the customer asks for Tue, 6 Oct', comment: 'Customer not at home' });
+  });
+
+  it('gives a partly done visit one follow-up job with what is left to do', async () => {
+    const job = await bookedVisit(660);
+    await photo(job.id);
+    const r = await record(job, { result: 'PARTIAL', reason: 'Wall bracket missing; bring one', paidStatus: 'NOT_PAID', notPaidReason: 'Pays when finished' });
+    expect(r.body).toMatchObject({ stage: 'DONE', allowedActions: ['close', 'followUp'], visit: { resultLabel: 'Partly done', paidLabel: 'Not paid' } });
+    const next = await api.call<Recorded>('POST', `service/jobs/${job.id}/follow-up`, 'ADM');
+    expect(next.status).toBe(201);
+    expect(next.body).toMatchObject({ stage: 'NOT_BOOKED', jobType: 'SERVICE', customerName: r.body.customerName, followUpOf: { docNo: job.docNo }, note: `Follow-up of ${job.docNo}: Wall bracket missing; bring one` });
+    expect((await api.get<Recorded>(`service/jobs/${job.id}`)).followUpJob?.docNo).toBe(next.body.docNo);
+    expect(await api.call('POST', `service/jobs/${job.id}/follow-up`, 'ADM')).toMatchObject({ status: 409, body: { message: `${job.docNo} already has its follow-up job, ${next.body.docNo}.` } });
   });
 });

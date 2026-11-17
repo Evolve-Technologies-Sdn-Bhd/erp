@@ -10,7 +10,9 @@ import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { SVC_DOC_TYPE, SVC_ENTITY, SVC_EVENT, SVC_SEQUENCES } from '../service.constants';
-import type { BookJobDto, CancelJobDto, CreateJobDto, DoneJobDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import { AttachmentsService } from '../../platform/attachments/attachments.service';
+import type { BookJobDto, CancelJobDto, CreateJobDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import { visitErrors, visitText } from './visit.rules';
 import { bookingRefusal, slotLabel } from '../board/booking.rules';
 import { ServiceSettingsService } from '../settings/settings.service';
 import { allowedJobActions, JOB_STAGE_LABEL, JOB_TYPE_LABEL, manualJobErrors, shortDay, type JobAction, type JobStage, type JobType, type ReleasedOrder } from './jobs.rules';
@@ -35,6 +37,7 @@ export class JobsService {
     private readonly outbox: OutboxWriter,
     private readonly clock: ClockService,
     private readonly settings: ServiceSettingsService,
+    private readonly attachments: AttachmentsService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -173,16 +176,67 @@ export class JobsService {
     return this.query.detail(ctx, id);
   }
 
-  /** The work is done. The installer's own record (photo, paid on site) comes with F3 part 3. */
-  async done(ctx: RequestContext, id: string, dto: DoneJobDto) {
+  /**
+   * What happened at the visit (F3 part 3). Complete or partly done: the job is Done, with at least one photo and
+   * whether the customer paid. Postponed: the job waits as Not booked again, the slot is free, and the reason is kept.
+   * The office records it for the installer until the phone app comes.
+   */
+  async record(ctx: RequestContext, id: string, dto: RecordVisitDto) {
     const job = await this.query.load(ctx.tenantId, id);
-    this.require(job.stage as JobStage, 'done', `${job.docNo} must be booked before it is done.`);
-    const note = dto.note?.trim() || null;
+    this.require(job.stage as JobStage, 'record', `${job.docNo} must be booked before its visit is recorded.`);
+    const photos = (await this.attachments.listFor(ctx.tenantId, SVC_ENTITY.JOB, job.id)).filter((a) => a.mimeType.startsWith('image/')).length;
+    const errors = visitErrors(dto, photos);
+    if (dto.nextDate && dto.nextDate < this.clock.today()) errors.push({ field: 'nextDate', message: 'The new date cannot be in the past.' });
+    if (errors.length) throw new ValidationFailedError(errors);
+    const by = job.personName && job.personName !== ctx.user.name ? `${ctx.user.name} for ${job.personName}` : ctx.user.name;
+    const reason = dto.reason?.trim() || null;
+    const text = visitText(dto);
+
     await this.prisma.$transaction(async (tx) => {
-      await this.bump(tx, ctx, job.id, dto.version, { stage: 'DONE', doneAt: this.clock.now(), doneNote: note }, 'BOOKED');
-      await this.log(tx, ctx, job.id, job.docNo, 'done', `Marked done by ${ctx.user.name}`, note);
+      if (dto.result === 'POSTPONED') {
+        await this.bump(tx, ctx, job.id, dto.version, {
+          stage: 'NOT_BOOKED', ...FREE_SLOT, result: 'POSTPONED', resultReason: reason, postponedCount: { increment: 1 },
+          ...(dto.nextDate && { preferredDate: day(dto.nextDate), afterStock: false }),
+        }, 'BOOKED');
+        await this.log(tx, ctx, job.id, job.docNo, 'postponed', `Postponed, recorded by ${by}; waiting to be booked again${dto.nextDate ? `, the customer asks for ${shortDay(dto.nextDate)}` : ''}`, reason);
+        return;
+      }
+      await this.bump(tx, ctx, job.id, dto.version, {
+        stage: 'DONE', doneAt: this.clock.now(), doneNote: dto.note?.trim() || null,
+        result: dto.result, resultReason: reason, arrivedAt: dto.arrivedAt || null, finishedAt: dto.finishedAt || null,
+        paidStatus: dto.paidStatus ?? null, paidMethod: dto.paidStatus === 'PAID' ? (dto.paidMethod ?? null) : null,
+        notPaidReason: dto.paidStatus === 'NOT_PAID' ? (dto.notPaidReason?.trim() ?? null) : null,
+        recordedBy: by, recordedAt: this.clock.now(),
+      }, 'BOOKED');
+      await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}`, dto.note?.trim() || reason);
+      await this.outbox.publish(tx, ctx, [{
+        name: SVC_EVENT.JOB_DONE, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
+        payload: {
+          jobNo: job.docNo, jobType: job.jobType, personId: job.personId, personName: job.personName, date: job.jobDate?.toISOString().slice(0, 10) ?? null,
+          result: dto.result, paidStatus: dto.paidStatus, salesOrderNo: job.salesOrderNo, customerCode: job.customerCode,
+        },
+      }]);
     });
     return this.query.detail(ctx, id);
+  }
+
+  /** A partly done job gets one follow-up job: same customer, site and items, Not booked, saying what is left. */
+  async followUp(ctx: RequestContext, id: string) {
+    const job = await this.query.load(ctx.tenantId, id);
+    const exists = await this.prisma.svcJob.findFirst({ where: { tenantId: ctx.tenantId, followUpOfId: job.id }, select: { docNo: true } });
+    if (exists) throw new BusinessRuleError('FOLLOW_UP_EXISTS', `${job.docNo} already has its follow-up job, ${exists.docNo}.`);
+    if (job.stage !== 'DONE' || job.result !== 'PARTIAL') throw new BusinessRuleError('ACTION_NOT_ALLOWED', `Only a partly done job gets a follow-up job.`);
+    const made = await this.prisma.$transaction(async (tx) => {
+      const next = await this.insert(tx, ctx, {
+        jobType: job.jobType as JobType, branchCode: job.branchCode, customerCode: job.customerCode, customerName: job.customerName,
+        contactName: job.contactName, phone: job.phone, siteAddress: job.siteAddress, area: job.area, source: 'MANUAL',
+        salesOrderId: undefined, salesOrderNo: job.salesOrderNo ?? undefined, preferredDate: null,
+        note: `Follow-up of ${job.docNo}: ${job.resultReason ?? 'finish the work'}`, followUpOfId: job.id, followUpOfNo: job.docNo,
+      }, job.items.map((i) => ({ itemCode: i.itemCode, itemName: i.itemName, qty: i.qty.toString(), uomCode: i.uomCode })), `Follow-up of ${job.docNo}, added by ${ctx.user.name}`);
+      await this.log(tx, ctx, job.id, job.docNo, 'follow_up', `Follow-up job ${next.docNo} added by ${ctx.user.name}`);
+      return next;
+    });
+    return this.query.detail(ctx, made.id);
   }
 
   async close(ctx: RequestContext, id: string, dto: VersionDto) {
@@ -203,7 +257,7 @@ export class JobsService {
     j: {
       jobType: JobType; branchCode: string; customerCode: string; customerName: string; contactName: string | null; phone: string | null;
       siteAddress: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
-      preferredDate: string | null; afterStock?: boolean; note: string | null;
+      preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string;
     },
     lines: { itemCode: string; itemName: string; qty: string; uomCode: string }[],
     message: string,
@@ -216,6 +270,7 @@ export class JobsService {
         customerCode: j.customerCode, customerName: j.customerName, contactName: j.contactName, phone: j.phone, siteAddress: j.siteAddress, area: j.area,
         source: j.source, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
         preferredDate: j.preferredDate ? day(j.preferredDate) : null, afterStock: j.afterStock ?? false, note: j.note,
+        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
         items: { create: lines.map((l, i) => ({ tenantId: ctx.tenantId, lineNo: i + 1, itemCode: l.itemCode, itemName: l.itemName, qty: dec(l.qty), uomCode: l.uomCode })) },
       },
@@ -244,7 +299,7 @@ export class JobsService {
 
   /** The controller already checked the permission; what is left is whether the job's stage allows the action. */
   private require(stage: JobStage, action: JobAction, message: string) {
-    if (!allowedJobActions(stage, { edit: true, book: true }).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
+    if (!allowedJobActions(stage, { edit: true, book: true, record: true }).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
   }
 
   /** Optimistic lock and stage guard: refuses if someone else changed the job meanwhile. */
