@@ -243,6 +243,7 @@ const totals = computed((): PrintTotal[] => {
   return [
     { label: 'Subtotal', value: formatMoney(t.subtotal) },
     ...(Number(t.discountTotal) ? [{ label: 'Discount', value: `− ${formatMoney(t.discountTotal)}` }] : []),
+    ...(Number(t.voucherTotal) ? [{ label: 'Vouchers', value: `− ${formatMoney(t.voucherTotal!)}` }] : []),
     ...t.taxLines.map((tl) => ({ label: tl.name, value: formatMoney(tl.amount) })),
     ...(Number(t.rounding) ? [{ label: 'Rounding', value: formatMoney(t.rounding) }] : []),
     { label: `Total (${x.d.currency || 'MYR'})`, value: formatMoney(t.total), strong: true },

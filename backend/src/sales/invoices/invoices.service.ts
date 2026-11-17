@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma, SalSalesOrderLine } from '@prisma/client';
+import type { Prisma, SalOrderVoucher, SalSalesOrderLine } from '@prisma/client';
 import { MASTER_DATA_PORT, type MasterDataPort, type MdCustomer } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ApprovalsService } from '../../platform/approvals/approvals.service';
@@ -13,11 +13,12 @@ import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { breachText, creditActivityText } from '../shared/credit.rules';
 import { CreditService, type CreditOutcome } from '../shared/credit.service';
 import { DepositsService } from '../shared/deposits.service';
+import { totalsWithVouchers, vouchersForInvoice } from '../shared/voucher.rules';
 import { depositToUse } from '../proformas/proforma.rules';
 import { SalesDocumentLines } from '../shared/document-lines.service';
 import { mailDate, SalesMailService } from '../shared/sales-mail.service';
 import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_LINK, SAL_ROLE } from '../shared/sales.constants';
-import { saleLineTotals, saleTotals } from '../shared/totals.rules';
+import { saleLineTotals } from '../shared/totals.rules';
 import type { CreateDirectInvoiceDto, CreateFromOrderDto, InvoiceApprovalDto, UpdateInvoiceDto } from './dto/invoice.dto';
 import { allocateToDeliveries, dueDateFor, INV_LOCKED_MESSAGE, invoiceQtyProblems, priceReason, type InvoiceAction } from './invoice.rules';
 import { InvoicesQuery, type InvoiceWithLines } from './invoices.query';
@@ -65,7 +66,8 @@ export class InvoicesService {
     const customer = await this.docs.activeCustomer(ctx, order.customerCode, 'an invoice');
     const docDate = dto.docDate ?? this.clock.today();
     const lines = await this.orderLines(ctx, customer, order.lines, dto.lines.map((l) => ({ soLineId: l.soLineId, qty: l.qty })), docDate);
-    const totals = await this.totalsOf(ctx.tenantId, lines);
+    const vouchers = await this.vouchersFor(ctx.tenantId, order.id, lines);
+    const totals = await this.totalsOf(ctx.tenantId, lines, vouchers);
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.INVOICE, thisDocument: toMoney(totals.total), branchCode: order.branchCode, excludeOrderId: order.id });
     const deliveries = await this.deliveriesFor(ctx.tenantId, lines.map((l) => l.soLineId!));
 
@@ -88,6 +90,7 @@ export class InvoicesService {
       if (!deliveries.length) {
         await tx.sysDocLink.create({ data: { tenantId: ctx.tenantId, fromType: SAL_ENTITY.ORDER, fromId: order.id, fromNo: order.docNo, toType: SAL_ENTITY.INVOICE, toId: row.id, toNo: docNo, linkType: SAL_LINK.INVOICED } });
       }
+      await this.takeVouchers(tx, ctx, row.id, docNo, vouchers);
       await this.log(tx, ctx, row.id, docNo, 'created', `Created from ${order.docNo} by ${ctx.user.name}`);
       await this.log(tx, ctx, row.id, docNo, 'credit_check', invoiceCreditText(credit), null, 1);
       return row;
@@ -128,6 +131,7 @@ export class InvoicesService {
     const docDate = dto.docDate ?? iso(inv.docDate);
     let lines: BuiltLine[] | null = null;
     let customer: MdCustomer | null = null;
+    let vouchers: SalOrderVoucher[] | null = null;
 
     if (inv.kind === 'FROM_ORDER' && dto.quantities) {
       const order = await this.prisma.salSalesOrder.findFirst({ where: { id: inv.salesOrderId ?? '' }, include: { lines: true } });
@@ -135,13 +139,14 @@ export class InvoicesService {
       customer = await this.docs.activeCustomer(ctx, inv.customerCode, 'an invoice');
       const wanted = inv.lines.map((l) => ({ soLineId: l.soLineId!, qty: dto.quantities!.find((q) => q.lineNo === l.lineNo)?.qty ?? toQty(l.qty) }));
       lines = await this.orderLines(ctx, customer, order.lines, wanted, docDate, inv.id);
+      vouchers = await this.vouchersFor(ctx.tenantId, order.id, lines, inv.id);
     } else if (inv.kind === 'DIRECT' && (dto.lines || dto.customerCode)) {
       customer = await this.docs.activeCustomer(ctx, dto.customerCode ?? inv.customerCode, 'an invoice');
       const input = dto.lines ?? inv.lines.map((l) => ({ itemCode: l.itemCode, qty: toQty(l.qty), unitPrice: l.unitPrice.toString(), discountPct: l.discountPct.toString() }));
       const built = await this.docs.buildLines(ctx, customer, inv.branchCode, docDate, input);
       lines = built.lines.map(({ isBuyToOrder: _b, unitCost: _c, ...l }) => ({ ...l, soLineId: null }));
     }
-    const totals = lines ? await this.totalsOf(ctx.tenantId, lines) : null;
+    const totals = lines ? await this.totalsOf(ctx.tenantId, lines, vouchers ?? []) : null;
     const customerChanged = Boolean(customer && customer.code !== inv.customerCode);
     const clearApproval = Boolean(inv.approvedAt) && (customerChanged || (totals !== null && !totals.total.eq(inv.total)));
     const term = customerChanged ? customer!.creditTermDays : inv.creditTermDays;
@@ -163,6 +168,10 @@ export class InvoicesService {
         await tx.salInvoiceLine.deleteMany({ where: { invoiceId: inv.id } });
         await tx.salInvoiceLine.createMany({ data: lines.map((l, i) => ({ ...l, tenantId: ctx.tenantId, invoiceId: inv.id, lineNo: i + 1 })) });
       }
+      if (vouchers) {
+        await tx.salOrderVoucher.updateMany({ where: { tenantId: ctx.tenantId, invoiceId: inv.id }, data: { invoiceId: null, invoiceNo: null } });
+        await this.takeVouchers(tx, ctx, inv.id, inv.docNo, vouchers, true);
+      }
       await this.log(tx, ctx, inv.id, inv.docNo, 'saved', `Saved by ${ctx.user.name}`);
       if (clearApproval) await this.log(tx, ctx, inv.id, inv.docNo, 'approval_cleared', 'Approval cleared: the invoice changed after it was approved', null, 1);
     });
@@ -176,6 +185,8 @@ export class InvoicesService {
       const deleted = await tx.salInvoice.deleteMany({ where: { id, tenantId: ctx.tenantId, version, status: 'DRAFT' } });
       if (deleted.count === 0) throw new StaleVersionError();
       await tx.sysDocLink.deleteMany({ where: { tenantId: ctx.tenantId, toType: SAL_ENTITY.INVOICE, toId: id } });
+      // Its order vouchers wait for the order's next invoice.
+      await tx.salOrderVoucher.updateMany({ where: { tenantId: ctx.tenantId, invoiceId: id }, data: { invoiceId: null, invoiceNo: null } });
       await this.approvals.cancelPending(tx, ctx, SAL_ENTITY.INVOICE, id);
       await this.log(tx, ctx, id, inv.docNo, 'deleted', `Draft deleted by ${ctx.user.name}. ${inv.docNo} will not be used again.`);
     });
@@ -248,7 +259,7 @@ export class InvoicesService {
         name: SAL_EVENT.INVOICE_RELEASED, aggregateType: SAL_ENTITY.INVOICE, aggregateId: inv.id,
         payload: {
           invoiceNo: inv.docNo, docDate, dueDate, branchCode: inv.branchCode, customerCode: inv.customerCode, customerName: inv.customerName, customerTin: customer?.tin ?? null,
-          currency: inv.currency, subtotal: toMoney(inv.subtotal), discountTotal: toMoney(inv.discountTotal), taxTotal: toMoney(inv.taxTotal), rounding: toMoney(inv.rounding), total: toMoney(inv.total),
+          currency: inv.currency, subtotal: toMoney(inv.subtotal), discountTotal: toMoney(inv.discountTotal), voucherTotal: toMoney(inv.voucherTotal), taxTotal: toMoney(inv.taxTotal), rounding: toMoney(inv.rounding), total: toMoney(inv.total),
           salesOrderNo: inv.salesOrderNo, deliveryNos: inv.deliveryNos, depositApplied: toMoney(deposit), proformaNo: proforma && deposit.gt(0) ? proforma.proforma.docNo : null,
           lines: inv.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.qty), unitPrice: l.unitPrice.toString(), taxCode: l.taxCode, amount: toMoney(l.amount), taxAmount: toMoney(l.taxAmount) })),
         },
@@ -353,10 +364,28 @@ export class InvoicesService {
     return lines.filter((l) => l.soLineId && gifts.has(l.soLineId) && !lines.some((o) => o.itemCode === l.itemCode && !(o.soLineId && gifts.has(o.soLineId)))).map((l) => l.itemCode);
   }
 
-  private async totalsOf(tenantId: string, lines: BuiltLine[]) {
+  /** Totals by rule 14, less the order vouchers the invoice uses (phase 5); with none, exactly rule 14. */
+  private async totalsOf(tenantId: string, lines: BuiltLine[], vouchers: SalOrderVoucher[] = []) {
     const setting = await this.prisma.salSetting.findUnique({ where: { tenantId } });
-    const t = saleTotals(lines, 'EXCLUSIVE', setting?.roundTo5Sen ?? true);
-    return { subtotal: t.subtotal, discountTotal: t.discountTotal, taxTotal: t.taxTotal, rounding: t.rounding, total: t.total };
+    const t = totalsWithVouchers(lines, vouchers, setting?.roundTo5Sen ?? true);
+    return { subtotal: t.subtotal, discountTotal: t.discountTotal, voucherTotal: t.voucherTotal, taxTotal: t.taxTotal, rounding: t.rounding, total: t.total };
+  }
+
+  /** The order's vouchers no other invoice has taken that these lines can cover (phase 5, F1 part 4). */
+  private async vouchersFor(tenantId: string, salesOrderId: string, lines: BuiltLine[], invoiceId?: string): Promise<SalOrderVoucher[]> {
+    const available = await this.prisma.salOrderVoucher.findMany({
+      where: { tenantId, salesOrderId, OR: [{ invoiceId: null }, ...(invoiceId ? [{ invoiceId }] : [])] },
+      orderBy: { sortOrder: 'asc' },
+    });
+    return vouchersForInvoice(available, lines);
+  }
+
+  /** Marks the vouchers as used on this invoice; refuses if another invoice took one meanwhile. */
+  private async takeVouchers(tx: Tx, ctx: RequestContext, invoiceId: string, docNo: string, vouchers: SalOrderVoucher[], quiet = false) {
+    if (!vouchers.length) return;
+    const taken = await tx.salOrderVoucher.updateMany({ where: { tenantId: ctx.tenantId, id: { in: vouchers.map((v) => v.id) }, invoiceId: null }, data: { invoiceId, invoiceNo: docNo } });
+    if (taken.count !== vouchers.length) throw new BusinessRuleError('VOUCHER_TAKEN', 'Another invoice used a voucher of this order meanwhile. Open the order again and make the invoice.');
+    if (!quiet) await this.log(tx, ctx, invoiceId, docNo, 'vouchers', `Order vouchers used: ${vouchers.map((v) => `${v.voucherNo} ${toRmText(v.amount)}`).join(', ')} off before tax`, null, 1);
   }
 
   /** Confirmed delivery orders that still have something to invoice on these order lines. */

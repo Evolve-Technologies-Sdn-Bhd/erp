@@ -85,7 +85,7 @@ The board mockup shows Thu 1 Oct with JB-0013 to JB-0015 already booked and JB-0
 | # | Choice | Why |
 |---|---|---|
 | 1 | The demo uses furniture with assembly as the "installation" | The repo holds no client data; the demo company already sells furniture |
-| 2 | A voucher is a line with a negative amount, and it lowers the taxable amount | It prints the way such orders are printed today. Whether tax should be worked out before or after a voucher needs the client's accountant |
+| 2 | A voucher is shown as a line with a negative amount, and it lowers the taxable amount. It is kept beside the order's lines (not as one), so it never goes on a delivery order; the order's first invoice that covers it uses it | It prints the way such orders are printed today. Whether tax should be worked out before or after a voucher, and what a return gives back on an invoice that used one, need the client's accountant |
 | 3 | A free gift is a line at RM 0.00 with no tax | The stock must still go out on the delivery order |
 | 4 | A package's price is spread over its items by list value | Each item then has a real price for delivery, invoice and returns |
 | 5 | The installation option is a field on the order, not a line at RM 0.00 | Simpler to read; the job is made from the field |

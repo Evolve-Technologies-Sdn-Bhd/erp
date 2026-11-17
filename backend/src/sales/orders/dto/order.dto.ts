@@ -4,6 +4,7 @@ import { ListQueryDto } from '../../../platform/http/list-query.dto';
 
 const DECIMAL_4 = /^\d{1,14}(\.\d{1,4})?$/;
 const PERCENT = /^\d{1,3}(\.\d{1,2})?$/;
+const MONEY = /^\d{1,14}(\.\d{1,2})?$/;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export class OrderListQueryDto extends ListQueryDto {
@@ -73,6 +74,27 @@ export class OrderEntryLineDto {
   giftItemCode?: string | null;
 }
 
+/** A voucher on the order (phase 5): the number the agent types and the amount off before tax. */
+export class OrderVoucherDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Type the voucher number.' })
+  @MaxLength(30)
+  voucherNo!: string;
+
+  @Matches(MONEY, { message: 'Amount must be a number with up to 2 decimals.' })
+  amount!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  taxCode?: string | null;
+}
+
 class OrderFieldsDto {
   @IsOptional()
   @Matches(DATE_ONLY, { message: 'Order date must look like 2026-09-29.' })
@@ -123,6 +145,12 @@ export class CreateOrderDto extends OrderFieldsDto {
   @ValidateNested({ each: true })
   @Type(() => OrderEntryLineDto)
   lines!: OrderEntryLineDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderVoucherDto)
+  vouchers?: OrderVoucherDto[];
 }
 
 export class UpdateOrderDto extends OrderFieldsDto {
@@ -142,6 +170,12 @@ export class UpdateOrderDto extends OrderFieldsDto {
   @ValidateNested({ each: true })
   @Type(() => OrderEntryLineDto)
   lines?: OrderEntryLineDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderVoucherDto)
+  vouchers?: OrderVoucherDto[];
 }
 
 export class VersionDto {

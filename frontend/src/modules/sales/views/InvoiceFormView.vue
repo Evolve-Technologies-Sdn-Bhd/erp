@@ -134,13 +134,18 @@ const previewTotals = computed(() => {
     const p = previews.value[i]
     if (p) taxes.set(l.taxName, [...(taxes.get(l.taxName) ?? []), p.taxAmount])
   })
+  // The order vouchers this invoice uses (phase 5); the server decides again on save which ones still fit.
+  const vouchers = inv.value?.vouchers ?? []
+  for (const v of vouchers) if (taxes.has(v.taxName)) taxes.set(v.taxName, [...taxes.get(v.taxName)!, `-${v.taxAmount}`])
+  const voucherTotal = sumMoney(vouchers.map((v) => v.amount))
   const taxLines = [...taxes].map(([name, amounts]) => ({ code: name, name, amount: sumMoney(amounts) }))
   return {
     subtotal: sumMoney(ok.map((p) => p!.grossAmount)),
     discountTotal: sumMoney(ok.map((p) => p!.discountAmount)),
+    voucherTotal,
     taxLines,
     rounding: '0.00',
-    total: sumMoney([sumMoney(ok.map((p) => p!.amount)), ...taxLines.map((t) => t.amount)]),
+    total: sumMoney([sumMoney(ok.map((p) => p!.amount)), `-${voucherTotal}`, ...taxLines.map((t) => t.amount)]),
   }
 })
 const totals = computed(() => (editable.value && (dirty.value || isNew.value) ? previewTotals.value : (inv.value?.totals ?? previewTotals.value)))
@@ -477,6 +482,10 @@ const belowList = (l: EditLine) => Boolean(l.listPrice && l.unitPrice && Number(
             <div v-if="totals" class="flex flex-col text-[13px]">
               <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Subtotal</span><MoneyText :value="totals.subtotal" /></div>
               <div v-if="Number(totals.discountTotal)" class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Discount</span><span class="erp-num">− {{ formatMoney(totals.discountTotal) }}</span></div>
+              <div v-if="Number(totals.voucherTotal)" class="flex justify-between gap-3 py-[5px]">
+                <span class="text-erp-muted">Vouchers<template v-if="inv?.vouchers.length"> ({{ inv.vouchers.map((v) => v.voucherNo).join(', ') }})</template></span>
+                <span class="erp-num">− {{ formatMoney(totals.voucherTotal!) }}</span>
+              </div>
               <div v-for="t in totals.taxLines" :key="t.code" class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Tax ({{ t.name }})</span><MoneyText :value="t.amount" /></div>
               <div v-if="Number(totals.rounding)" class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Rounding</span><MoneyText :value="totals.rounding" /></div>
               <div class="flex justify-between gap-3 border-t border-erp-row pt-2 pb-[5px] font-bold"><span>Invoice total</span><MoneyText :value="totals.total" /></div>

@@ -2112,6 +2112,7 @@ model SalSalesOrder {
   enquiryNo        String?             @db.VarChar(30)
   subtotal         Decimal             @default(0) @db.Decimal(18, 2)
   discountTotal    Decimal             @default(0) @db.Decimal(18, 2)
+  voucherTotal     Decimal             @default(0) @db.Decimal(18, 2) // vouchers off, before tax (phase 5)
   taxTotal         Decimal             @default(0) @db.Decimal(18, 2)
   rounding         Decimal             @default(0) @db.Decimal(18, 2)
   total            Decimal             @default(0) @db.Decimal(18, 2)
@@ -2130,6 +2131,7 @@ model SalSalesOrder {
   updatedAt        DateTime            @updatedAt @db.DateTime(3)
   updatedBy        String              @db.VarChar(20)
   lines            SalSalesOrderLine[]
+  vouchers         SalOrderVoucher[]
   deliveries       SalDelivery[]
   proformas        SalProforma[]
   cancelOrders     SalCancelOrder[]
@@ -2187,6 +2189,29 @@ model SalSalesOrderLine {
   @@index([tenantId, itemCode])
   @@index([tenantId, packageCode])
   @@map("sal_sales_order_line")
+}
+
+/// A voucher on a sales order (phase 5): a typed number and an amount off that lowers the taxed amount. Kept beside
+/// the lines so it never reaches a delivery; the order's first invoice that can cover it uses it (invoiceId).
+model SalOrderVoucher {
+  id           String        @id @default(uuid()) @db.Char(36)
+  tenantId     String        @db.Char(36)
+  salesOrderId String        @db.Char(36)
+  sortOrder    Int
+  voucherNo    String        @db.VarChar(30) // typed by the agent, not issued or checked by the system
+  description  String        @db.VarChar(100)
+  amount       Decimal       @db.Decimal(18, 2) // off, before tax
+  taxCode      String        @db.VarChar(20) // the tax of the items it lowers
+  taxRate      Decimal       @db.Decimal(7, 4)
+  taxAmount    Decimal       @db.Decimal(18, 2) // tax it takes off
+  invoiceId    String?       @db.Char(36)
+  invoiceNo    String?       @db.VarChar(30)
+  salesOrder   SalSalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([salesOrderId, voucherNo])
+  @@index([tenantId, voucherNo])
+  @@index([tenantId, invoiceId])
+  @@map("sal_order_voucher")
 }
 
 enum SalDeliveryStatus {
@@ -2289,6 +2314,7 @@ model SalInvoice {
   note             String?          @db.Text // printed
   subtotal         Decimal          @default(0) @db.Decimal(18, 2)
   discountTotal    Decimal          @default(0) @db.Decimal(18, 2)
+  voucherTotal     Decimal          @default(0) @db.Decimal(18, 2) // order vouchers used on this invoice (phase 5)
   taxTotal         Decimal          @default(0) @db.Decimal(18, 2)
   rounding         Decimal          @default(0) @db.Decimal(18, 2)
   total            Decimal          @default(0) @db.Decimal(18, 2)

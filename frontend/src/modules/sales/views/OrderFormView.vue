@@ -5,7 +5,7 @@ import DatePicker from 'primevue/datepicker'
 import Menu from 'primevue/menu'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { ChevronDown, Gift, Lock, Plus, X } from '@lucide/vue'
+import { ChevronDown, Gift, Lock, Plus, Ticket, X } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import ActivityList from '@/components/erp/ActivityList.vue'
 import FormField from '@/components/erp/FormField.vue'
@@ -84,6 +84,15 @@ interface EditPackage {
   giftItemCode: string | null
 }
 type FormLine = EditLine | EditPackage
+/** A voucher the agent typed (phase 5): it lowers the amount taxed, so the server prices its tax. */
+interface EditVoucher {
+  key: number
+  voucherNo: string
+  description: string
+  amount: string
+  taxCode: string | null
+  invoiceNo: string | null
+}
 let nextKey = 1
 const form = reactive({
   customer: null as CustomerOption | null,
@@ -94,6 +103,7 @@ const form = reactive({
   project: '',
   deliveryAddress: '',
   lines: [] as FormLine[],
+  vouchers: [] as EditVoucher[],
 })
 const pad = (n: number) => String(n).padStart(2, '0')
 const isoToDate = (iso: string) => (iso ? new Date(`${iso}T00:00:00`) : null)
@@ -105,6 +115,7 @@ const snapshot = () =>
   JSON.stringify({
     ...form,
     lines: form.lines.map((l) => (l.kind === 'package' ? { pkg: l.code, qty: l.qty, gift: l.giftItemCode } : { code: l.item.code, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct })),
+    vouchers: form.vouchers.map((v) => ({ no: v.voucherNo, amount: v.amount, description: v.description, taxCode: v.taxCode })),
   })
 const dirty = computed(() => snapshot() !== saved.value)
 
@@ -121,6 +132,7 @@ function fillForm(o: OrderDetail | null) {
     form.project = o.project ?? ''
     form.deliveryAddress = o.deliveryAddress ?? ''
     form.lines = toFormLines(o.lines)
+    form.vouchers = o.vouchers.map((v) => ({ key: nextKey++, voucherNo: v.voucherNo, description: v.description, amount: v.amount, taxCode: v.taxCode, invoiceNo: v.invoiceNo ?? null }))
   } else {
     form.customer = null
     form.contactName = ''
@@ -130,6 +142,7 @@ function fillForm(o: OrderDetail | null) {
     form.project = ''
     form.deliveryAddress = ''
     form.lines = []
+    form.vouchers = []
   }
   saved.value = snapshot()
   errors.value = {}
@@ -288,6 +301,33 @@ const taxOf = (l: FormLine) => (l.kind === 'item' ? { code: l.item.taxCode, name
 const giftName = (l: EditPackage) => l.gifts.find((g) => g.itemCode === l.giftItemCode)?.itemName ?? l.giftItemCode ?? ''
 
 const previews = computed(() => form.lines.map(linePreview))
+
+// ── Vouchers (phase 5) ───────────────────────────────────────────────────────
+const MONEY = /^\d+(\.\d{1,2})?$/
+/** Tax codes on the order with their name and rate, for the tax a voucher lowers. */
+const lineTaxes = computed(() => {
+  const out = new Map<string, { name: string; rate: string }>()
+  for (const l of form.lines) {
+    const t = taxOf(l)
+    if (!out.has(t.code)) out.set(t.code, { name: t.name, rate: l.kind === 'item' ? l.item.taxRate : l.taxRate })
+  }
+  return out
+})
+const voucherTax = (v: EditVoucher) => v.taxCode ?? (lineTaxes.value.size === 1 ? [...lineTaxes.value.keys()][0]! : null)
+const voucherPreviews = computed(() =>
+  form.vouchers.map((v) => {
+    const taxCode = voucherTax(v)
+    const rate = taxCode ? lineTaxes.value.get(taxCode)?.rate : undefined
+    return { key: v.key, taxCode, preview: MONEY.test(v.amount) && Number(v.amount) > 0 && rate !== undefined ? previewSaleLine('1', v.amount, '0', rate) : null }
+  }),
+)
+function addVoucher() {
+  form.vouchers.push({ key: nextKey++, voucherNo: '', description: 'Cash voucher', amount: '', taxCode: null, invoiceNo: null })
+}
+function removeVoucher(key: number) {
+  form.vouchers = form.vouchers.filter((v) => v.key !== key)
+}
+const voucherErrors = (i: number) => ['voucherNo', 'amount', 'taxCode'].map((k) => errors.value[`vouchers[${i}].${k}`]).filter((m): m is string => Boolean(m))
 const previewTotals = computed(() => {
   const ok = previews.value.filter((p) => p !== null)
   const gross = sumMoney(ok.map((p) => p!.grossAmount))
@@ -301,10 +341,16 @@ const previewTotals = computed(() => {
     entry.amounts.push(p.taxAmount)
     taxes.set(tax.code, entry)
   })
+  // Vouchers lower the tax of the items they are on: round(amount × rate, 2), as the server does.
+  for (const v of voucherPreviews.value) {
+    const entry = v.preview && v.taxCode ? taxes.get(v.taxCode) : undefined
+    if (entry && v.preview) entry.amounts.push(`-${v.preview.taxAmount}`)
+  }
   const taxLines = [...taxes].map(([code, t]) => ({ code, name: t.name, amount: sumMoney(t.amounts) }))
-  const net = sumMoney(ok.map((p) => p!.amount))
+  const voucherTotal = sumMoney(voucherPreviews.value.map((v) => v.preview?.amount ?? '0.00'))
+  const net = sumMoney([...ok.map((p) => p!.amount), `-${voucherTotal}`])
   // 5-sen rounding is applied by the server on save; the preview shows the total before it.
-  return { subtotal: gross, discountTotal: discount, taxLines, rounding: '0.00', total: sumMoney([net, ...taxLines.map((t) => t.amount)]) }
+  return { subtotal: gross, discountTotal: discount, voucherTotal, taxLines, rounding: '0.00', total: sumMoney([net, ...taxLines.map((t) => t.amount)]) }
 })
 const totals = computed(() => (editable.value ? previewTotals.value : order.value?.totals))
 
@@ -322,6 +368,11 @@ function validate(): boolean {
     if (!isPositiveDecimal(l.qty)) e[`lines[${i}].qty`] = 'Quantity must be more than 0.'
     if (!/^\d+(\.\d{1,4})?$/.test(l.unitPrice)) e[`lines[${i}].unitPrice`] = 'Enter a price.'
     if (l.discountPct && !/^\d{1,3}(\.\d{1,2})?$/.test(l.discountPct)) e[`lines[${i}].discountPct`] = 'Discount like 5 or 7.5.'
+  })
+  form.vouchers.forEach((v, i) => {
+    if (!v.voucherNo.trim()) e[`vouchers[${i}].voucherNo`] = 'Type the voucher number.'
+    if (!MONEY.test(v.amount) || !(Number(v.amount) > 0)) e[`vouchers[${i}].amount`] = 'Amount more than 0, like 50.00.'
+    if (!voucherTax(v) && lineTaxes.value.size > 1) e[`vouchers[${i}].taxCode`] = 'Pick which tax the voucher lowers.'
   })
   errors.value = e
   return Object.keys(e).length === 0
@@ -347,6 +398,7 @@ async function save(): Promise<OrderDetail | null> {
           ? { packageCode: l.code, qty: l.qty.trim(), giftItemCode: l.giftItemCode }
           : { itemCode: l.item.code, qty: l.qty, unitPrice: l.unitPrice, discountPct: l.discountPct || '0' },
       ),
+      vouchers: form.vouchers.map((v) => ({ voucherNo: v.voucherNo.trim(), amount: v.amount, description: v.description.trim() || undefined, taxCode: voucherTax(v) })),
     }
     const result = isNew.value ? await salesOrdersApi.create(body) : await salesOrdersApi.update(id.value, { ...body, version: order.value!.version })
     toast.add({ severity: 'success', summary: isNew.value ? `${result.docNo} saved as draft` : 'Draft saved', detail: result.activity.find((a) => a.action === 'credit_check')?.message, life: 3500 })
@@ -746,6 +798,41 @@ const viewRows = computed<ViewRow[]>(() => {
                     </tr>
                     </template>
                   </template>
+                  <template v-for="(v, i) in form.vouchers" :key="v.key">
+                    <tr>
+                      <td class="text-erp-muted">{{ form.lines.length + i + 1 }}</td>
+                      <td>
+                        <div class="flex items-center gap-2"><StatusChip status="DRAFT" label="Voucher" group="draft" /><input v-model="v.description" class="erp-cell min-w-[220px] text-left!" maxlength="100" :aria-label="`Voucher description, line ${form.lines.length + i + 1}`" /></div>
+                        <input v-model="v.voucherNo" class="erp-cell mt-1 w-full min-w-[220px] text-left!" maxlength="30" placeholder="Voucher no." :aria-invalid="Boolean(errors[`vouchers[${i}].voucherNo`])" :aria-label="`Voucher number, line ${form.lines.length + i + 1}`" />
+                      </td>
+                      <td class="num">1</td>
+                      <td />
+                      <td class="num w-[110px] min-w-[96px]">
+                        <input v-model="v.amount" class="erp-cell min-w-[80px]" inputmode="decimal" placeholder="50.00" :aria-invalid="Boolean(errors[`vouchers[${i}].amount`])" :aria-label="`Voucher amount, line ${form.lines.length + i + 1}`" />
+                      </td>
+                      <td class="num text-erp-muted">—</td>
+                      <td class="whitespace-nowrap">
+                        <select v-if="lineTaxes.size > 1" v-model="v.taxCode" class="erp-input h-8 w-auto text-xs" :aria-invalid="Boolean(errors[`vouchers[${i}].taxCode`])" :aria-label="`Tax the voucher lowers, line ${form.lines.length + i + 1}`">
+                          <option :value="null" disabled>Pick the tax</option>
+                          <option v-for="[code, t] in lineTaxes" :key="code" :value="code">{{ t.name }}</option>
+                        </select>
+                        <template v-else>{{ [...lineTaxes.values()][0]?.name ?? '—' }}</template>
+                      </td>
+                      <td class="num">{{ voucherPreviews[i]?.preview ? `−${formatMoney(voucherPreviews[i]!.preview!.amount)}` : '—' }}</td>
+                      <td class="w-8">
+                        <button type="button" class="flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent text-erp-muted hover:bg-erp-head" :aria-label="`Remove voucher ${v.voucherNo || i + 1}`" @click="removeVoucher(v.key)">
+                          <X :size="14" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td />
+                      <td colspan="8" class="!pt-0 text-xs text-erp-muted">
+                        Lowers the amount taxed. The order's first invoice that covers it uses it; it never goes on a delivery order.
+                        <span v-for="m in voucherErrors(i)" :key="m" class="ml-2 text-note-error-text">{{ m }}</span>
+                      </td>
+                    </tr>
+                  </template>
                 </template>
 
                 <template v-else>
@@ -788,6 +875,17 @@ const viewRows = computed<ViewRow[]>(() => {
                     </td>
                   </tr>
                   </template>
+                  <tr v-for="v in order?.vouchers ?? []" :key="v.voucherNo">
+                    <td>
+                      <div class="flex flex-wrap items-center gap-x-2 font-bold"><StatusChip status="DRAFT" label="Voucher" group="draft" /> {{ v.description }}</div>
+                      <div class="text-xs text-erp-muted">no. {{ v.voucherNo }}<template v-if="v.invoiceNo"> · used on {{ v.invoiceNo }}</template></div>
+                    </td>
+                    <td class="erp-num">1</td>
+                    <td colspan="3" />
+                    <td class="num">−{{ formatMoney(v.amount) }}</td>
+                    <td class="whitespace-nowrap">{{ v.taxName }}</td>
+                    <td class="num">−{{ formatMoney(v.amount) }}</td>
+                  </tr>
                 </template>
               </tbody>
             </table>
@@ -795,6 +893,7 @@ const viewRows = computed<ViewRow[]>(() => {
           <div v-if="editable" class="flex gap-2">
             <button type="button" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add item</button>
             <button type="button" class="erp-btn erp-btn-secondary" @click="packagePickerOpen = true"><Gift :size="14" aria-hidden="true" />Add package</button>
+            <button type="button" class="erp-btn erp-btn-secondary" :disabled="!form.lines.length" @click="addVoucher"><Ticket :size="14" aria-hidden="true" />Add voucher</button>
           </div>
           <NoticeBanner v-if="order?.stock.releaseNote" kind="warning">
             {{ order.stock.releaseNote }}
@@ -866,6 +965,7 @@ const viewRows = computed<ViewRow[]>(() => {
           <div v-if="totals" class="flex flex-col text-[13px]">
             <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Subtotal</span><MoneyText :value="totals.subtotal" /></div>
             <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Discount</span><MoneyText :value="totals.discountTotal" /></div>
+            <div v-if="Number(totals.voucherTotal)" class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Vouchers</span><span class="erp-num">−{{ formatMoney(totals.voucherTotal!) }}</span></div>
             <div v-for="t in totals.taxLines" :key="t.code" class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Tax ({{ t.name }})</span><MoneyText :value="t.amount" /></div>
             <div v-if="!totals.taxLines.length" class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Tax</span><MoneyText value="0.00" /></div>
             <div class="flex justify-between gap-3 border-b border-erp-row py-[5px]"><span class="text-erp-muted">Rounding</span><MoneyText :value="totals.rounding" /></div>

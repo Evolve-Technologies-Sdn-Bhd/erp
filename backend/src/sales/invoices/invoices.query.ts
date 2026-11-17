@@ -16,6 +16,7 @@ import { DepositsService } from '../shared/deposits.service';
 import { depositToUse } from '../proformas/proforma.rules';
 import { SalesLinkedDocsService } from '../shared/linked-docs.service';
 import { CREDIT_DOC, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.constants';
+import { taxLinesWithVouchers } from '../shared/voucher.rules';
 import { invoiceBalance } from '../shared/totals.rules';
 import type { InvoiceListQueryDto } from './dto/invoice.dto';
 import { allowedInvoiceActions, amountInWords, belowPriceList, paymentState, type InvStatus, type PaymentKey } from './invoice.rules';
@@ -275,6 +276,8 @@ export class InvoicesQuery {
   async detail(ctx: RequestContext, id: string) {
     const inv = await this.load(ctx.tenantId, id);
     const today = this.clock.today();
+    // Order vouchers this invoice uses (phase 5): they lower its tax and total.
+    const vouchers = await this.prisma.salOrderVoucher.findMany({ where: { tenantId: ctx.tenantId, invoiceId: inv.id }, orderBy: { sortOrder: 'asc' } });
     const [credit, activity, links, approvals, customer, taxes, branches, receipts, event, order, tenant] = await Promise.all([
       this.liveCredit(ctx, inv),
       this.activity.listFor(ctx.tenantId, SAL_ENTITY.INVOICE, inv.id),
@@ -358,10 +361,12 @@ export class InvoicesQuery {
       totals: {
         subtotal: toMoney(inv.subtotal),
         discountTotal: toMoney(inv.discountTotal),
-        taxLines: [...new Set(inv.lines.map((l) => l.taxCode))].map((code) => ({ code, name: taxName(code), amount: toMoney(sum(inv.lines.filter((l) => l.taxCode === code).map((l) => l.taxAmount))) })),
+        voucherTotal: toMoney(inv.voucherTotal),
+        taxLines: taxLinesWithVouchers(inv.lines, vouchers).map((t) => ({ code: t.code, name: taxName(t.code), amount: toMoney(t.amount) })),
         rounding: toMoney(inv.rounding),
         total: toMoney(inv.total),
       },
+      vouchers: vouchers.map((v) => ({ voucherNo: v.voucherNo, description: v.description, amount: toMoney(v.amount), taxCode: v.taxCode, taxName: taxName(v.taxCode), taxAmount: toMoney(v.taxAmount) })),
       amounts: {
         total: toMoney(inv.total),
         credited: toMoney(inv.creditedAmount),

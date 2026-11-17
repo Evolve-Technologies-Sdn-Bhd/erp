@@ -16,6 +16,7 @@ import { CreditService } from '../shared/credit.service';
 import { SalesDocumentLines } from '../shared/document-lines.service';
 import { PackageLines, type EnteredLine } from '../shared/package-lines.service';
 import { toEnteredLine } from '../shared/package-lines.rules';
+import { priceVouchers, totalsWithVouchers, type TaxedLine, type VoucherInput } from '../shared/voucher.rules';
 import type { MdCustomer } from '../../master-data/master-data.port';
 import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.constants';
 import type { CreateOrderDto, RequestApprovalDto, UpdateOrderDto } from './dto/order.dto';
@@ -62,7 +63,9 @@ export class OrdersService {
     const docDate = dto.docDate ?? this.clock.today();
     const customer = await this.docs.activeCustomer(ctx, dto.customerCode);
     const branchCode = this.docs.branchFor(ctx, customer);
-    const built = await this.buildLines(ctx, customer, branchCode, docDate, dto.lines);
+    const lines = await this.buildLines(ctx, customer, branchCode, docDate, dto.lines);
+    const priced = await this.withVouchers(ctx.tenantId, lines.lines, dto.vouchers ?? []);
+    const built = { ...lines, totals: priced.totals, vouchers: priced.vouchers };
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(built.totals.total), branchCode });
     const warehouseCode = await this.docs.warehouseFor(ctx, branchCode);
     const agent = await this.docs.agentFor(ctx, customer);
@@ -91,6 +94,7 @@ export class OrdersService {
         ...built.totals, creditResult: credit.check.result, creditSnapshot: credit.snapshot,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
         lines: { create: built.lines.map(({ qty, unitCost: _cost, ...l }, i) => ({ ...l, orderedQty: qty, tenantId: ctx.tenantId, lineNo: i + 1 })) },
+        vouchers: { create: built.vouchers.map((v, i) => ({ ...v, tenantId: ctx.tenantId, sortOrder: i + 1 })) },
       },
     });
     await this.log(tx, ctx, order.id, docNo, 'created', source.message ?? `Created by ${ctx.user.name}`);
@@ -107,7 +111,11 @@ export class OrdersService {
     const customerChanged = customer.code !== order.customerCode;
     const branchCode = customerChanged ? this.docs.branchFor(ctx, customer) : order.branchCode;
     const built = dto.lines ? await this.buildLines(ctx, customer, branchCode, docDate, dto.lines) : null;
-    const total = built ? built.totals.total : order.total;
+    // New lines or vouchers price the vouchers again: they lower the tax of the lines they are on (phase 5).
+    const priced = built || dto.vouchers
+      ? await this.withVouchers(ctx.tenantId, built?.lines ?? order.lines, dto.vouchers ?? order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: v.amount, description: v.description, taxCode: v.taxCode })))
+      : null;
+    const total = priced ? priced.totals.total : order.total;
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(total), branchCode, excludeOrderId: order.id });
 
     // Changing what was approved removes the approval: the order must be approved again.
@@ -130,12 +138,16 @@ export class OrdersService {
           ...(dto.contactName === undefined && { contactName: customer.contactName }),
           ...(dto.deliveryAddress === undefined && { deliveryAddress: customer.deliveryAddress }),
         }),
-        ...(built && built.totals),
+        ...(priced && priced.totals),
         creditResult: clearApproval || !order.approvedAt ? credit.check.result : order.creditResult,
         creditSnapshot: credit.snapshot,
         ...(clearApproval && { approvedAt: null, approvalRequired: false }),
       };
       await this.bump(tx, ctx, order.id, dto.version, data, 'DRAFT');
+      if (priced) {
+        await tx.salOrderVoucher.deleteMany({ where: { salesOrderId: order.id } });
+        await tx.salOrderVoucher.createMany({ data: priced.vouchers.map((v, i) => ({ ...v, tenantId: ctx.tenantId, salesOrderId: order.id, sortOrder: i + 1 })) });
+      }
       if (built) {
         await tx.salSalesOrderLine.deleteMany({ where: { salesOrderId: order.id } });
         await tx.salSalesOrderLine.createMany({ data: built.lines.map(({ qty, unitCost: _cost, ...l }, i) => ({ ...l, orderedQty: qty, tenantId: ctx.tenantId, salesOrderId: order.id, lineNo: i + 1 })) });
@@ -243,6 +255,7 @@ export class OrdersService {
           soNo: order.docNo, docDate: iso(order.docDate), branchCode: order.branchCode, customerCode: customer.code, customerName: customer.name,
           total: toMoney(order.total), deliveryWantedBy: order.deliveryWantedBy ? iso(order.deliveryWantedBy) : null, warehouseCode: order.warehouseCode,
           lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder, lineKind: l.lineKind, packageCode: l.packageCode })),
+          vouchers: order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: toMoney(v.amount), taxCode: v.taxCode, taxAmount: toMoney(v.taxAmount) })),
         },
       }]);
     });
@@ -250,6 +263,18 @@ export class OrdersService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /** Prices the order's vouchers against its lines and works out the totals with them (phase 5, F1 part 4). */
+  private async withVouchers(tenantId: string, lines: TaxedLine[], input: VoucherInput[]) {
+    const [taxes, setting] = await Promise.all([
+      this.masterData.listTaxCodes(tenantId),
+      this.prisma.salSetting.findUnique({ where: { tenantId }, select: { roundTo5Sen: true } }),
+    ]);
+    const { vouchers, errors } = priceVouchers(input, lines, new Map(taxes.map((t) => [t.code, t.name])));
+    if (errors.length) throw new ValidationFailedError(errors);
+    return { vouchers, totals: totalsWithVouchers(lines, vouchers, setting?.roundTo5Sen ?? true) };
+  }
+
 
   /**
    * The order's lines from what the form sent: item lines as they are, packages as their items and free gifts

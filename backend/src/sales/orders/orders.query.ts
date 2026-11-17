@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma, SalSalesOrder, SalSalesOrderLine } from '@prisma/client';
+import type { Prisma, SalOrderVoucher, SalSalesOrder, SalSalesOrderLine } from '@prisma/client';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
@@ -15,10 +15,11 @@ import { SALES_PERMISSIONS as P } from '../sales.permissions';
 import { CreditService, type CreditOutcome } from '../shared/credit.service';
 import { SalesLinkedDocsService } from '../shared/linked-docs.service';
 import { CREDIT_DOC, SAL_ENTITY } from '../shared/sales.constants';
+import { taxLinesWithVouchers } from '../shared/voucher.rules';
 import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
 
-export type OrderWithLines = SalSalesOrder & { lines: SalSalesOrderLine[] };
+export type OrderWithLines = SalSalesOrder & { lines: SalSalesOrderLine[]; vouchers: SalOrderVoucher[] };
 
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 const sum = (values: Prisma.Decimal[]) => values.reduce((s, v) => s.add(v), dec(0));
@@ -42,7 +43,7 @@ export class OrdersQuery {
   ) {}
 
   async load(tenantId: string, id: string): Promise<OrderWithLines> {
-    const row = await this.prisma.salSalesOrder.findFirst({ where: { id, tenantId }, include: { lines: { orderBy: { lineNo: 'asc' } } } });
+    const row = await this.prisma.salSalesOrder.findFirst({ where: { id, tenantId }, include: { lines: { orderBy: { lineNo: 'asc' } }, vouchers: { orderBy: { sortOrder: 'asc' } } } });
     if (!row) throw new NotFoundError('Sales order');
     return row;
   }
@@ -57,7 +58,7 @@ export class OrdersQuery {
     });
   }
 
-  actions(ctx: RequestContext, order: OrderWithLines, credit: CreditOutcome | null) {
+  actions(ctx: RequestContext, order: SalSalesOrder & { lines: SalSalesOrderLine[] }, credit: CreditOutcome | null) {
     const has = (p: string) => this.permissions.has(ctx.user.roles, p);
     return allowedOrderActions({
       status: order.status as SoStatus,
@@ -160,9 +161,8 @@ export class OrdersQuery {
       itemCode: l.itemCode, qty: l.orderedQty, onHand: onHand(l.itemCode), isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
     })));
     const releaseNote = activity.find((a) => a.action === 'stock_warning')?.message ?? null;
-    const taxLines = [...new Set(order.lines.map((l) => l.taxCode))].map((code) => ({
-      code, name: taxName(code), amount: toMoney(sum(order.lines.filter((l) => l.taxCode === code).map((l) => l.taxAmount))),
-    }));
+    // Vouchers (phase 5) lower the tax of the items they are on.
+    const taxLines = taxLinesWithVouchers(order.lines, order.vouchers).map((t) => ({ code: t.code, name: taxName(t.code), amount: toMoney(t.amount) }));
     const quotation = order.quotationId ? await this.prisma.salQuotation.findFirst({ where: { id: order.quotationId }, select: { id: true, docNo: true } }) : null;
 
     return {
@@ -219,7 +219,11 @@ export class OrdersQuery {
         lineKind: l.lineKind,
         package: l.packageCode ? { group: l.packageGroup, code: l.packageCode, name: l.packageName, qty: l.packageQty ? toQty(l.packageQty) : null, price: l.packagePrice ? toMoney(l.packagePrice) : null, uomCode: l.packageUomCode } : null,
       })),
-      totals: { subtotal: toMoney(order.subtotal), discountTotal: toMoney(order.discountTotal), taxLines, rounding: toMoney(order.rounding), total: toMoney(order.total) },
+      vouchers: order.vouchers.map((v) => ({
+        voucherNo: v.voucherNo, description: v.description, amount: toMoney(v.amount), taxCode: v.taxCode, taxName: taxName(v.taxCode), taxAmount: toMoney(v.taxAmount),
+        invoiceNo: v.invoiceNo,
+      })),
+      totals: { subtotal: toMoney(order.subtotal), discountTotal: toMoney(order.discountTotal), voucherTotal: toMoney(order.voucherTotal), taxLines, rounding: toMoney(order.rounding), total: toMoney(order.total) },
       quantities: {
         ordered: toQty(sum(order.lines.map((l) => l.orderedQty))),
         delivered: toQty(sum(order.lines.map((l) => l.deliveredQty))),

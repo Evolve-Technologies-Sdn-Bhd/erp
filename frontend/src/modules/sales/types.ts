@@ -143,6 +143,18 @@ export interface OrderLine {
   package: OrderLinePackage | null
 }
 
+/** A voucher on a sales order (phase 5): typed number, amount off before tax, the tax it lowers. */
+export interface OrderVoucher {
+  voucherNo: string
+  description: string
+  amount: string
+  taxCode: string
+  taxName: string
+  taxAmount: string
+  /** The invoice that used it (orders only). */
+  invoiceNo?: string | null
+}
+
 /** The package a line belongs to: lines of one package share its group. */
 export interface OrderLinePackage {
   group: number
@@ -180,6 +192,8 @@ export interface BuyToOrderStatus {
 export interface SaleTotals {
   subtotal: string
   discountTotal: string
+  /** Order vouchers off, before tax (sales orders and invoices, phase 5). */
+  voucherTotal?: string
   taxLines: { code: string; name: string; amount: string }[]
   rounding: string
   total: string
@@ -214,6 +228,7 @@ export interface OrderDetail {
   enquiryNo: string | null
   lines: OrderLine[]
   totals: SaleTotals
+  vouchers: OrderVoucher[]
   quantities: { ordered: string; delivered: string; uomCode: string }
   credit: { result: string | null; snapshot: CreditSnapshot | null; live: boolean; needsApproval: boolean; blocked: boolean; approverRole: string | null }
   approval: {
@@ -252,6 +267,7 @@ export interface OrderInput {
   deliveryAddress?: string
   /** An item with its price, or a package (phase 5) with whole sets and the chosen gift. */
   lines: (OrderLineInput | { packageCode: string; qty: string; giftItemCode: string | null })[]
+  vouchers?: { voucherNo: string; amount: string; description?: string; taxCode?: string | null }[]
 }
 
 // ── Approvals (S02) ─────────────────────────────────────────────────────────
@@ -733,6 +749,7 @@ export interface InvoiceDetail {
   deliveries: { id: string | null; no: string }[]
   lines: InvoiceLine[]
   totals: SaleTotals
+  vouchers: OrderVoucher[]
   amounts: {
     total: string
     credited: string
