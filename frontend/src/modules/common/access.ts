@@ -8,6 +8,7 @@ const VIEW_KEY: Record<ModuleKey, string> = {
   core: 'core.view',
   config: 'config.view',
   wms: 'wms.view',
+  service: 'service.view',
 }
 
 /** What a page needs to open: its own permission, else its module's view permission; null when anyone may open it. */

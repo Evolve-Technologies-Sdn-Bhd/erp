@@ -2844,3 +2844,76 @@ model SalEmailTemplate {
   @@unique([tenantId, key])
   @@map("sal_email_template")
 }
+
+// ─── Service (phase 5, F3): installation, service, warranty and repair jobs ───────────────────────────────────────
+// The module owns svc_ tables only. A job comes from a released sales order with installation (sales.order.released)
+// or is added by the office. It never reads sal_ tables.
+
+enum SvcJobType {
+  INSTALLATION
+  SERVICE
+  WARRANTY
+  REPAIR
+}
+
+enum SvcJobStage {
+  NOT_BOOKED
+  BOOKED
+  ACCEPTED
+  DONE
+  CHECKED
+  CLOSED
+  CANCELLED
+}
+
+model SvcJob {
+  id            String       @id @default(uuid()) @db.Char(36)
+  tenantId      String       @db.Char(36)
+  docNo         String       @db.VarChar(30) // JB-0001
+  jobType       SvcJobType
+  stage         SvcJobStage  @default(NOT_BOOKED)
+  branchCode    String       @db.VarChar(10)
+  customerCode  String       @db.VarChar(20)
+  customerName  String       @db.VarChar(150)
+  contactName   String?      @db.VarChar(100)
+  phone         String?      @db.VarChar(40)
+  siteAddress   String?      @db.VarChar(300)
+  area          String?      @db.VarChar(60)
+  source        String       @default("MANUAL") @db.VarChar(12) // SALES_ORDER, MANUAL
+  salesOrderId  String?      @db.Char(36) // from the event; Service never reads sal_ tables
+  salesOrderNo  String?      @db.VarChar(30)
+  preferredDate DateTime?    @db.Date // the customer asks for this day; the office books the slot
+  afterStock    Boolean      @default(false) // items were short at release: arranged when stock arrives
+  note          String?      @db.Text // note to the installer
+  cancelReason  String?      @db.VarChar(300)
+  cancelledAt   DateTime?    @db.DateTime(3)
+  version       Int          @default(1)
+  createdAt     DateTime     @default(now()) @db.DateTime(3)
+  createdBy     String       @db.VarChar(20)
+  updatedAt     DateTime     @updatedAt @db.DateTime(3)
+  updatedBy     String       @db.VarChar(20)
+  items         SvcJobItem[]
+
+  @@unique([tenantId, docNo])
+  @@unique([tenantId, salesOrderId])
+  @@index([tenantId, stage])
+  @@index([tenantId, customerCode])
+  @@map("svc_job")
+}
+
+model SvcJobItem {
+  id       String  @id @default(uuid()) @db.Char(36)
+  tenantId String  @db.Char(36)
+  jobId    String  @db.Char(36)
+  lineNo   Int
+  itemCode String  @db.VarChar(30)
+  itemName String  @db.VarChar(150)
+  qty      Decimal @db.Decimal(18, 4)
+  uomCode  String  @db.VarChar(10)
+  serialNo String? @db.VarChar(60)
+  job      SvcJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, lineNo])
+  @@index([tenantId, itemCode])
+  @@map("svc_job_item")
+}

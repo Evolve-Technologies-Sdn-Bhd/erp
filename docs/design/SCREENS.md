@@ -198,10 +198,10 @@ The Service module is new: orange (side `#C2410C`, primary `#9A3412`, light `#FF
 | S11 | Sales order with a package, a free gift, a voucher, the installation option and the customer's signature (profile on). **Built (F1, parts 3 and 4):** *Add package* and the package and gift lines, `GET /api/v1/sales/lookups/packages?date=`; *Add voucher* (`vouchers` on `POST`, `PATCH /api/v1/sales/orders`); **part 5:** the Installation and Preferred date fields (`installOption`, `installDate`) when Sales Flow asks for them; the signature comes with its own part | `FsOrder.html` | `/sales/orders/:id` |
 | C15 | Package list. **Built (F1, parts 2 and 3)**, the Orders column from the record-usage check · `GET /api/v1/core/packages` | `CorePackages.html` | `/core/packages` |
 | C16 | Package: items, package price, free gift. **Built (F1, part 2)**, without branches and gift stock · `GET, POST, PATCH, DELETE /api/v1/core/packages/:id`, `POST …/end`, `GET /api/v1/core/lookups/active-items?q=` (gift picker) | `CorePackageForm.html` | `/core/packages/:id` |
-| V01 | Service home | `SvcHome.html` | `/service` |
-| V02 | Booking board | `SvcBoard.html` | `/service/board` |
-| V03 | Job list | `SvcJobs.html` | `/service/jobs` |
-| V04 | Job: stages, booking, what the installer recorded, fees | `SvcJob.html` | `/service/jobs/:id` |
+| V01 | Service home. **Built (F3, part 1):** not booked, oldest waiting, waiting to be booked · `GET /api/v1/service/home`; today by person comes with the booking board | `SvcHome.html` | `/service` |
+| V02 | Planning Board (named as in the user's Service design) | `SvcBoard.html` | `/service/board` |
+| V03 | Job list. **Built (F3, part 1)**, person and slot fill in with the booking board · `GET /api/v1/service/jobs` | `SvcJobs.html` | `/service/jobs` |
+| V04 | Job: stages, booking, what the installer recorded, fees. **Built (F3, part 1):** customer and site, preferred date, note, items, activity, stage bar, cancel; and a job added by the office (`/service/jobs/new`) · `GET`, `POST`, `PATCH /api/v1/service/jobs/:id`, `POST …/cancel`, `GET /api/v1/service/lookups/customers` | `SvcJob.html` | `/service/jobs/:id` |
 | V05 | Slots and stages | `SvcSettings.html` | `/service/settings` |
 
 Still to draw, with the step that needs them: the quotation list as the office sees it with the profile on (F1), fee and commission rules and their report (F5), warranty jobs and service reminders (F6).

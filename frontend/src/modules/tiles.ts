@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { ChartLine, ClipboardCheck, Database, Factory, Sun, Warehouse } from '@lucide/vue'
+import { ChartLine, ClipboardCheck, Database, Factory, Sun, Warehouse, Wrench } from '@lucide/vue'
 import type { ModuleTile } from '@/api/session'
 import { MODULES } from './registry'
 
@@ -11,6 +11,7 @@ export const TILE_STYLE: Record<ModuleTile['code'], { icon: Component; color: st
   mes: { icon: Factory, color: 'var(--tile-mes)', description: 'Production orders and shop-floor tracking.' },
   wms: { icon: Warehouse, color: 'var(--tile-wms)', description: 'Warehouse locations, picking and stock moves.' },
   config: { icon: Sun, color: 'var(--tile-config)', description: 'Users, roles and company settings.' },
+  service: { icon: Wrench, color: 'var(--tile-service)', description: 'Installation, service, warranty and repair jobs.' },
 }
 
 /** A module this app has built and the person may open (the server gives it a route). */

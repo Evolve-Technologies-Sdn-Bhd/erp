@@ -10,6 +10,7 @@ export interface MenuItem {
 
 export type MenuGroupKey =
   | 'wms'
+  | 'planning'
   | 'transaction'
   | 'billing'
   | 'policies'

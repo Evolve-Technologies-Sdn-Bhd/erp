@@ -1,0 +1,87 @@
+import type { FieldError } from '../../platform/http/errors';
+
+/**
+ * Job rules (CLAUDE.md → Phase 5 · Installation module; SvcJobs.html, SvcJob.html). Pure functions, tested in
+ * jobs.rules.spec.ts. F3 part 1 makes and cancels jobs; booking (part 2) and the installer's part (part 3) add the
+ * stages after Not booked.
+ */
+
+export const JOB_TYPES = ['INSTALLATION', 'SERVICE', 'WARRANTY', 'REPAIR'] as const;
+export type JobType = (typeof JOB_TYPES)[number];
+export const JOB_TYPE_LABEL: Record<JobType, string> = { INSTALLATION: 'Installation', SERVICE: 'Service', WARRANTY: 'Warranty', REPAIR: 'Repair' };
+
+/** In the order of the job's life (SvcJob.html stage bar), then Cancelled. */
+export const JOB_STAGES = ['NOT_BOOKED', 'BOOKED', 'ACCEPTED', 'DONE', 'CHECKED', 'CLOSED', 'CANCELLED'] as const;
+export type JobStage = (typeof JOB_STAGES)[number];
+export const JOB_STAGE_LABEL: Record<JobStage, string> = {
+  NOT_BOOKED: 'Not booked', BOOKED: 'Booked', ACCEPTED: 'Accepted', DONE: 'Done', CHECKED: 'Checked', CLOSED: 'Closed', CANCELLED: 'Cancelled',
+};
+
+export type JobAction = 'edit' | 'cancel';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+/** "Thu, 1 Oct" */
+export function shortDay(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/** What the office may do with a job. Only a job nobody has booked can be changed or cancelled in this part. */
+export function allowedJobActions(stage: JobStage, canEdit: boolean): JobAction[] {
+  if (!canEdit) return [];
+  return stage === 'NOT_BOOKED' ? ['edit', 'cancel'] : [];
+}
+
+/** "Asks for Thu, 1 Oct", "After stock arrives" or "—": what the customer wants, for a job not booked yet (SvcJobs.html). */
+export function waitingText(j: { preferredDate: string | null; afterStock: boolean }): string {
+  if (j.preferredDate) return `Asks for ${shortDay(j.preferredDate)}`;
+  return j.afterStock ? 'After stock arrives' : '—';
+}
+
+/**
+ * What a released sales order says about installation (Sales' `sales.order.released`, F1 part 5). Only an order with
+ * the Installation option makes a job; anything unreadable is ignored.
+ */
+export interface ReleasedOrder {
+  soNo: string;
+  branchCode: string;
+  customerCode: string;
+  customerName: string;
+  contactName: string | null;
+  deliveryAddress: string | null;
+  preferredDate: string | null;
+  afterStock: boolean;
+  lines: { itemCode: string; uomCode: string; qty: string }[];
+}
+
+export function readReleasedOrder(payload: unknown): ReleasedOrder | null {
+  const p = payload as Record<string, unknown> | null;
+  if (!p || typeof p.soNo !== 'string' || typeof p.customerCode !== 'string' || typeof p.branchCode !== 'string') return null;
+  const inst = p.installation as { option?: unknown; preferredDate?: unknown; afterStock?: unknown } | null | undefined;
+  if (!inst || inst.option !== 'INSTALLATION') return null;
+  const lines = Array.isArray(p.lines) ? p.lines : [];
+  return {
+    soNo: p.soNo,
+    branchCode: p.branchCode,
+    customerCode: p.customerCode,
+    customerName: typeof p.customerName === 'string' ? p.customerName : p.customerCode,
+    contactName: typeof p.contactName === 'string' ? p.contactName : null,
+    deliveryAddress: typeof p.deliveryAddress === 'string' ? p.deliveryAddress : null,
+    preferredDate: typeof inst.preferredDate === 'string' ? inst.preferredDate : null,
+    afterStock: inst.afterStock === true,
+    lines: lines
+      .map((l) => l as { itemCode?: unknown; uomCode?: unknown; qty?: unknown })
+      .filter((l) => typeof l.itemCode === 'string' && typeof l.qty === 'string')
+      .map((l) => ({ itemCode: l.itemCode as string, uomCode: typeof l.uomCode === 'string' ? l.uomCode : '', qty: l.qty as string })),
+  };
+}
+
+/** A job the office adds by hand: a type, a site to go to, and a preferred date not in the past. */
+export function manualJobErrors(j: { jobType: string; siteAddress: string | null; preferredDate: string | null }, today: string): FieldError[] {
+  const errors: FieldError[] = [];
+  if (!(JOB_TYPES as readonly string[]).includes(j.jobType)) errors.push({ field: 'jobType', message: 'Pick installation, service, warranty or repair.' });
+  if (!j.siteAddress?.trim()) errors.push({ field: 'siteAddress', message: 'Type the address the installer goes to.' });
+  if (j.preferredDate && j.preferredDate < today) errors.push({ field: 'preferredDate', message: 'The preferred date cannot be in the past.' });
+  return errors;
+}

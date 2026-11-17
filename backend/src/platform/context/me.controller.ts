@@ -18,6 +18,9 @@ const MODULES = [
   { code: 'config', name: 'Configuration', tag: 'Users · settings', state: 'OPEN', route: '/config' },
 ] as const;
 
+/** The Service module (phase 5): a tile only where the server runs it (SERVICE_MODULE=on). */
+const SERVICE_TILE = { code: 'service', name: 'Service', tag: 'Installation · jobs', state: 'OPEN', route: '/service' } as const;
+
 @Controller('me')
 export class MeController {
   constructor(
@@ -62,8 +65,9 @@ export class MeController {
       return !key || this.registry.has(ctx.user.roles, key);
     };
     const wmsConnected = !!this.config.get('WMS', { infer: true });
+    const tiles = this.config.get('SERVICE_MODULE', { infer: true }) ? [...MODULES, SERVICE_TILE] : MODULES;
     return {
-      items: MODULES.map((m) => {
+      items: tiles.map((m) => {
         const tile = m.code === 'wms' && wmsConnected ? { ...m, tag: 'Read only', state: 'OPEN', route: '/wms' } : m;
         if (tile.state !== 'OPEN' || canView(tile.code)) return tile;
         return { ...tile, tag: 'No access', state: 'NO_ACCESS', route: null };

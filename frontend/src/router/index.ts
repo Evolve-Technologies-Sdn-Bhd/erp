@@ -3,6 +3,7 @@ import { purchaseRoutes } from '@/modules/purchase/router'
 import { salesRoutes } from '@/modules/sales/router'
 import { coreRoutes } from '@/modules/core/router'
 import { configRoutes } from '@/modules/configuration/router'
+import { serviceRoutes } from '@/modules/service/router'
 import { wmsRoutes } from '@/modules/wms/router'
 
 const router = createRouter({
@@ -19,6 +20,7 @@ const router = createRouter({
     ...coreRoutes,
     ...configRoutes,
     ...wmsRoutes,
+    ...serviceRoutes,
     {
       path: '/sign-in',
       name: 'sign-in',

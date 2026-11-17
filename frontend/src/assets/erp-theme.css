@@ -70,6 +70,7 @@
   --tile-mes: #b45309;
   --tile-wms: #0e7490; /* teal, so it does not read as Core's indigo */
   --tile-config: #5b6170;
+  --tile-service: #c2410c; /* orange, as the Service mockups (SvcHome.html) */
 
   /* Module colours default to Purchase until a layout sets data-module */
   --mod-side: #15803d;
@@ -153,6 +154,24 @@
   --mod-tile-3: #0e7490;
   --mod-chip-bg: #cff3f9;
   --mod-chip-text: #0b5e70;
+}
+
+/* Service (phase 5): orange, like its launcher tile (--tile-service) and the Svc mockups. */
+[data-module='service'] {
+  --mod-side: #c2410c;
+  --mod-hover: #b23c0b;
+  --mod-active: #9a3412;
+  --mod-pill: #b23c0b;
+  --mod-primary: #b23c0b;
+  --mod-accent: #9a3412;
+  --mod-line: #c2410c;
+  --mod-light: #fff7ed;
+  --mod-light-border: #fed7aa;
+  --mod-tile-1: #9a3412;
+  --mod-tile-2: #b23c0b;
+  --mod-tile-3: #c2410c;
+  --mod-chip-bg: #ffedd5;
+  --mod-chip-text: #9a3412;
 }
 
 /* Configuration: slate, like its launcher tile (--tile-config) */

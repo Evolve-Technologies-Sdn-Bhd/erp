@@ -57,6 +57,10 @@ async function resetDemoData(tenantId: string): Promise<void> {
     // Home dashboards: everyone starts from the module defaults.
     prisma.sysUserDashboard.deleteMany({ where }),
 
+    // Service (phase 5): the demo has no jobs, and job numbers start again at JB-0001.
+    prisma.svcJob.deleteMany({ where }), // items cascade
+    prisma.sysNumberSequence.deleteMany({ where: { tenantId, module: 'service' } }),
+
     prisma.salReturn.deleteMany({ where }), // lines cascade
     prisma.salDebitNote.deleteMany({ where }),
     prisma.salInvoice.deleteMany({ where }),

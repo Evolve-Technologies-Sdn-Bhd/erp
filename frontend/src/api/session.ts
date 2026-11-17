@@ -95,7 +95,7 @@ export interface Account {
 }
 
 export interface ModuleTile {
-  code: 'core' | 'purchase' | 'sales' | 'mes' | 'wms' | 'config'
+  code: 'core' | 'purchase' | 'sales' | 'mes' | 'wms' | 'config' | 'service'
   name: string
   tag: string
   /** NO_ACCESS: the module is built, but not part of this person's roles. */

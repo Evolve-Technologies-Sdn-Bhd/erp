@@ -263,6 +263,7 @@ export class OrdersService {
         name: SAL_EVENT.ORDER_RELEASED, aggregateType: SAL_ENTITY.ORDER, aggregateId: order.id,
         payload: {
           soNo: order.docNo, docDate: iso(order.docDate), branchCode: order.branchCode, customerCode: customer.code, customerName: customer.name,
+          contactName: order.contactName, deliveryAddress: order.deliveryAddress,
           total: toMoney(order.total), deliveryWantedBy: order.deliveryWantedBy ? iso(order.deliveryWantedBy) : null, warehouseCode: order.warehouseCode,
           lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder, lineKind: l.lineKind, packageCode: l.packageCode })),
           installation: order.installOption

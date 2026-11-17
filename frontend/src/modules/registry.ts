@@ -5,9 +5,10 @@ import { purchaseApi } from './purchase/api/purchase'
 import { PURCHASE_MENU } from './purchase/menu'
 import { salesApi } from './sales/api/sales'
 import { loadSalesFlow, salesMenu } from './sales/flow'
+import { SERVICE_MENU } from './service/menu'
 import { WMS_MENU } from './wms/menu'
 
-export type ModuleKey = 'purchase' | 'sales' | 'core' | 'config' | 'wms'
+export type ModuleKey = 'purchase' | 'sales' | 'core' | 'config' | 'wms' | 'service'
 
 /** What the shared layouts need to know about a module. */
 export interface ModuleDef {
@@ -58,6 +59,12 @@ export const MODULES: Record<ModuleKey, ModuleDef> = {
     label: 'WMS',
     home: '/wms',
     menu: WMS_MENU,
+  },
+  service: {
+    key: 'service',
+    label: 'Service',
+    home: '/service',
+    menu: SERVICE_MENU,
   },
 }
 
