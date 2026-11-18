@@ -66,7 +66,7 @@ describe('Configuration (end to end)', () => {
         'sessions 0 · Sessions on any device',
         'two-factor 0 of 2 · users who must use it have set it up',
         'failed 0 · in the last 24 hours',
-        'permissions 55 · declared by Purchase, Sales, Core, Configuration and WMS',
+        'permissions 57 · declared by Purchase, Sales, Core, Configuration and WMS',
       ]);
       expect(home.attention.map((a) => a.lead)).toEqual(['2 users', 'Auditor', 'Company']);
       expect(home.attention[0]!.text).toContain(': Admin, Rosnah Ismail.');
@@ -339,10 +339,10 @@ describe('Configuration (end to end)', () => {
     it('shows a user with what each role gives and what the roles add up to', async () => {
       const ar = await api.get<User>(`config/users/${await userId('AR')}`);
       expect(ar.subtitle).toBe('Aina Rahman · Sales agent · HQ');
-      expect(ar.roles.map((r) => `${r.name} ${r.permissions}`)).toEqual(['Sales agent 9', 'Billing 6', 'Sales store 5']);
+      expect(ar.roles.map((r) => `${r.name} ${r.permissions}`)).toEqual(['Sales agent 10', 'Billing 7', 'Sales store 5']);
       expect(ar.rolesNote).toBe('Permissions are the sum of all roles. Sales agent limits them to their own customers (Aina Rahman: C-0012, C-0102). A role can end on a date for temporary access.');
       expect(ar.branchNote).toBe('Works in HQ only. A user with no branch cannot make documents.');
-      expect(ar.effective.text).toBe('16 permissions from 3 roles.');
+      expect(ar.effective.text).toBe('17 permissions from 3 roles.');
       expect(ar.signIn).toMatchObject({ twoFactorText: 'Not required by their roles', lastSignInAt: null, failedSignIns: 0, hasPassword: true, openSessions: 0, emails: [] });
       expect(ar.allowedActions).toEqual(['edit', 'deactivate', 'send-link', 'revoke-sessions']);
       expect(ar.activity).toEqual([]);
@@ -485,18 +485,18 @@ describe('Configuration (end to end)', () => {
       expect(list.items).toHaveLength(16);
       // Admin, and Nadia Zain who was given Administrator in the A3 journey above.
       expect(line('ADMIN')).toBe('Administrator 2 All Their branches Required Starter');
-      expect(line('SALES_AGENT')).toBe('Sales agent 3 9 Own customers only — Starter');
+      expect(line('SALES_AGENT')).toBe('Sales agent 3 10 Own customers only — Starter');
       expect(line('REQUESTER')).toBe('Requester 4 4 Their branches — Starter');
     });
 
     it('shows a role with its holders, its two-factor rule and whether it is as it started', async () => {
       const agent = await api.get<Role>(`config/roles/${await roleId('SALES_AGENT')}`);
-      expect(agent.subtitle).toBe('9 permissions · 3 users · own customers only');
+      expect(agent.subtitle).toBe('10 permissions · 3 users · own customers only');
       expect(agent.users.map((u) => `${u.code} ${u.branches}`)).toEqual(['AR HQ', 'FO HQ, PNG', 'LWJ PNG']);
       expect(agent.twoFactor.text).toBe('Not required for this role. Required for Administrator, Master Data Admin, Finance Director and Finance Manager (Sign-in settings).');
       expect(agent).toMatchObject({ asStarter: true, allowedActions: ['edit', 'reset'], agentScopeCustomers: true, agentScopeDocuments: true });
       const admin = await api.get<Role>(`config/roles/${await roleId('ADMIN')}`);
-      expect(admin.permissions).toHaveLength(55);
+      expect(admin.permissions).toHaveLength(57);
       expect(admin.allowedActions).toEqual([]);
     });
 
@@ -510,7 +510,7 @@ describe('Configuration (end to end)', () => {
 
       const saved = await api.call('PATCH', `config/roles/${agent.id}`, 'ADM', body(agent, { permissions: [...agent.permissions, 'sales.margin.view'] }));
       expect(saved.status).toBe(200);
-      expect(saved.body).toMatchObject({ subtitle: '10 permissions · 3 users · own customers only', asStarter: false });
+      expect(saved.body).toMatchObject({ subtitle: '11 permissions · 3 users · own customers only', asStarter: false });
       expect(saved.body.activity.map((a: { message: string }) => a.message)).toEqual(['Permissions: added See margin (Sales)']);
       expect((await api.get<Me>('me', 'AR')).permissions).toContain('sales.margin.view');
       const logged = await api.prisma.sysSecurityEvent.findFirstOrThrow({ where: { tenantId: TENANT_ID, kind: 'ROLE_CHANGED' }, orderBy: { createdAt: 'desc' } });
@@ -520,7 +520,7 @@ describe('Configuration (end to end)', () => {
 
       const reset = await api.call('POST', `config/roles/${agent.id}/reset-to-starter`, 'ADM', { version: saved.body.version });
       expect(reset.status).toBe(201);
-      expect(reset.body).toMatchObject({ asStarter: true, subtitle: '9 permissions · 3 users · own customers only' });
+      expect(reset.body).toMatchObject({ asStarter: true, subtitle: '10 permissions · 3 users · own customers only' });
       expect(reset.body.activity[0].message).toBe('Reset to starter: Permissions: removed See margin (Sales)');
       expect((await api.get<Me>('me', 'AR')).permissions).not.toContain('sales.margin.view');
 
@@ -553,15 +553,15 @@ describe('Configuration (end to end)', () => {
     it('shows who can do what: a person from all their roles, and two roles side by side (A10)', async () => {
       const aina = (await api.get<{ items: { id: string; code: string }[] }>('config/users?q=aina')).items[0]!;
       const person = await api.get<{ text: string; rows: { key: string; roles: string[] }[] }>(`config/permissions/user/${aina.id}`);
-      expect(person.text).toBe('Aina Rahman holds 16 permissions from 3 roles. Sales agent limits them to their own customers.');
-      expect(person.rows).toHaveLength(16);
+      expect(person.text).toBe('Aina Rahman holds 17 permissions from 3 roles. Sales agent limits them to their own customers.');
+      expect(person.rows).toHaveLength(17);
       expect(person.rows.find((r) => r.key === 'sales.view')?.roles).toEqual(['Sales agent', 'Billing', 'Sales store']);
 
       const compared = await api.get<{ text: string; rows: { key: string; a: boolean; b: boolean }[] }>('config/permissions/compare?a=SALES_AGENT&b=SALES_MANAGER');
-      expect(compared.text).toBe('Both roles give 8 permissions. Sales agent sees only its own customers; Sales Manager sees all customers in its branches.');
+      expect(compared.text).toBe('Both roles give 9 permissions. Sales agent sees only its own customers; Sales Manager sees all customers in its branches.');
       expect(compared.rows.filter((r) => r.a !== r.b).map((r) => r.key)).toEqual(['sales.margin.view', 'sales.return.edit', 'sales.cancel_order.release', 'wms.view']);
       const catalogue = await api.get<{ total: number; modules: { label: string }[] }>('config/permissions/catalogue');
-      expect(catalogue.total).toBe(55);
+      expect(catalogue.total).toBe(57);
       expect(catalogue.modules.map((m) => m.label)).toEqual(['Purchase', 'Sales', 'Core', 'Configuration', 'WMS']);
     });
   });

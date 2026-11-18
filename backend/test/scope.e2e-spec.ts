@@ -61,7 +61,7 @@ describe('Data scopes (end to end)', () => {
     expect(models).toEqual(
       [
         ...['PurRequest', 'PurRfq', 'PurPurchaseOrder', 'PurGoodsReceipt', 'PurInvoice', 'PurCancelOrder', 'PurCashPurchase', 'PurDebitNote', 'PurReturn', 'PurSalesDemand'].map((m) => `purchase:${m}`),
-        ...['SalEnquiry', 'SalQuotation', 'SalSalesOrder', 'SalDelivery', 'SalInvoice', 'SalProforma', 'SalCashSale', 'SalDebitNote', 'SalReturn', 'SalCancelOrder'].map((m) => `sales:${m}`),
+        ...['SalEnquiry', 'SalQuotation', 'SalSalesOrder', 'SalDelivery', 'SalInvoice', 'SalProforma', 'SalCashSale', 'SalDebitNote', 'SalReturn', 'SalCancelOrder', 'SalReceipt'].map((m) => `sales:${m}`),
         'core:MdmCustomer',
       ].sort(),
     );

@@ -25,9 +25,11 @@ import { salesDeliveriesApi, salesLookupsApi, salesOrdersApi, salesProformasApi 
 import ItemPickerDialog from '../components/ItemPickerDialog.vue'
 import NewCustomerDialog from '../components/NewCustomerDialog.vue'
 import PackagePickerDialog from '../components/PackagePickerDialog.vue'
+import ReceiptDialog from '../components/ReceiptDialog.vue'
+import { PAYMENT_GROUP, RECEIPT_GROUP } from './receipts'
 import { salesFlow } from '../flow'
 import { docRoute } from '../routes'
-import type { CustomerOption, InstallOption, OrderAction, OrderDetail, OrderLine, PackageOption, SaleItemOption } from '../types'
+import type { CustomerOption, InstallOption, OrderAction, OrderDetail, OrderLine, PackageOption, ReceiptDetail, SaleItemOption } from '../types'
 
 /** S11 · Sales order (SalesOrderForm.html) and S12 · Credit check failed (CreditApproval.html). */
 const route = useRoute()
@@ -227,6 +229,18 @@ async function load() {
   if (editable.value) void loadPackageChoices()
 }
 onMounted(load)
+
+// ── Official receipts (phase 5): record a payment with its proof; Account verifies it ──
+const receiptOpen = ref(false)
+const receiptFor = computed(() => {
+  const o = order.value
+  const p = o?.payments
+  return o && p ? { id: o.id, docNo: o.docNo, customerName: o.customer.name, open: p.open, anyPaid: Number(p.verified) + Number(p.waiting) > 0 } : null
+})
+async function receiptSaved(r: ReceiptDetail) {
+  toast.add({ severity: 'success', summary: `${r.docNo} recorded`, detail: 'Waiting for Account to check it against the bank.', life: 4000 })
+  show(await salesOrdersApi.get(order.value!.id))
+}
 
 function show(o: OrderDetail) {
   order.value = o
@@ -1100,11 +1114,29 @@ const viewRows = computed<ViewRow[]>(() => {
           </p>
         </SideCard>
 
+        <SideCard v-if="order?.payments && order.payments.released" title="Payments">
+          <template #chip><StatusChip :status="order.payments.status" :label="order.payments.label" :group="PAYMENT_GROUP[order.payments.status]" /></template>
+          <div class="flex flex-col text-[13px] erp-num">
+            <div class="flex justify-between gap-3"><span class="text-erp-muted">Verified</span><span>{{ formatRm(order.payments.verified) }}</span></div>
+            <div v-if="Number(order.payments.waiting)" class="flex justify-between gap-3"><span class="text-erp-muted">Waiting for Account</span><span>{{ formatRm(order.payments.waiting) }}</span></div>
+            <div class="flex justify-between gap-3 font-bold"><span>Still owed</span><span>{{ formatRm(order.payments.open) }}</span></div>
+          </div>
+          <ul v-if="order.payments.receipts.length" class="m-0 flex list-none flex-col gap-1 border-t border-erp-row p-0 pt-2 text-[13px]">
+            <li v-for="p in order.payments.receipts" :key="p.id" class="flex items-center justify-between gap-2">
+              <span class="min-w-0"><RouterLink :to="`/sales/receipts/${p.id}`" class="erp-link font-semibold">{{ p.docNo }}</RouterLink> <span class="text-erp-muted">· {{ p.kindLabel }} · {{ formatRm(p.amount) }}</span></span>
+              <StatusChip :status="p.status" :label="p.statusLabel" :group="RECEIPT_GROUP[p.status]" />
+            </li>
+          </ul>
+          <button v-if="order.payments.canRecord" type="button" class="erp-btn erp-btn-secondary justify-center" @click="receiptOpen = true"><Plus :size="14" aria-hidden="true" />Record payment</button>
+          <p class="m-0 text-xs text-erp-muted">Only receipts Account has verified against the bank count as paid.</p>
+        </SideCard>
+
         <LinkedDocs v-if="order && order.links.length" :docs="order.links" :route-of="docRoute" :flow-to="released ? `/sales/orders/${order.id}/flow` : null" />
       </aside>
     </div>
 
     <NewCustomerDialog v-model:visible="newCustomerOpen" @added="onCustomerAdded" />
+    <ReceiptDialog v-model:visible="receiptOpen" :order="receiptFor" @saved="receiptSaved" />
     <ItemPickerDialog
       v-model:visible="pickerOpen"
       :context="`${order?.docNo ?? 'New order'} · ${form.customer?.name ?? ''} · ${order?.branch.name ?? form.customer?.branchCode ?? ''}${order ? ` · price list ${order.priceList.name}` : ''}`"

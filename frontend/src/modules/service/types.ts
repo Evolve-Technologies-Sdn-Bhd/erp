@@ -111,6 +111,8 @@ export interface JobDetail extends JobRow {
   photos: JobPhoto[]
   followUpOf: { id: string; docNo: string | null } | null
   followUpJob: { id: string; docNo: string } | null
+  /** The order's payment, from Sales' official receipts (phase 5); null when Sales has not said. */
+  orderPayment: { status: 'UNPAID' | 'DEPOSIT' | 'FULLY_PAID'; label: string; paid: string | null; total: string | null } | null
   version: number
   allowedActions: JobAction[]
 }

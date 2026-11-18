@@ -19,6 +19,7 @@ const flowOf = (s: FlowSwitches): FlowSwitches => ({
   askInstallation: s.askInstallation,
   agentsAddCustomers: s.agentsAddCustomers,
   priceRange: s.priceRange,
+  useReceipts: s.useReceipts,
 });
 import { codeFromName, creditChanges, CREDIT_DOCS, normaliseRule, numberingChanges, ruleProblems, TOGGLES, type CreditRuleView, type ToggleKey } from './settings.rules';
 
@@ -132,6 +133,7 @@ export class SalesPoliciesService {
       askInstallation: dto.askInstallation,
       agentsAddCustomers: dto.agentsAddCustomers ?? s.agentsAddCustomers,
       priceRange: dto.priceRange ?? s.priceRange,
+      useReceipts: dto.useReceipts ?? s.useReceipts,
     };
     const before = { belowPct: pct(s.priceBelowPct), abovePct: pct(s.priceAbovePct) };
     const typed = { belowPct: dto.priceBelowPct?.trim() ?? before.belowPct, abovePct: dto.priceAbovePct?.trim() ?? before.abovePct };

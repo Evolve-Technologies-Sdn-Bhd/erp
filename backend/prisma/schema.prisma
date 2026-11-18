@@ -2404,6 +2404,55 @@ model SalInvoiceLine {
   @@map("sal_invoice_line")
 }
 
+enum SalReceiptStatus {
+  WAITING // recorded with its proof, waiting for Account
+  VERIFIED // Account matched it to the bank or card settlement: counts as paid
+  RETURNED // sent back by Account with a reason, to fix and send again
+  CANCELLED
+}
+
+/// An official receipt (phase 5): a customer payment recorded on a released sales order with its proof (photo or PDF of
+/// the slip). Account verifies it against the bank or card settlement; only verified receipts count as paid. Used only
+/// with the Sales Flow switch "Salespeople record payments as official receipts" on. Invoice balances still come from
+/// Finance (fin_receipt_stub); the company's accounting system keeps the books.
+model SalReceipt {
+  id             String           @id @default(uuid()) @db.Char(36)
+  tenantId       String           @db.Char(36)
+  docNo          String           @db.VarChar(30) // OR-2611-0001, numbered when recorded
+  docDate        DateTime         @db.Date // the day the money was received
+  status         SalReceiptStatus @default(WAITING)
+  branchCode     String           @db.VarChar(10)
+  salesOrderId   String           @db.Char(36)
+  salesOrderNo   String           @db.VarChar(30)
+  customerCode   String           @db.VarChar(20)
+  customerName   String           @db.VarChar(150)
+  kind           String           @db.VarChar(10) // DEPOSIT, BALANCE
+  method         String           @db.VarChar(12) // CASH, TRANSFER, CARD, CARD_EPP, CHEQUE
+  amount         Decimal          @db.Decimal(18, 2)
+  payerRef       String?          @db.VarChar(60) // cheque number, transfer reference, card approval code
+  note           String?          @db.VarChar(500)
+  recordedByCode String           @db.VarChar(20)
+  recordedByName String           @db.VarChar(100)
+  verifiedRef    String?          @db.VarChar(60) // the bank transaction or card settlement slip it matches
+  verifiedAt     DateTime?        @db.DateTime(3)
+  verifiedByCode String?          @db.VarChar(20)
+  verifiedByName String?          @db.VarChar(100)
+  returnReason   String?          @db.VarChar(300)
+  cancelReason   String?          @db.VarChar(300)
+  isMigrated     Boolean          @default(false)
+  version        Int              @default(1)
+  createdAt      DateTime         @default(now()) @db.DateTime(3)
+  createdBy      String           @db.VarChar(20)
+  updatedAt      DateTime         @updatedAt @db.DateTime(3)
+  updatedBy      String           @db.VarChar(20)
+
+  @@unique([tenantId, docNo])
+  @@index([tenantId, status])
+  @@index([tenantId, salesOrderId])
+  @@index([tenantId, customerCode])
+  @@map("sal_receipt")
+}
+
 enum SalProformaStatus {
   DRAFT
   SENT
@@ -2755,6 +2804,7 @@ model SalSetting {
   askInstallation        Boolean  @default(false) // on: the order asks installation, delivery only or collect (phase 5)
   agentsAddCustomers     Boolean  @default(false) // on: salespeople add a cash customer while keying an order; the office completes it in Core (phase 5)
   priceRange             Boolean  @default(false) // on: prices within a range of the price list; outside it the Sales Manager approves (phase 5)
+  useReceipts            Boolean  @default(false) // on: salespeople record customer payments as official receipts; Account verifies them (phase 5)
   priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
   priceAbovePct          Decimal  @default(20) @db.Decimal(7, 4)
   updatedAt              DateTime @updatedAt @db.DateTime(3)
@@ -2926,6 +2976,10 @@ model SvcJob {
   expectedEnd    Int? // minutes from midnight on jobDate
   extendReason   String?      @db.VarChar(300)
   overdueSince   DateTime?    @db.DateTime(3)
+  // The order's payment, from Sales' sales.receipt.verified (phase 5): UNPAID, DEPOSIT, FULLY_PAID. Null when not told.
+  orderPayment   String?      @db.VarChar(12)
+  orderPaid      Decimal?     @db.Decimal(18, 2)
+  orderTotal     Decimal?     @db.Decimal(18, 2)
   siteType       String?      @db.VarChar(12) // LANDED, CONDO, COMMERCIAL: who suits the site
   doneAt         DateTime?    @db.DateTime(3)
   doneNote       String?      @db.VarChar(500)

@@ -15,5 +15,5 @@ const document = (model: string, ownerField?: string): ScopeRule => ({
 
 export const SALES_SCOPE_RULES: readonly ScopeRule[] = [
   document('SalEnquiry', 'agentCode'),
-  ...['SalQuotation', 'SalSalesOrder', 'SalDelivery', 'SalInvoice', 'SalProforma', 'SalCashSale', 'SalDebitNote', 'SalReturn', 'SalCancelOrder'].map((m) => document(m)),
+  ...['SalQuotation', 'SalSalesOrder', 'SalDelivery', 'SalInvoice', 'SalProforma', 'SalCashSale', 'SalDebitNote', 'SalReturn', 'SalCancelOrder', 'SalReceipt'].map((m) => document(m)),
 ];

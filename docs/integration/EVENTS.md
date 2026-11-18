@@ -99,6 +99,12 @@ Purchase and Sales read master data through `MasterDataPort` and keep no copy, s
 | `mdm.reference.updated` | Item group, customer category, area or credit term saved | code (the name), list, entry, changedFields | — |
 | `mdm.<record>.deleted` | A record that nothing used was deleted | code, the record as it was | WMS, MES — later |
 
+### Sales: official receipts (phase 5)
+
+| Event | When | Main payload | Who listens |
+|---|---|---|---|
+| `sales.receipt.verified` | Account verified an official receipt against the bank or card settlement | orNo, receivedOn, kind (DEPOSIT, BALANCE), method, amount, verifiedRef, salesOrderId, salesOrderNo, customerCode, branchCode, order: { total, verified, status: UNPAID, DEPOSIT or FULLY_PAID } | Service (`service.job-payment`); Finance and the accounting system — later |
+
 ## Service publishes
 
 The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
@@ -116,6 +122,7 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 | Event | From | What Service does |
 |---|---|---|
 | `sales.order.released` | Sales | An order released with the Installation option makes an installation job, *Not booked*, with the customer's preferred date or *after stock arrives*, its items and the delivery address. Delivery only, collect, and companies whose Sales does not ask make none. Once per order (`svc_job` is unique on the order) |
+| `sales.receipt.verified` | Sales | The order's jobs keep where its payment stands (Unpaid, Deposit paid, Fully paid, paid and total), with a line on each job's activity |
 
 ## Listener names
 
@@ -132,6 +139,7 @@ Stored in `sys_event_handled.handler`. The seed marks its own history as handled
 | `sales.buy-to-order-cancelled` | `purchase.order.balance_cancelled` |
 | `sales.prospect-link` | `mdm.customer.created` |
 | `service.job-from-order` | `sales.order.released` (only with `SERVICE_MODULE=on`) |
+| `service.job-payment` | `sales.receipt.verified` (only with `SERVICE_MODULE=on`) |
 
 ## Rules for the dispatcher
 

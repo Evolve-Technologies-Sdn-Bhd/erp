@@ -64,6 +64,9 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.svcSlotGroup.deleteMany({ where }), // the starter groups are made again on first use
     prisma.sysNumberSequence.deleteMany({ where: { tenantId, module: 'service' } }),
 
+    // Official receipts (phase 5): the demo has none, and OR numbers are made again on first use.
+    prisma.salReceipt.deleteMany({ where }),
+    prisma.sysNumberSequence.deleteMany({ where: { tenantId, docType: 'OR' } }),
     prisma.salReturn.deleteMany({ where }), // lines cascade
     prisma.salDebitNote.deleteMany({ where }),
     prisma.salInvoice.deleteMany({ where }),

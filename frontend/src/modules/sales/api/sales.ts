@@ -14,6 +14,9 @@ import type {
   SalesFlowData,
   SalesFlowSwitches,
   PriceRangeSetting,
+  ReceiptDetail,
+  ReceiptInput,
+  ReceiptRow,
   CreditRuleRow,
   CustomerCardData,
   DocumentTypesData,
@@ -298,4 +301,22 @@ export const salesLookupsApi = {
 /** Phase 5 · a new household customer from the sales order (S11) — /api/v1/sales/customers. Core makes it. */
 export const salesCustomersApi = {
   add: (input: NewCustomerInput) => api<CustomerOption>('/sales/customers', { method: 'POST', body: input }),
+}
+
+/** Phase 5 · official receipts (S35, S36) — /api/v1/sales/receipts. Account verifies them against the bank. */
+export const salesReceiptsApi = {
+  list: (query: ListQuery & { order?: string }) => api<ListResponse<ReceiptRow> & { waitingAmount: string }>('/sales/receipts', { query }),
+  get: (id: string) => api<ReceiptDetail>(`/sales/receipts/${id}`),
+  create: (body: ReceiptInput & { salesOrderId: string }) => api<ReceiptDetail>('/sales/receipts', { method: 'POST', body }),
+  update: (id: string, body: ReceiptInput & { version: number }) => api<ReceiptDetail>(`/sales/receipts/${id}`, { method: 'PATCH', body }),
+  cancel: (id: string, version: number, reason: string) => api<ReceiptDetail>(`/sales/receipts/${id}/cancel`, { method: 'POST', body: { version, reason } }),
+  verify: (id: string, version: number, reference: string) => api<ReceiptDetail>(`/sales/receipts/${id}/verify`, { method: 'POST', body: { version, reference } }),
+  sendBack: (id: string, version: number, reason: string) => api<ReceiptDetail>(`/sales/receipts/${id}/send-back`, { method: 'POST', body: { version, reason } }),
+  /** A photo or PDF of the slip, stored first; the receipt's save links it. */
+  uploadProof: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('kind', 'PAYMENT_PROOF')
+    return api<{ id: string; fileName: string; mimeType: string; downloadUrl: string }>('/attachments', { method: 'POST', body: form })
+  },
 }

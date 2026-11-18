@@ -28,6 +28,8 @@ const DebitNoteForm = () => import('./views/DebitNoteFormView.vue')
 const CashSaleList = () => import('./views/CashSaleListView.vue')
 const CashSaleForm = () => import('./views/CashSaleFormView.vue')
 const CreditControl = () => import('./views/CreditControlView.vue')
+const ReceiptList = () => import('./views/ReceiptListView.vue')
+const ReceiptForm = () => import('./views/ReceiptFormView.vue')
 const SalesFlow = () => import('./views/SalesFlowView.vue')
 const DocumentTypes = () => import('./views/DocumentTypesView.vue')
 const EnquiryTypes = () => import('./views/EnquiryTypesView.vue')
@@ -96,6 +98,8 @@ const SCREENS: ScreenDef[] = [
   { code: 'S26', path: 'debit-notes/:id', name: 'sales-debit-note', title: 'Debit note', group: 'billing', item: 'debit-notes', step: 8, mockup: 'DebitNote.html', parent: doc('Debit Note', '/sales/debit-notes'), component: DebitNoteForm },
   { code: 'S27', path: 'returns', name: 'sales-returns', title: 'Sales Return', group: 'billing', item: 'returns', step: 8, mockup: 'SalesReturnList.html', component: ReturnList },
   { code: 'S28', path: 'returns/:id', name: 'sales-return', title: 'Sales return', group: 'billing', item: 'returns', step: 8, mockup: 'SalesReturn.html', parent: doc('Sales Return', '/sales/returns'), component: ReturnForm },
+  { code: 'S35', path: 'receipts', name: 'sales-receipts', title: 'Official Receipts', group: 'billing', item: 'receipts', step: 10, mockup: '', component: ReceiptList },
+  { code: 'S36', path: 'receipts/:id', name: 'sales-receipt', title: 'Official receipt', group: 'billing', item: 'receipts', step: 10, mockup: '', parent: doc('Official Receipts', '/sales/receipts'), component: ReceiptForm },
   { code: 'S29', path: 'settings/credit-control', name: 'sales-credit-control', title: 'Credit Control', group: 'policies', item: 'credit-control', step: 9, mockup: 'Policies.html', component: CreditControl },
   { code: 'S34', path: 'settings/sales-flow', name: 'sales-flow', title: 'Sales Flow', group: 'policies', item: 'sales-flow', step: 9, mockup: 'FsPolicies.html', component: SalesFlow },
   { code: 'S30', path: 'settings/document-types', name: 'sales-document-types', title: 'Document Types', group: 'policies', item: 'document-types', step: 9, mockup: 'DocTypes.html', component: DocumentTypes },

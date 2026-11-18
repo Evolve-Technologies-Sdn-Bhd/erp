@@ -39,6 +39,7 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   askInstallation: 'Installation, delivery only, or collect. An order with installation makes a job for the office to book.',
   agentsAddCustomers: 'A + New customer link on the sales order, for households that are not in the list yet.',
   priceRange: 'Off: a discount over the limit on a quotation needs the Sales Manager. On: the range below decides, on quotations and sales orders.',
+  useReceipts: 'A Payments card on the released sales order, and Official Receipts in the Billing menu for Account.',
 }
 
 async function save() {
@@ -111,6 +112,18 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">
         The price is the unit price after the line discount, against the customer's price list. Package items, free gifts and items without a list price are left out,
         and a price already approved on the quotation or the order is not asked again on the next document. Invoices follow the range too while Strict price list is on.
+      </p>
+    </section>
+
+    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+      <h2 class="m-0 text-[15px] font-bold">Payments</h2>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.useReceipts }}</span><span class="text-xs text-erp-subtle">{{ HINT.useReceipts }}</span></span>
+        <SwitchToggle v-model="draft.useReceipts" :label="data.labels.useReceipts" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">
+        Each payment is a deposit or the balance, with a photo or PDF of the slip. Account verifies it against the bank or the card settlement slip; only verified
+        receipts count as paid, and whoever recorded a receipt never verifies it. Invoices and the books stay as they are.
       </p>
     </section>
 

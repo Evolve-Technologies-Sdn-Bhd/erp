@@ -16,7 +16,7 @@ import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
 import { useSession } from '@/composables/useSession'
-import { formatDate, formatDateTime, formatQty } from '@/utils/format'
+import { formatDate, formatDateTime, formatMoney, formatQty } from '@/utils/format'
 import { serviceApi, serviceJobsApi } from '../api/service'
 import type { JobDetail, JobStage, JobType, PaidMethod, PaidStatus, ServiceCustomerOption, SiteType, VisitResult } from '../types'
 import { JOB_TYPE_OPTIONS, SITE_TYPE_OPTIONS, STAGE_GROUP } from './stages'
@@ -454,6 +454,12 @@ const asksFor = computed(() => {
         <SideCard v-if="job && (job.salesOrderNo || job.followUpOf || job.followUpJob)" title="Linked documents">
           <div class="flex flex-col gap-1.5 text-[13px]">
             <div v-if="job.salesOrderNo" class="flex justify-between gap-3"><span class="font-semibold">{{ job.salesOrderNo }}</span><span class="text-erp-muted">Sales order</span></div>
+            <div v-if="job.orderPayment" class="flex justify-between gap-3">
+              <span class="text-erp-muted">Order payment</span>
+              <span class="text-right" :class="job.orderPayment.status === 'FULLY_PAID' ? 'font-semibold text-chip-done-text' : ''">
+                {{ job.orderPayment.label }}<template v-if="job.orderPayment.paid && job.orderPayment.status !== 'FULLY_PAID'"> · RM {{ formatMoney(job.orderPayment.paid) }} of {{ formatMoney(job.orderPayment.total) }}</template>
+              </span>
+            </div>
             <div v-if="job.followUpOf" class="flex justify-between gap-3">
               <RouterLink :to="`/service/jobs/${job.followUpOf.id}`" class="erp-link font-semibold">{{ job.followUpOf.docNo }}</RouterLink><span class="text-erp-muted">Partly done job</span>
             </div>

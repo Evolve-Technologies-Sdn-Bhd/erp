@@ -6,7 +6,7 @@ import { ActivityService } from '../../platform/activity/activity.service';
 import { ClockService } from '../../platform/clock/clock.service';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
 import type { RequestContext } from '../../platform/context/request-context';
-import { toQty } from '../../platform/http/decimal';
+import { toMoney, toQty } from '../../platform/http/decimal';
 import { NotFoundError } from '../../platform/http/errors';
 import { buildStatusCounts, pageArgs, statusFromKey, toListResponse } from '../../platform/http/list';
 import { PrismaService } from '../../platform/prisma/prisma.service';
@@ -160,6 +160,15 @@ export class JobsQuery {
       followUpOf: job.followUpOfId ? { id: job.followUpOfId, docNo: job.followUpOfNo } : null,
       followUpJob: followUp,
       closedAt: job.closedAt?.toISOString() ?? null,
+      /** The order's payment, from Sales' official receipts (phase 5); null when Sales has not said. */
+      orderPayment: job.orderPayment
+        ? {
+            status: job.orderPayment,
+            label: ({ UNPAID: 'Unpaid', DEPOSIT: 'Deposit paid', FULLY_PAID: 'Fully paid' } as Record<string, string>)[job.orderPayment] ?? job.orderPayment,
+            paid: job.orderPaid ? toMoney(job.orderPaid) : null,
+            total: job.orderTotal ? toMoney(job.orderTotal) : null,
+          }
+        : null,
       allowedActions: allowedJobActions(
         job.stage as JobStage,
         { edit: this.permissions.has(ctx.user.roles, P.JOB_EDIT), book: this.permissions.has(ctx.user.roles, P.JOB_BOOK), record: this.permissions.has(ctx.user.roles, P.JOB_RECORD) },

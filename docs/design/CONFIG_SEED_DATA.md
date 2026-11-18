@@ -61,20 +61,20 @@ Each module's grants in code today (`purchase.permissions.ts`, `sales.permission
 
 | Code | Name | Users | Permissions | Sees | Two-factor |
 |---|---|---|---|---|---|
-| ADMIN | Administrator | 1 (ADM) | all 55 | Their branches | Required |
+| ADMIN | Administrator | 1 (ADM) | all 57 | Their branches | Required |
 | AP_CLERK | AP clerk | 1 (LMY) | 4 | Their branches | — |
 | AUDITOR | Auditor | 0 | 7 | Their branches | — |
-| SALES_BILLING | Billing | 3 (AR, FO, LWJ) | 6 | Their branches | — |
+| SALES_BILLING | Billing | 3 (AR, FO, LWJ) | 7 | Their branches | — |
 | BRANCH_MANAGER | Branch Manager | 1 (TWL) | 3 | Their branches | — |
 | PURCHASE_BUYER | Buyer | 1 (LMY) | 17 | Their branches | — |
 | COUNTER_STAFF | Counter staff | 1 (SC1) | 3 | Their branches | — |
 | FINANCE_DIRECTOR | Finance Director | 1 (RI) | 3 | Their branches | Required |
-| FINANCE_MANAGER | Finance Manager | 1 (RI) | 4 | Their branches | Required |
+| FINANCE_MANAGER | Finance Manager | 1 (RI) | 5 | Their branches | Required |
 | MASTER_DATA_ADMIN | Master Data Admin | 1 (ADM) | 12 | Their branches | Required |
 | PURCHASE_MANAGER | Purchasing Manager | 1 (AZ) | 14 | Their branches | — |
 | REQUESTER | Requester | 4 (HAF, NUR, RAH, SIT) | 4 | Their branches | — |
-| SALES_AGENT | Sales agent | 3 (AR, FO, LWJ) | 9 | **Own customers only** | — |
-| SALES_MANAGER | Sales Manager | 1 (NA) | 11 | Their branches | — |
+| SALES_AGENT | Sales agent | 3 (AR, FO, LWJ) | 10 | **Own customers only** | — |
+| SALES_MANAGER | Sales Manager | 1 (NA) | 12 | Their branches | — |
 | SALES_STORE | Sales store | 2 (AR, RAH) | 5 | Their branches | — |
 | STORE | Store | 2 (HAF, RAH) | 8 | Their branches | — |
 

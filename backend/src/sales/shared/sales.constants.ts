@@ -10,6 +10,7 @@ export const SAL_ENTITY = {
   DEBIT_NOTE: 'SAL_DEBIT_NOTE',
   RETURN: 'SAL_RETURN',
   CANCEL_ORDER: 'SAL_CANCEL_ORDER',
+  RECEIPT: 'SAL_RECEIPT',
 } as const;
 
 export type SalEntityType = (typeof SAL_ENTITY)[keyof typeof SAL_ENTITY];
@@ -26,6 +27,8 @@ export const SAL_DOC_TYPE = {
   RETURN: 'SR',
   PROFORMA: 'PF',
   CANCEL_ORDER: 'CO',
+  /** Official receipts (phase 5): OR-2611-0001, made the first time one is recorded. */
+  RECEIPT: 'OR',
 } as const;
 
 /** Edge names in sys_doc_link (from the earlier document to the later one). */
@@ -72,4 +75,6 @@ export const SAL_EVENT = {
   RETURN_RELEASED: 'sales.return.released',
   DEBIT_NOTE_RELEASED: 'sales.debit_note.released',
   CASH_SALE_RELEASED: 'sales.cash_sale.released',
+  /** Account verified an official receipt (phase 5): what the order has been paid, for Service and Finance. */
+  RECEIPT_VERIFIED: 'sales.receipt.verified',
 } as const;

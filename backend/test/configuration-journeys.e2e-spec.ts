@@ -134,7 +134,7 @@ describe('Configuration journeys (end to end, AUTH_MODE=jwt)', () => {
 
       const me = await get<{ user: { roles: string[] }; branchCode: string; permissions: string[] }>('me', hana);
       expect(me).toMatchObject({ branchCode: 'HQ', user: { roles: ['SALES_AGENT'] } });
-      expect(me.permissions).toHaveLength(9);
+      expect(me.permissions).toHaveLength(10);
     });
 
     it('shows her no customer yet: a sales agent sees only the customers whose agent she is', async () => {
@@ -153,14 +153,14 @@ describe('Configuration journeys (end to end, AUTH_MODE=jwt)', () => {
         token: adm,
         body: { name: agent.name, description: agent.description, agentScopeCustomers: agent.agentScopeCustomers, agentScopeDocuments: agent.agentScopeDocuments, permissions: [...agent.permissions, 'sales.margin.view'], version: agent.version },
       });
-      expect(saved.body).toMatchObject({ subtitle: '10 permissions · 4 users · own customers only', asStarter: false });
+      expect(saved.body).toMatchObject({ subtitle: '11 permissions · 4 users · own customers only', asStarter: false });
       expect((await get<{ permissions: string[] }>('me', hana)).permissions).toContain('sales.margin.view');
 
       const compared = await get<{ text: string }>('config/permissions/compare?a=SALES_AGENT&b=SALES_MANAGER', adm);
-      expect(compared.text).toBe('Both roles give 9 permissions. Sales agent sees only its own customers; Sales Manager sees all customers in its branches.');
+      expect(compared.text).toBe('Both roles give 10 permissions. Sales agent sees only its own customers; Sales Manager sees all customers in its branches.');
 
       const reset = await call('POST', `config/roles/${agentRow.id}/reset-to-starter`, { token: adm, body: { version: saved.body.version } });
-      expect(reset.body).toMatchObject({ asStarter: true, subtitle: '9 permissions · 4 users · own customers only' });
+      expect(reset.body).toMatchObject({ asStarter: true, subtitle: '10 permissions · 4 users · own customers only' });
       expect((await get<{ permissions: string[] }>('me', hana)).permissions).not.toContain('sales.margin.view');
     });
   });

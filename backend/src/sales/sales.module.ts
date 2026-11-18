@@ -9,6 +9,9 @@ import { SalesDashboardController } from './dashboard/dashboard.controller';
 import { SalesDeliveriesController } from './deliveries/deliveries.controller';
 import { SalesInvoicesController } from './invoices/invoices.controller';
 import { SalesProformasController } from './proformas/proformas.controller';
+import { SalesReceiptsController } from './receipts/receipts.controller';
+import { ReceiptsQuery } from './receipts/receipts.query';
+import { ReceiptsService } from './receipts/receipts.service';
 import { SalesCancelOrdersController } from './cancel-orders/cancel-orders.controller';
 import { SalesReturnsController } from './returns/returns.controller';
 import { SalesDebitNotesController } from './debit-notes/debit-notes.controller';
@@ -70,7 +73,7 @@ import { SalesMailService } from './shared/sales-mail.service';
  * MasterDataPort and cross-module effects go out as outbox events.
  */
 @Module({
-  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController, SalesNewCustomersController],
+  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController, SalesNewCustomersController, SalesReceiptsController],
   providers: [
     SalesNewCustomersService,
     SalesBuyToOrderListener,
@@ -98,6 +101,8 @@ import { SalesMailService } from './shared/sales-mail.service';
     DepositsService,
     ProformasQuery,
     ProformasService,
+    ReceiptsQuery,
+    ReceiptsService,
     CancelOrdersQuery,
     CancelOrdersService,
     ReturnsQuery,

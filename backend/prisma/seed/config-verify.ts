@@ -37,7 +37,7 @@ export async function verifyConfigSeed(ctx: SeedCtx): Promise<Check[]> {
 
   expect(
     'Permission catalogue (per module · total)',
-    'Purchase 17 · Sales 19 · Core 11 · Configuration 7 · WMS 1 · 55',
+    'Purchase 17 · Sales 21 · Core 11 · Configuration 7 · WMS 1 · 57',
     [...CATALOGUE.map((m) => `${m.label} ${m.permissions.length}`), String(CATALOGUE.reduce((n, m) => n + m.permissions.length, 0))].join(' · '),
   );
 
@@ -47,9 +47,9 @@ export async function verifyConfigSeed(ctx: SeedCtx): Promise<Check[]> {
     select: { code: true, name: true, agentScopeCustomers: true, _count: { select: { users: true, permissions: true } } },
   });
   expect(
-    'Starter roles (users / permissions; ADMIN holds all 55 without rows)',
-    'Administrator 1/0, AP clerk 1/4, Auditor 0/7, Billing 3/6, Branch Manager 1/3, Buyer 1/17, Counter staff 1/3, Finance Director 1/3, Finance Manager 1/4, ' +
-      'Master Data Admin 1/12, Purchasing Manager 1/14, Requester 4/4, Sales agent 3/9, Sales Manager 1/11, Sales store 2/5, Store 2/8',
+    'Starter roles (users / permissions; ADMIN holds all 57 without rows)',
+    'Administrator 1/0, AP clerk 1/4, Auditor 0/7, Billing 3/7, Branch Manager 1/3, Buyer 1/17, Counter staff 1/3, Finance Director 1/3, Finance Manager 1/5, ' +
+      'Master Data Admin 1/12, Purchasing Manager 1/14, Requester 4/4, Sales agent 3/10, Sales Manager 1/12, Sales store 2/5, Store 2/8',
     roles.map((r) => `${r.name} ${r._count.users}/${r._count.permissions}`).join(', '),
   );
   expect('Agent-scoped roles', 'SALES_AGENT', roles.filter((r) => r.agentScopeCustomers).map((r) => r.code).join(', '));
@@ -78,7 +78,7 @@ export async function verifyConfigSeed(ctx: SeedCtx): Promise<Check[]> {
   const home = await new ConfigDashboardQuery(prisma as PrismaService, clock, catalogue).summary({ tenantId } as RequestContext);
   expect(
     'Configuration home cards',
-    'Companies 1 · Branches 2 · Users 14 · Roles 16 · Signed in now 0 · Two-factor 0 of 2 · Failed sign-ins 0 · Permissions 55',
+    'Companies 1 · Branches 2 · Users 14 · Roles 16 · Signed in now 0 · Two-factor 0 of 2 · Failed sign-ins 0 · Permissions 57',
     home.cards.map((c) => `${c.label} ${c.value}`).join(' · '),
   );
   expect(
@@ -113,7 +113,7 @@ export async function verifyConfigSeed(ctx: SeedCtx): Promise<Check[]> {
     `${list.total} · ${Object.entries(list.statusCounts).map(([k, v]) => `${k} ${v}`).join(', ')} · ${missing.items.map((u) => u.code).join(', ')}`,
   );
   const aina = await usersQuery.detail(admin, list.items.find((u) => u.code === 'AR')!.id);
-  expect('Aina Rahman (A07: roles · effective)', 'Sales agent 9, Billing 6, Sales store 5 · 16 permissions from 3 roles.', `${aina.roles.map((r) => `${r.name} ${r.permissions}`).join(', ')} · ${aina.effective.text}`);
+  expect('Aina Rahman (A07: roles · effective)', 'Sales agent 10, Billing 7, Sales store 5 · 17 permissions from 3 roles.', `${aina.roles.map((r) => `${r.name} ${r.permissions}`).join(', ')} · ${aina.effective.text}`);
 
   // A02: with AUTH_MODE=jwt every seeded user signs in with the demo password.
   const hashes = await prisma.sysUser.findMany({ where: { tenantId, createdBy: null }, select: { passwordHash: true } });
@@ -124,11 +124,11 @@ export async function verifyConfigSeed(ctx: SeedCtx): Promise<Check[]> {
   const rolesQuery = new RolesQuery(prisma as PrismaService, clock, { listFor: async () => [] } as never, { has: () => true } as never, catalogue);
   const agentRole = await prisma.sysRole.findFirstOrThrow({ where: { tenantId, code: 'SALES_AGENT' } });
   const agentDetail = await rolesQuery.detail(admin, agentRole.id);
-  expect('Sales agent role (A09)', '9 permissions · 3 users · own customers only · as starter', `${agentDetail.subtitle} · ${agentDetail.asStarter ? 'as starter' : 'changed'}`);
+  expect('Sales agent role (A09)', '10 permissions · 3 users · own customers only · as starter', `${agentDetail.subtitle} · ${agentDetail.asStarter ? 'as starter' : 'changed'}`);
   const compared = await rolesQuery.compare(admin, 'SALES_AGENT', 'SALES_MANAGER');
   expect(
     'Sales agent and Sales Manager compared (A10)',
-    'Both roles give 8 permissions. · sales.margin.view, sales.return.edit, sales.cancel_order.release, wms.view',
+    'Both roles give 9 permissions. · sales.margin.view, sales.return.edit, sales.cancel_order.release, wms.view',
     `${compared.text.split('. ')[0]}. · ${compared.rows.filter((r) => r.a !== r.b).map((r) => r.key).join(', ')}`,
   );
 

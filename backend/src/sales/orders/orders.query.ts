@@ -18,6 +18,7 @@ import { CREDIT_DOC, SAL_ENTITY } from '../shared/sales.constants';
 import { taxLinesWithVouchers } from '../shared/voucher.rules';
 import { netUnitPrice, outsideRange, rangeReason } from '../shared/price-range.rules';
 import { PriceRules } from '../shared/price-rules.service';
+import { ReceiptsQuery } from '../receipts/receipts.query';
 import { INSTALL_OPTION_LABEL, installationText, type InstallOption } from './installation.rules';
 import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
@@ -42,6 +43,7 @@ export class OrdersQuery {
     private readonly credit: CreditService,
     private readonly linked: SalesLinkedDocsService,
     private readonly priceRules: PriceRules,
+    private readonly receipts: ReceiptsQuery,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -308,6 +310,8 @@ export class OrdersQuery {
         releaseNote,
         inventoryConnected: this.stock.connected,
       },
+      /** Official receipts (phase 5): null while the company does not use them. */
+      payments: await this.receipts.forOrder(ctx, order),
       releasedAt: order.releasedAt?.toISOString() ?? null,
       releasedByName: order.releasedByName,
       links,

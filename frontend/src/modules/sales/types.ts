@@ -241,6 +241,8 @@ export interface OrderDetail {
   installation: OrderInstallation
   quantities: { ordered: string; delivered: string; uomCode: string }
   credit: { result: string | null; snapshot: CreditSnapshot | null; live: boolean; needsApproval: boolean; blocked: boolean; approverRole: string | null }
+  /** Official receipts (phase 5): null while the company does not use them. */
+  payments: OrderPayments | null
   /** The price range (phase 5): lines priced outside it need the Sales Manager before release. */
   price: {
     rangeOn: boolean
@@ -1249,6 +1251,76 @@ export interface SalesFlowSwitches {
   agentsAddCustomers: boolean
   /** Salespeople set prices within a range of the price list; outside it the Sales Manager approves (phase 5). */
   priceRange: boolean
+  /** Salespeople record customer payments as official receipts; Account verifies them (phase 5). */
+  useReceipts: boolean
+}
+
+export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'
+export type ReceiptKind = 'DEPOSIT' | 'BALANCE'
+export type ReceiptMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'CARD_EPP' | 'CHEQUE'
+export type ReceiptAction = 'edit' | 'cancel' | 'verify' | 'sendBack'
+export type OrderPaymentStatus = 'UNPAID' | 'DEPOSIT' | 'FULLY_PAID'
+
+/** An official receipt in a list (phase 5). Money arrives as strings. */
+export interface ReceiptRow {
+  id: string
+  docNo: string
+  /** The day the money was received. */
+  docDate: string
+  status: ReceiptStatus
+  statusLabel: string
+  branchCode: string
+  salesOrderId: string
+  salesOrderNo: string
+  customerCode: string
+  customerName: string
+  kind: ReceiptKind
+  kindLabel: string
+  method: ReceiptMethod
+  methodLabel: string
+  amount: string
+  recordedByName: string
+  createdAt: string
+}
+
+export interface ReceiptDetail extends ReceiptRow {
+  recordedAt: string
+  payerRef: string | null
+  note: string | null
+  verifiedRef: string | null
+  verifiedAt: string | null
+  verifiedByName: string | null
+  returnReason: string | null
+  cancelReason: string | null
+  proofs: { id: string; fileName: string; mimeType: string; downloadUrl: string }[]
+  order: { id: string; docNo: string; total: string; payment: OrderPaymentStatus; paymentLabel: string; verified: string; waiting: string; open: string } | null
+  activity: { id: string; action: string; message: string; comment: string | null; userName: string; at: string }[]
+  version: number
+  allowedActions: ReceiptAction[]
+}
+
+export interface ReceiptInput {
+  docDate: string
+  kind: ReceiptKind
+  method: ReceiptMethod
+  amount: string
+  payerRef?: string
+  note?: string
+  /** Files uploaded first; on a change, the new ones only. */
+  proofIds: string[]
+}
+
+/** The Payments card of a sales order (phase 5): only verified receipts count as paid. */
+export interface OrderPayments {
+  status: OrderPaymentStatus
+  label: string
+  total: string
+  verified: string
+  waiting: string
+  open: string
+  receipts: ReceiptRow[]
+  canRecord: boolean
+  released: boolean
 }
 
 /** Whether a document's prices need the Sales Manager (phase 5): discount limit, or the range around the price list. */

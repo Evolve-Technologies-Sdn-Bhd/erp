@@ -12,18 +12,20 @@ import { RemindersService } from './reminders/reminders.service';
 import { JobsQuery } from './jobs/jobs.query';
 import { JobsService } from './jobs/jobs.service';
 import { JobFromOrderListener } from './sales-link/job-from-order.listener';
+import { OrderPaymentListener } from './sales-link/order-payment.listener';
 import { ServiceOnGuard } from './service-on.guard';
 import { SERVICE_PERMISSION_CATALOGUE } from './service.permissions';
 import { SERVICE_SCOPE_RULES } from './service.scope';
 
 /**
  * The Service module (CLAUDE.md → Phase 5 · Installation module): installation, service, warranty and repair jobs.
- * Owns svc_ tables only and never imports sales/: jobs come from `sales.order.released`. It does nothing unless the
+ * Owns svc_ tables only and never imports sales/: jobs come from `sales.order.released`, and each job keeps its order's
+ * payment from `sales.receipt.verified`. It does nothing unless the
  * server runs with SERVICE_MODULE=on: no permissions in the role editor, no listener, and its routes answer 404.
  */
 @Module({
   controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController],
-  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, BoardQuery, ServiceSettingsService, RemindersService],
+  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, BoardQuery, ServiceSettingsService, RemindersService],
 })
 export class ServiceModule implements OnModuleInit {
   constructor(
@@ -31,6 +33,7 @@ export class ServiceModule implements OnModuleInit {
     private readonly permissions: PermissionCatalogue,
     private readonly scopes: ScopeRegistry,
     private readonly listener: JobFromOrderListener,
+    private readonly payments: OrderPaymentListener,
     private readonly reminders: RemindersService,
   ) {}
 
@@ -40,6 +43,7 @@ export class ServiceModule implements OnModuleInit {
     this.scopes.register(SERVICE_SCOPE_RULES);
     this.permissions.register(SERVICE_PERMISSION_CATALOGUE);
     this.listener.register();
+    this.payments.register();
     this.reminders.schedule();
   }
 }

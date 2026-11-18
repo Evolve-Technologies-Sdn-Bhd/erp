@@ -14,6 +14,7 @@ import {
   Shield,
   Truck,
   Undo2,
+  Wallet,
   Workflow,
 } from '@lucide/vue'
 import type { MenuGroup } from '../common/menu'
@@ -56,6 +57,8 @@ export const SALES_MENU: MenuGroup[] = [
       { key: 'cash-sales', label: 'Cash Sales', to: '/sales/cash-sales', icon: Banknote },
       { key: 'debit-notes', label: 'Debit Note', to: '/sales/debit-notes', icon: File },
       { key: 'returns', label: 'Sales Return', to: '/sales/returns', icon: Undo2 },
+      // Phase 5: shown only with the Sales Flow switch "Salespeople record payments as official receipts".
+      { key: 'receipts', label: 'Official Receipts', to: '/sales/receipts?status=waiting', icon: Wallet },
     ],
   },
   {

@@ -10,6 +10,7 @@ const PATHS: Record<string, string> = {
   SAL_DEBIT_NOTE: '/sales/debit-notes',
   SAL_RETURN: '/sales/returns',
   SAL_CANCEL_ORDER: '/sales/cancel-orders',
+  SAL_RECEIPT: '/sales/receipts',
 }
 
 /** Route of a document, or null for documents brought over from the old system. */
