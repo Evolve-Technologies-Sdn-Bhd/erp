@@ -7,6 +7,8 @@ import { ServiceBoardController, ServiceSettingsController } from './board/board
 import { BoardQuery } from './board/board.query';
 import { ServiceHomeController, ServiceJobsController } from './jobs/jobs.controller';
 import { ServiceSettingsService } from './settings/settings.service';
+import { ServiceRemindersController } from './reminders/reminders.controller';
+import { RemindersService } from './reminders/reminders.service';
 import { JobsQuery } from './jobs/jobs.query';
 import { JobsService } from './jobs/jobs.service';
 import { JobFromOrderListener } from './sales-link/job-from-order.listener';
@@ -20,8 +22,8 @@ import { SERVICE_SCOPE_RULES } from './service.scope';
  * server runs with SERVICE_MODULE=on: no permissions in the role editor, no listener, and its routes answer 404.
  */
 @Module({
-  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController],
-  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, BoardQuery, ServiceSettingsService],
+  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController],
+  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, BoardQuery, ServiceSettingsService, RemindersService],
 })
 export class ServiceModule implements OnModuleInit {
   constructor(
@@ -29,6 +31,7 @@ export class ServiceModule implements OnModuleInit {
     private readonly permissions: PermissionCatalogue,
     private readonly scopes: ScopeRegistry,
     private readonly listener: JobFromOrderListener,
+    private readonly reminders: RemindersService,
   ) {}
 
   onModuleInit(): void {
@@ -37,5 +40,6 @@ export class ServiceModule implements OnModuleInit {
     this.scopes.register(SERVICE_SCOPE_RULES);
     this.permissions.register(SERVICE_PERMISSION_CATALOGUE);
     this.listener.register();
+    this.reminders.schedule();
   }
 }

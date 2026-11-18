@@ -7,6 +7,7 @@ import { ServiceOnGuard } from '../service-on.guard';
 import { SERVICE_PERMISSIONS as P } from '../service.permissions';
 import { BookJobDto, CancelJobDto, CreateJobDto, JobListQueryDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
 import { BoardQuery } from '../board/board.query';
+import { PrismaService } from '../../platform/prisma/prisma.service';
 import { JobsQuery } from './jobs.query';
 import { JobsService } from './jobs.service';
 
@@ -97,14 +98,20 @@ export class ServiceHomeController {
   constructor(
     private readonly query: JobsQuery,
     private readonly board: BoardQuery,
+    private readonly prisma: PrismaService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
   @Get('home')
   @RequirePermission(P.VIEW)
   async home(@CurrentContext() ctx: RequestContext) {
-    const [home, byPerson] = await Promise.all([this.query.home(ctx), this.board.todayByPerson(ctx)]);
-    return { ...home, byPerson, today: { jobs: byPerson.reduce((s, p) => s + p.jobs, 0), done: byPerson.reduce((s, p) => s + p.done, 0) }, date: home.today };
+    const home = await this.query.home(ctx);
+    const month = home.today.slice(0, 7);
+    const [byPerson, serviceDue] = await Promise.all([
+      this.board.todayByPerson(ctx),
+      this.prisma.svcReminder.count({ where: { tenantId: ctx.tenantId, status: { not: 'DISMISSED' }, dueOn: { gte: new Date(`${month}-01T00:00:00Z`), lt: new Date(new Date(`${month}-01T00:00:00Z`).setUTCMonth(new Date(`${month}-01T00:00:00Z`).getUTCMonth() + 1)) } } }),
+    ]);
+    return { ...home, byPerson, serviceDue, today: { jobs: byPerson.reduce((s, p) => s + p.jobs, 0), done: byPerson.reduce((s, p) => s + p.done, 0) }, date: home.today };
   }
 
   /** Customers for a job added by hand: active ones and prospects, with the site details to copy. */

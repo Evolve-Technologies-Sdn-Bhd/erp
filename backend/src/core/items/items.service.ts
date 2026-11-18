@@ -51,6 +51,7 @@ const record = (row: MdmItem): ItemRecord => ({
   salesUom: row.salesUom,
   salesTaxCode: row.salesTaxCode,
   standardCost: row.standardCost,
+  serviceIntervalMonths: row.serviceIntervalMonths,
   status: row.status,
 });
 
@@ -246,6 +247,7 @@ export class ItemsService {
       salesUom: dto.salesUom && dto.salesUom !== dto.baseUom ? dto.salesUom : null,
       salesTaxCode: dto.salesTaxCode ?? null,
       standardCost: dto.standardCost ? dec(dto.standardCost) : null,
+      serviceIntervalMonths: dto.serviceIntervalMonths ?? null,
     };
   }
 

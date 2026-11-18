@@ -63,6 +63,7 @@ const form = reactive({
   salesUom: '',
   salesTaxCode: '',
   standardCost: '',
+  serviceIntervalMonths: '',
   conversions: [] as ConversionRow[],
 })
 
@@ -95,13 +96,14 @@ function fill(i: ItemDetail | null) {
       salesUom: i.salesUom ?? '',
       salesTaxCode: i.salesTaxCode ?? '',
       standardCost: i.standardCost === null ? '' : Number(i.standardCost).toFixed(2),
+      serviceIntervalMonths: i.serviceIntervalMonths === null ? '' : String(i.serviceIntervalMonths),
       conversions: i.conversions.map((c) => ({ key: nextKey++, fromUom: c.fromUom, toUom: c.toUom, factor: String(Number(c.factor)) })),
     })
   } else {
     Object.assign(form, {
       code: '', name: '', itemGroup: '', type: 'STOCK', baseUom: '', barcode: '', einvoiceClassification: '', isPurchasable: true, isBuyToOrder: false,
       purchaseUom: '', purchaseTaxCode: '', preferredSupplier: null, reorderLevel: '', packSize: '1', isSellable: false, salesUom: '', salesTaxCode: '',
-      standardCost: '', conversions: [],
+      standardCost: '', serviceIntervalMonths: '', conversions: [],
     })
   }
   saved.value = snapshot()
@@ -165,6 +167,7 @@ function body(): ItemInput {
     salesUom: form.salesUom || null,
     salesTaxCode: form.salesTaxCode || null,
     standardCost: canSeeCost.value ? form.standardCost.trim() || null : item.value?.standardCost ?? null,
+    serviceIntervalMonths: form.serviceIntervalMonths.trim() ? Number(form.serviceIntervalMonths.trim()) : null,
     conversions: form.conversions.map((c) => ({ fromUom: c.fromUom, toUom: c.toUom, factor: c.factor.trim() })),
   }
 }
@@ -377,7 +380,11 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
             <FormField v-if="canSeeCost" label="Standard cost (RM)" for="cost" :error="errors.standardCost">
               <input id="cost" v-model="form.standardCost" class="erp-input" inputmode="decimal" :disabled="!editable" />
             </FormField>
+            <FormField label="Service every (months)" for="svcInterval" :error="errors.serviceIntervalMonths">
+              <input id="svcInterval" v-model="form.serviceIntervalMonths" class="erp-input" inputmode="numeric" placeholder="No reminder" :disabled="!editable" />
+            </FormField>
           </div>
+          <span class="text-xs text-erp-muted">Service every: a filter or part to change after installation. Service reminds the office and makes the job 14 days before it is due.</span>
           <span v-if="canSeeCost" class="text-xs text-erp-muted">Standard cost gives the estimated margin on quotations. Only the Sales Manager sees it.</span>
         </section>
 

@@ -13,12 +13,16 @@ import { SVC_DOC_TYPE, SVC_ENTITY, SVC_EVENT, SVC_SEQUENCES } from '../service.c
 import { AttachmentsService } from '../../platform/attachments/attachments.service';
 import type { BookJobDto, CancelJobDto, CreateJobDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
 import { visitErrors, visitText } from './visit.rules';
+import { reminderJobNote, remindersFrom } from '../reminders/reminder.rules';
+import type { SvcReminder } from '@prisma/client';
+import type { JobWithItems } from './jobs.query';
 import { bookingRefusal, slotLabel } from '../board/booking.rules';
 import { ServiceSettingsService } from '../settings/settings.service';
 import { allowedJobActions, JOB_STAGE_LABEL, JOB_TYPE_LABEL, manualJobErrors, shortDay, type JobAction, type JobStage, type JobType, type ReleasedOrder } from './jobs.rules';
 import { JobsQuery } from './jobs.query';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 /** What taking a job off the board clears. */
 const FREE_SLOT = { personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null } as const;
 const trimOrNull = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null);
@@ -111,6 +115,9 @@ export class JobsService {
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, job.id, dto.version, { stage: 'CANCELLED', cancelReason: reason, cancelledAt: this.clock.now(), ...FREE_SLOT }, ['NOT_BOOKED', 'BOOKED']);
       await this.log(tx, ctx, job.id, job.docNo, 'cancelled', `Cancelled by ${ctx.user.name}${job.personName ? `; ${job.personName}'s slot is free again` : ''}`, reason);
+      if (job.reminderId) {
+        await tx.svcReminder.updateMany({ where: { id: job.reminderId, tenantId: ctx.tenantId }, data: { status: 'DISMISSED', dismissReason: `${job.docNo} cancelled: ${reason}`, version: { increment: 1 }, updatedBy: ctx.user.code } });
+      }
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_CANCELLED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
         payload: { jobNo: job.docNo, jobType: job.jobType, customerCode: job.customerCode, salesOrderNo: job.salesOrderNo, reason },
@@ -191,6 +198,10 @@ export class JobsService {
     const by = job.personName && job.personName !== ctx.user.name ? `${ctx.user.name} for ${job.personName}` : ctx.user.name;
     const reason = dto.reason?.trim() || null;
     const text = visitText(dto);
+    // Service reminders (F6): a complete visit starts one for each item with a service interval in Core.
+    const intervals = dto.result === 'COMPLETE' && job.items.length
+      ? new Map((await this.masterData.findItems(ctx.tenantId, [...new Set(job.items.map((i) => i.itemCode))])).map((i) => [i.code, i.serviceIntervalMonths]))
+      : new Map<string, number | null>();
 
     await this.prisma.$transaction(async (tx) => {
       if (dto.result === 'POSTPONED') {
@@ -209,6 +220,7 @@ export class JobsService {
         recordedBy: by, recordedAt: this.clock.now(),
       }, 'BOOKED');
       await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}`, dto.note?.trim() || reason);
+      if (dto.result === 'COMPLETE') await this.startReminders(tx, ctx, job, intervals);
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_DONE, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
         payload: {
@@ -249,6 +261,35 @@ export class JobsService {
     return this.query.detail(ctx, id);
   }
 
+  // ── Service reminders (F6) ────────────────────────────────────────────────
+
+  /** The service job a due reminder makes (RemindersService), in its transaction: Not booked, asking for the due day. */
+  async createFromReminder(tx: Tx, ctx: RequestContext, r: SvcReminder, today: string): Promise<{ id: string; docNo: string }> {
+    return this.insert(tx, ctx, {
+      jobType: 'SERVICE', branchCode: r.branchCode, customerCode: r.customerCode, customerName: r.customerName,
+      contactName: r.contactName, phone: r.phone, siteAddress: r.siteAddress, area: r.area, source: 'MANUAL',
+      preferredDate: isoDay(r.dueOn) < today ? today : isoDay(r.dueOn),
+      note: reminderJobNote({ itemCode: r.itemCode, itemName: r.itemName, intervalMonths: r.intervalMonths, lastDoneOn: isoDay(r.lastDoneOn), fromJobNo: r.fromJobNo }),
+      reminderId: r.id,
+    }, [{ itemCode: r.itemCode, itemName: r.itemName, qty: r.qty.toString(), uomCode: r.uomCode }], `Made from the service reminder of ${r.itemCode}, due ${shortDay(isoDay(r.dueOn))}`);
+  }
+
+  /** A complete visit starts a reminder for each of its items with a service interval, counted from the visit day. */
+  private async startReminders(tx: Tx, ctx: RequestContext, job: JobWithItems, intervals: Map<string, number | null>) {
+    const doneOn = job.jobDate ? isoDay(job.jobDate) : this.clock.today();
+    const due = remindersFrom({ doneOn }, job.items.map((i) => ({ itemCode: i.itemCode, itemName: i.itemName, qty: i.qty.toString(), uomCode: i.uomCode, intervalMonths: intervals.get(i.itemCode) ?? null })));
+    if (!due.length) return;
+    await tx.svcReminder.createMany({
+      data: due.map((r) => ({
+        tenantId: ctx.tenantId, branchCode: job.branchCode, customerCode: job.customerCode, customerName: job.customerName, contactName: job.contactName,
+        phone: job.phone, siteAddress: job.siteAddress, area: job.area, itemCode: r.itemCode, itemName: r.itemName, qty: dec(r.qty), uomCode: r.uomCode,
+        intervalMonths: r.intervalMonths, lastDoneOn: day(r.lastDoneOn), dueOn: day(r.dueOn), fromJobId: job.id, fromJobNo: job.docNo, updatedBy: ctx.user.code,
+      })),
+      skipDuplicates: true,
+    });
+    await this.log(tx, ctx, job.id, job.docNo, 'reminders', `Service reminder${due.length === 1 ? '' : 's'} started: ${due.map((r) => `${r.itemCode} due ${shortDay(r.dueOn)} ${r.dueOn.slice(0, 4)}`).join(', ')}`);
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   private async insert(
@@ -257,7 +298,7 @@ export class JobsService {
     j: {
       jobType: JobType; branchCode: string; customerCode: string; customerName: string; contactName: string | null; phone: string | null;
       siteAddress: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
-      preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string;
+      preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string; reminderId?: string;
     },
     lines: { itemCode: string; itemName: string; qty: string; uomCode: string }[],
     message: string,
@@ -270,7 +311,7 @@ export class JobsService {
         customerCode: j.customerCode, customerName: j.customerName, contactName: j.contactName, phone: j.phone, siteAddress: j.siteAddress, area: j.area,
         source: j.source, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
         preferredDate: j.preferredDate ? day(j.preferredDate) : null, afterStock: j.afterStock ?? false, note: j.note,
-        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null,
+        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
         items: { create: lines.map((l, i) => ({ tenantId: ctx.tenantId, lineNo: i + 1, itemCode: l.itemCode, itemName: l.itemName, qty: dec(l.qty), uomCode: l.uomCode })) },
       },

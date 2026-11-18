@@ -114,6 +114,8 @@ export interface ItemInput {
   salesUom: string | null
   salesTaxCode: string | null
   standardCost: string | null
+  /** A filter or part to change every so many months after installation (Service reminders). */
+  serviceIntervalMonths: number | null
   conversions: Conversion[]
 }
 

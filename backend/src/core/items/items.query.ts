@@ -166,6 +166,7 @@ export class ItemsQuery {
       purchaseTaxCode: item.purchaseTaxCode,
       preferredSupplierCode: item.preferredSupplierCode,
       reorderLevel: qty(item.reorderLevel),
+      serviceIntervalMonths: item.serviceIntervalMonths,
       packSize: item.packSize.toFixed(4),
       isSellable: item.isSellable,
       salesUom: item.salesUom,

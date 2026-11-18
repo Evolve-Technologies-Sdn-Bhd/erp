@@ -73,6 +73,7 @@ function toItem(row: MdmItem): MdItem {
     purchaseTaxCode: row.purchaseTaxCode,
     preferredSupplierCode: row.preferredSupplierCode,
     reorderLevel: row.reorderLevel?.toFixed(4) ?? null,
+    serviceIntervalMonths: row.serviceIntervalMonths ?? null,
     packSize: row.packSize.toFixed(4),
     isPurchasable: row.isPurchasable,
     isBuyToOrder: row.isBuyToOrder,

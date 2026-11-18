@@ -1,6 +1,6 @@
 import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
-import type { Board, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ServiceCustomerOption, ServiceHome, ServiceSettings, VisitInput } from '../types'
+import type { Board, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ReminderRow, ServiceCustomerOption, ServiceHome, ServiceSettings, VisitInput } from '../types'
 
 /** The Service module's API (phase 5, F3) — /api/v1/service. */
 export const serviceApi = {
@@ -45,4 +45,11 @@ export const serviceJobsApi = {
     return api<JobPhoto>('/attachments', { method: 'POST', body: form })
   },
   close: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/close`, { method: 'POST', body: { version } }),
+}
+
+/** Service reminders (F6) — /api/v1/service/reminders. */
+export const serviceRemindersApi = {
+  list: (query: ListQuery) => api<ListResponse<ReminderRow> & { leadDays: number; makesUntil: string }>('/service/reminders', { query }),
+  run: () => api<{ made: { jobId: string; jobNo: string; customerName: string; itemCode: string; dueOn: string }[] }>('/service/reminders/run', { method: 'POST' }),
+  dismiss: (id: string, version: number, reason: string) => api<{ dismissed: boolean }>(`/service/reminders/${id}/dismiss`, { method: 'POST', body: { version, reason } }),
 }

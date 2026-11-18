@@ -682,6 +682,7 @@ model MdmItem {
   barcode                String?       @db.VarChar(30)
   standardCost           Decimal?      @db.Decimal(18, 4) // for the estimated margin on sales documents
   einvoiceClassification String?       @db.VarChar(10) // LHDN classification code (SRS FR-MST-008)
+  serviceIntervalMonths  Int? // a filter or part to change every so many months after installation (phase 5, F6)
   status                 MdmItemStatus @default(ACTIVE)
   createdAt              DateTime      @default(now()) @db.DateTime(3)
   updatedAt              DateTime      @updatedAt @db.DateTime(3)
@@ -2906,6 +2907,7 @@ model SvcJob {
   recordedBy     String?      @db.VarChar(100)
   recordedAt     DateTime?    @db.DateTime(3)
   postponedCount Int          @default(0)
+  reminderId     String?      @db.Char(36) // made from a service reminder (F6): completing it starts the next one
   followUpOfId   String?      @db.Char(36) // this job finishes a partly done one
   followUpOfNo   String?      @db.VarChar(30)
   closedAt       DateTime?    @db.DateTime(3)
@@ -2982,4 +2984,39 @@ model SvcSlotGroup {
 
   @@unique([tenantId, code])
   @@map("svc_slot_group")
+}
+
+/// A service reminder (F6): an item with a service interval, installed at a customer, is due for its next service.
+/// 14 days before it is due, Service makes a service job for it; completing that job starts the next reminder.
+model SvcReminder {
+  id             String   @id @default(uuid()) @db.Char(36)
+  tenantId       String   @db.Char(36)
+  branchCode     String   @db.VarChar(10)
+  customerCode   String   @db.VarChar(20)
+  customerName   String   @db.VarChar(150)
+  contactName    String?  @db.VarChar(100)
+  phone          String?  @db.VarChar(40)
+  siteAddress    String?  @db.VarChar(300)
+  area           String?  @db.VarChar(60)
+  itemCode       String   @db.VarChar(30)
+  itemName       String   @db.VarChar(150)
+  qty            Decimal  @db.Decimal(18, 4)
+  uomCode        String   @db.VarChar(10)
+  intervalMonths Int
+  lastDoneOn     DateTime @db.Date // installed, or last serviced
+  dueOn          DateTime @db.Date
+  status         String   @default("UPCOMING") @db.VarChar(12) // UPCOMING, JOB_MADE, DISMISSED
+  fromJobId      String   @db.Char(36) // the visit that started the countdown
+  fromJobNo      String   @db.VarChar(30)
+  jobId          String?  @db.Char(36) // the service job made for it
+  jobNo          String?  @db.VarChar(30)
+  dismissReason  String?  @db.VarChar(300)
+  version        Int      @default(1)
+  createdAt      DateTime @default(now()) @db.DateTime(3)
+  updatedAt      DateTime @updatedAt @db.DateTime(3)
+  updatedBy      String   @db.VarChar(20)
+
+  @@unique([tenantId, fromJobId, itemCode])
+  @@index([tenantId, status, dueOn])
+  @@map("svc_reminder")
 }

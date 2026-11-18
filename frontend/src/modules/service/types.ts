@@ -105,6 +105,8 @@ export interface ServiceHome {
   today: { jobs: number; done: number }
   notBooked: { count: number; oldestDays: number | null }
   doneNotPaid: number
+  /** Service reminders due this month (F6). */
+  serviceDue: number
   stages: Record<string, number>
   waiting: JobRow[]
   byPerson: (Person & { jobs: number; done: number })[]
@@ -189,4 +191,29 @@ export interface ServiceCustomerOption {
   deliveryAddress: string | null
   area: string | null
   branchCode: string
+}
+
+/** A service reminder (F6). */
+export interface ReminderRow {
+  id: string
+  customerCode: string
+  customerName: string
+  area: string | null
+  itemCode: string
+  itemName: string
+  qty: string
+  uomCode: string
+  intervalMonths: number
+  lastDoneOn: string
+  dueOn: string
+  dueText: string
+  overdue: boolean
+  status: 'UPCOMING' | 'JOB_MADE' | 'DISMISSED'
+  statusLabel: string
+  fromJobId: string
+  fromJobNo: string
+  jobId: string | null
+  jobNo: string | null
+  dismissReason: string | null
+  version: number
 }

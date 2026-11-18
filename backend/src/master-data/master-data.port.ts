@@ -63,6 +63,8 @@ export interface MdItem {
   barcode: string | null;
   /** For the estimated margin on sales documents. */
   standardCost: string | null;
+  /** Service reminders (phase 5, F6): change every so many months after installation. Null: none. */
+  serviceIntervalMonths: number | null;
   status: 'ACTIVE' | 'BLOCKED' | 'DISCONTINUED';
 }
 

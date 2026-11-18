@@ -33,6 +33,12 @@ export const serviceRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/service/reminders',
+    name: 'service-reminders',
+    component: () => import('./views/RemindersView.vue'),
+    meta: { code: 'V06', title: 'Reminders', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'reminders' },
+  },
+  {
     path: '/service/settings',
     name: 'service-settings',
     component: Settings,

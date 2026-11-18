@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
 import { ITEM_CODE, ITEM_TYPES, type ItemType } from '../items.rules';
 
@@ -105,6 +105,14 @@ class ItemFieldsDto {
   @Transform(trimmed)
   @Matches(DECIMAL_4, { message: 'Pack size must be a number with up to 4 decimals.' })
   packSize!: string;
+
+  /** A filter or part to change every so many months after installation (phase 5, F6). Empty: no reminders. */
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null || value === undefined ? null : Number(value)))
+  @IsInt({ message: 'Service interval is a whole number of months.' })
+  @Min(1, { message: 'Service interval is 1 to 60 months.' })
+  @Max(60, { message: 'Service interval is 1 to 60 months.' })
+  serviceIntervalMonths?: number | null;
 
   @IsBoolean()
   isSellable!: boolean;

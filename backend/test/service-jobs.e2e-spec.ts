@@ -228,4 +228,50 @@ describe('Service jobs (end to end)', () => {
     expect((await api.get<Recorded>(`service/jobs/${job.id}`)).followUpJob?.docNo).toBe(next.body.docNo);
     expect(await api.call('POST', `service/jobs/${job.id}/follow-up`, 'ADM')).toMatchObject({ status: 409, body: { message: `${job.docNo} already has its follow-up job, ${next.body.docNo}.` } });
   });
+
+  // ── F6: service reminders from an item's service interval ───────────────────
+
+  interface Reminder { id: string; itemCode: string; lastDoneOn: string; dueOn: string; status: string; fromJobNo: string; jobId: string | null; jobNo: string | null; version: number }
+  const reminders = () => api.get<{ items: Reminder[]; statusCounts: Record<string, number> }>('service/reminders');
+
+  it('starts a reminder when an installation with a service interval is complete, and makes the job 14 days ahead', async () => {
+    // Core: the dining table is serviced every 3 months (the interval is an item field kept by Core).
+    await api.prisma.mdmItem.updateMany({ where: { code: 'TB-DIN-06' }, data: { serviceIntervalMonths: 3 } });
+    const so = await releaseOrder({ lines: [{ itemCode: 'TB-DIN-06', qty: '1', unitPrice: '1450' }], installDate: '2026-10-07' });
+    const row = await jobFor(so.docNo);
+    await book(row.id, people['Hafiz Rahman']!, '2026-10-07', 'STANDARD', 600);
+    await photo(row.id);
+    const done = await record(await api.get<Job>(`service/jobs/${row.id}`), { result: 'COMPLETE', paidStatus: 'NO_CHARGE' });
+    expect(done.body.activity[0]!.message).toBe('Service reminder started: TB-DIN-06 due Thu, 7 Jan 2027');
+
+    const list = await reminders();
+    expect(list.items.map((r) => `${r.itemCode} ${r.lastDoneOn} → ${r.dueOn} ${r.status} from ${r.fromJobNo}`)).toEqual([`TB-DIN-06 2026-10-07 → 2027-01-07 UPCOMING from ${row.docNo}`]);
+
+    // Not due within 14 days yet: nothing is made.
+    expect((await api.call<{ made: unknown[] }>('POST', 'service/reminders/run', 'ADM')).body.made).toEqual([]);
+
+    // Bring it within 14 days of today (29 Sep): the run makes a service job, Not booked, for the due day.
+    await api.prisma.svcReminder.updateMany({ where: { id: list.items[0]!.id }, data: { dueOn: new Date('2026-10-08T00:00:00Z') } });
+    const run = await api.call<{ made: { jobNo: string; jobId: string }[] }>('POST', 'service/reminders/run', 'ADM');
+    expect(run.body.made).toHaveLength(1);
+    const svc = await api.get<Recorded>(`service/jobs/${run.body.made[0]!.jobId}`);
+    expect(svc).toMatchObject({ jobType: 'SERVICE', stage: 'NOT_BOOKED', preferredDate: '2026-10-08', items: [expect.objectContaining({ itemCode: 'TB-DIN-06' })] });
+    expect(svc.note).toBe(`Service due for ${svc.items[0]!.itemName} (TB-DIN-06), every 3 months; last done 2026-10-07 on ${row.docNo}.`);
+    expect((await reminders()).items[0]).toMatchObject({ status: 'JOB_MADE', jobNo: svc.docNo });
+    // Running again makes nothing more.
+    expect((await api.call<{ made: unknown[] }>('POST', 'service/reminders/run', 'ADM')).body.made).toEqual([]);
+  });
+
+  it('starts the next reminder when the service visit is complete, and lets the office dismiss one', async () => {
+    const made = (await reminders()).items.find((r) => r.status === 'JOB_MADE')!;
+    await book(made.jobId!, people['Suresh Nair']!, '2026-10-08', 'SHORT', 540);
+    await photo(made.jobId!);
+    await record(await api.get<Job>(`service/jobs/${made.jobId}`), { result: 'COMPLETE', paidStatus: 'PAID', paidMethod: 'CASH' });
+    const next = (await reminders()).items.find((r) => r.status === 'UPCOMING')!;
+    expect(next).toMatchObject({ itemCode: 'TB-DIN-06', lastDoneOn: '2026-10-08', dueOn: '2027-01-08', fromJobNo: made.jobNo });
+
+    const r = await api.call('POST', `service/reminders/${next.id}/dismiss`, 'ADM', { version: next.version, reason: 'Customer moved away' });
+    expect(r.status).toBe(201);
+    expect((await reminders()).statusCounts).toMatchObject({ all: 2, upcoming: 0, jobMade: 1, dismissed: 1 });
+  });
 });

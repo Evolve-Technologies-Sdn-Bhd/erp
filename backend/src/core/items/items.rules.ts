@@ -36,6 +36,7 @@ export const ITEM_LABELS: Record<string, string> = {
   salesUom: 'Sales unit',
   salesTaxCode: 'Sales tax',
   standardCost: 'Standard cost',
+  serviceIntervalMonths: 'Service every (months)',
   conversions: 'Conversions',
 };
 
@@ -147,6 +148,7 @@ export interface ItemRecord {
   salesUom: string | null;
   salesTaxCode: string | null;
   standardCost: DecimalInput | null;
+  serviceIntervalMonths: number | null;
   status: string;
 }
 
@@ -184,6 +186,7 @@ export function itemSnapshot(item: ItemRecord, conversions: Conversion[]) {
     barcode: item.barcode,
     einvoiceClassification: item.einvoiceClassification,
     standardCost: qty(item.standardCost),
+    serviceIntervalMonths: item.serviceIntervalMonths,
     status: item.status,
     conversions: conversions.map((c) => ({ fromUom: c.fromUom, toUom: c.toUom, factor: dec(c.factor).toString() })),
   };
