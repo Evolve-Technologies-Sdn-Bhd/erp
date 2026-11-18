@@ -179,27 +179,48 @@ export class OrdersService {
 
   // ── Credit approval (S12) ─────────────────────────────────────────────────
 
+  /**
+   * Sends a draft for approval: over its credit limit (credit control, S12) and/or, with the price range on (phase 5),
+   * priced outside the range. One request, with a step for the Sales Manager for the price and one for the credit
+   * rule's approver (one step when they are the same role).
+   */
   async requestApproval(ctx: RequestContext, id: string, dto: RequestApprovalDto) {
     const order = await this.query.load(ctx.tenantId, id);
     const credit = await this.query.liveCredit(ctx, order);
-    const actions = this.query.actions(ctx, order, credit);
-    if (credit && credit.check.action !== 'APPROVAL') {
-      throw new BusinessRuleError('APPROVAL_NOT_NEEDED', credit.check.action === 'BLOCK'
-        ? `The credit check blocks this order: ${breachText(credit.check)}. It cannot be approved; reduce the order or ask Finance.`
-        : 'The credit check passed. Release the order directly.');
+    const price = await this.query.priceCheck(ctx.tenantId, order);
+    const creditNeeds = Boolean(credit && credit.check.action === 'APPROVAL');
+    if (credit && credit.check.action === 'BLOCK') {
+      throw new BusinessRuleError('APPROVAL_NOT_NEEDED', `The credit check blocks this order: ${breachText(credit.check)}. It cannot be approved; reduce the order or ask Finance.`);
     }
-    this.require(actions, 'requestApproval', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is already waiting for approval.` : ORDER_LOCKED_MESSAGE);
-    const step = await this.docs.approver(ctx, credit!.approverRole ?? SAL_ROLE.MANAGER, order.branchCode);
+    if (credit && !creditNeeds && !price.needs) {
+      throw new BusinessRuleError('APPROVAL_NOT_NEEDED', price.rangeOn ? 'The credit check passed and every price is within the allowed range. Release the order directly.' : 'The credit check passed. Release the order directly.');
+    }
+    this.require(this.query.actions(ctx, order, credit, price.needs), 'requestApproval', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is already waiting for approval.` : ORDER_LOCKED_MESSAGE);
+    const steps: Awaited<ReturnType<SalesDocumentLines['approver']>>[] = [];
+    const reasons: string[] = [];
+    if (price.needs) {
+      steps.push(await this.docs.approver(ctx, SAL_ROLE.MANAGER, order.branchCode));
+      reasons.push(price.reason!);
+    }
+    if (creditNeeds) {
+      const role = credit!.approverRole ?? SAL_ROLE.MANAGER;
+      if (!steps.some((s) => s.approverRole === role)) steps.push(await this.docs.approver(ctx, role, order.branchCode));
+      reasons.push(breachText(credit!.check));
+    }
+    const from = order.quotationNo ? ` · from quotation ${order.quotationNo}` : order.enquiryNo ? ` · from enquiry ${order.enquiryNo}` : '';
+    const to = steps.map((s) => s.approverName ?? s.approverRole).join(', then ');
 
     await this.prisma.$transaction(async (tx) => {
-      await this.bump(tx, ctx, order.id, dto.version, { status: 'PENDING_APPROVAL', approvalRequired: true, creditResult: 'OVER_LIMIT', creditSnapshot: credit!.snapshot }, 'DRAFT');
+      await this.bump(tx, ctx, order.id, dto.version, {
+        status: 'PENDING_APPROVAL', approvalRequired: true, ...(creditNeeds && { creditResult: 'OVER_LIMIT', creditSnapshot: credit!.snapshot }),
+      }, 'DRAFT');
       await this.approvals.create(tx, ctx, {
         entityType: SAL_ENTITY.ORDER, entityId: order.id, docNo: order.docNo, amount: order.total,
         title: `${order.docNo} · ${order.customerName}`,
-        reason: `${breachText(credit!.check)}${order.quotationNo ? ` · from quotation ${order.quotationNo}` : order.enquiryNo ? ` · from enquiry ${order.enquiryNo}` : ''}`,
-        requesterNote: dto.reason, steps: [step],
+        reason: `${reasons.join(' · ')}${from}`,
+        requesterNote: dto.reason, steps,
       });
-      await this.log(tx, ctx, order.id, order.docNo, 'approval_requested', `Sent for approval to ${step.approverName ?? step.approverRole}`, dto.reason.trim());
+      await this.log(tx, ctx, order.id, order.docNo, 'approval_requested', price.needs ? `${price.reason} · sent for approval to ${to}` : `Sent for approval to ${to}`, dto.reason.trim());
     });
     return this.query.detail(ctx, id);
   }
@@ -212,10 +233,12 @@ export class OrdersService {
       return;
     }
     const approved = result.outcome === 'APPROVED';
+    // The credit result moves only when the credit was part of the request; a price-only request leaves it.
+    const creditAsked = order.creditResult === 'OVER_LIMIT';
     await tx.salSalesOrder.update({
       where: { id: order.id },
       data: {
-        status: 'DRAFT', approvedAt: approved ? this.clock.now() : null, creditResult: approved ? 'APPROVED' : 'OVER_LIMIT',
+        status: 'DRAFT', approvedAt: approved ? this.clock.now() : null, creditResult: creditAsked ? (approved ? 'APPROVED' : 'OVER_LIMIT') : order.creditResult,
         version: { increment: 1 }, updatedBy: ctx.user.code,
       },
     });
@@ -233,7 +256,9 @@ export class OrdersService {
       if (credit.check.action === 'BLOCK') throw new BusinessRuleError('CREDIT_BLOCKED', `${creditActivityText(credit.input, credit.check)}. The order cannot be released.`);
       if (credit.check.action === 'APPROVAL') throw new BusinessRuleError('CREDIT_APPROVAL_REQUIRED', `${creditActivityText(credit.input, credit.check)}. Type a reason and request approval.`);
     }
-    this.require(this.query.actions(ctx, order, credit), 'release', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is waiting for approval.` : `${order.docNo} is already released.`);
+    const price = await this.query.priceCheck(ctx.tenantId, order);
+    if (price.needs) throw new BusinessRuleError('PRICE_APPROVAL_REQUIRED', `${price.reason}. Type a reason and request approval.`);
+    this.require(this.query.actions(ctx, order, credit, price.needs), 'release', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is waiting for approval.` : `${order.docNo} is already released.`);
     const giftOnly = order.lines.filter((l) => l.lineKind === 'GIFT' && !order.lines.some((o) => o.itemCode === l.itemCode && o.lineKind !== 'GIFT')).map((l) => l.itemCode);
     await this.docs.checkStillSellable(ctx, order.branchCode, order.lines.map((l) => l.itemCode), giftOnly);
 
@@ -317,7 +342,7 @@ export class OrdersService {
 
 
   private async actionsFor(ctx: RequestContext, order: OrderWithLines) {
-    return this.query.actions(ctx, order, await this.query.liveCredit(ctx, order));
+    return this.query.actions(ctx, order, await this.query.liveCredit(ctx, order), (await this.query.priceCheck(ctx.tenantId, order)).needs);
   }
 
   private require(actions: OrderAction[], action: OrderAction, message: string) {

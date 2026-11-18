@@ -198,7 +198,7 @@ export class InvoicesService {
   async requestApproval(ctx: RequestContext, id: string, dto: InvoiceApprovalDto) {
     const inv = await this.query.load(ctx.tenantId, id);
     const credit = await this.query.liveCredit(ctx, inv);
-    const needs = this.query.approvalNeeds(inv, credit, await this.query.approvedRoles(ctx.tenantId, inv));
+    const needs = this.query.approvalNeeds(inv, credit, await this.query.approvedRoles(ctx.tenantId, inv), await this.query.priceCheck(ctx.tenantId, inv));
     if (needs.blocked) throw new BusinessRuleError('CREDIT_BLOCKED', `The credit check blocks this invoice: ${breachText(credit!.check)}. It cannot be approved.`);
     if (!needs.price && !needs.credit) throw new BusinessRuleError('APPROVAL_NOT_NEEDED', 'Prices and credit are within the rules. Release the invoice directly.');
     await this.requireAction(ctx, inv, 'requestApproval', this.lockedMessage(inv));
@@ -207,7 +207,7 @@ export class InvoicesService {
     const reasons: string[] = [];
     if (needs.price) {
       steps.push(await this.docs.approver(ctx, SAL_ROLE.MANAGER, inv.branchCode));
-      reasons.push(priceReason(needs.below));
+      reasons.push(needs.priceReason!);
     }
     if (needs.credit) {
       steps.push(await this.docs.approver(ctx, credit!.approverRole ?? SAL_ROLE.FINANCE_MANAGER, inv.branchCode));
@@ -229,11 +229,11 @@ export class InvoicesService {
   async release(ctx: RequestContext, id: string, version: number) {
     const inv = await this.query.load(ctx.tenantId, id);
     const credit = await this.query.liveCredit(ctx, inv);
-    const needs = this.query.approvalNeeds(inv, credit, await this.query.approvedRoles(ctx.tenantId, inv));
+    const needs = this.query.approvalNeeds(inv, credit, await this.query.approvedRoles(ctx.tenantId, inv), await this.query.priceCheck(ctx.tenantId, inv));
     if (inv.status === 'DRAFT') {
       if (needs.blocked) throw new BusinessRuleError('CREDIT_BLOCKED', `${invoiceCreditText(credit!)}. The invoice cannot be released.`);
       if (needs.price || needs.credit) {
-        const why = [needs.price && priceReason(needs.below), needs.credit && breachText(credit!.check)].filter(Boolean).join(' · ');
+        const why = [needs.price && needs.priceReason, needs.credit && breachText(credit!.check)].filter(Boolean).join(' · ');
         throw new BusinessRuleError('APPROVAL_REQUIRED', `${why}. Type a reason and request approval before releasing.`);
       }
     }
@@ -407,7 +407,7 @@ export class InvoicesService {
   private async requireAction(ctx: RequestContext, inv: InvoiceWithLines, action: InvoiceAction, message: string) {
     const credit: CreditOutcome | null = await this.query.liveCredit(ctx, inv);
     const approved = await this.query.approvedRoles(ctx.tenantId, inv);
-    if (!this.query.actions(ctx, inv, credit, inv.total, approved).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
+    if (!this.query.actions(ctx, inv, credit, inv.total, approved, await this.query.priceCheck(ctx.tenantId, inv)).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
   }
 
   private async bump(tx: Tx, ctx: RequestContext, id: string, version: number, data: Prisma.SalInvoiceUpdateManyMutationInput, status?: 'DRAFT') {

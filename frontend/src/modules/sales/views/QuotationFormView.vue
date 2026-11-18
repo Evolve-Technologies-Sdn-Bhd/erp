@@ -263,7 +263,7 @@ async function release() {
   if (dirty.value && !(await save())) return
   const q = quote.value!
   if (!q.allowedActions.includes('release')) {
-    if (q.discount.over) toast.add({ severity: 'warn', summary: 'Approval needed first', detail: `A discount above ${Number(q.discount.limitPct)}% needs the Sales Manager's approval before release.`, life: 5000 })
+    if (q.priceCheck.over) toast.add({ severity: 'warn', summary: 'Approval needed first', detail: `${q.priceCheck.reason}. The Sales Manager approves before release.`, life: 5000 })
     return
   }
   confirm.require({
@@ -392,17 +392,29 @@ const chip = computed(() => {
   return { status: q.status, label: q.label, group: q.expired ? ('cancelled' as const) : GROUP[q.status] }
 })
 const locked = computed(() => Boolean(quote.value && !editable.value))
-const discountTooHigh = computed(() => {
-  const limit = Number(quote.value?.discount.limitPct ?? 15)
-  return form.lines.some((l) => Number(l.discountPct || 0) > limit)
-})
-const showDiscountPanel = computed(() => Boolean(quote.value && quote.value.status === 'DRAFT' && quote.value.approval.state !== 'APPROVED' && (quote.value.discount.over || discountTooHigh.value)))
+/** The price range (phase 5) instead of the discount limit, when the company turned it on. */
+const range = computed(() => (quote.value?.priceCheck.mode === 'RANGE' ? quote.value.priceCheck.range : null))
+const discountTooHigh = computed(() => form.lines.some((l) => overLimit(l)))
+const showDiscountPanel = computed(() => Boolean(quote.value && quote.value.status === 'DRAFT' && quote.value.approval.state !== 'APPROVED' && (quote.value.priceCheck.over || discountTooHigh.value)))
 const lineHint = (l: EditLine) => {
   const parts = [l.item.listPrice ? `Price list ${quote.value?.priceList.name ?? ''}: RM ${formatPrice(l.item.listPrice)}`.replace('  ', ' ') : 'Not on the price list']
   if (l.item.lastSold) parts.push(`Last sold to this customer: RM ${formatPrice(l.item.lastSold.price)} on ${formatDate(l.item.lastSold.date)} (${l.item.lastSold.docNo})`)
   return parts.join(' · ')
 }
-const overLimit = (l: EditLine) => Number(l.discountPct || 0) > Number(quote.value?.discount.limitPct ?? 15)
+/**
+ * A preview of the server's check, for the hint under a line: over the discount limit, or (with the range on) a price
+ * after discount outside the range around the list. The server decides on save.
+ */
+function overLimit(l: EditLine): boolean {
+  if (!range.value) return Number(l.discountPct || 0) > Number(quote.value?.discount.limitPct ?? 15)
+  const list = Number(l.item.listPrice ?? 0)
+  if (!list) return false
+  const net = Number(l.unitPrice || 0) * (1 - Number(l.discountPct || 0) / 100)
+  return net < list * (1 - Number(range.value.belowPct) / 100) - 0.00001 || net > list * (1 + Number(range.value.abovePct) / 100) + 0.00001
+}
+const ruleText = computed(() =>
+  range.value ? `Outside the ${Number(range.value.belowPct)}% below to ${Number(range.value.abovePct)}% above range` : `Above the ${Number(quote.value?.discount.limitPct ?? 15)}% discount rule`,
+)
 </script>
 
 <template>
@@ -595,7 +607,7 @@ const overLimit = (l: EditLine) => Number(l.discountPct || 0) > Number(quote.val
                     <td :colspan="editable ? 10 : 9" class="!py-1.5 text-xs text-erp-muted">
                       {{ lineHint(l) }} ·
                       <button type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-xs" @click="later('Price history')">Price history</button>
-                      <span v-if="overLimit(l)" class="ml-2 font-semibold text-attention">Above the {{ Number(quote?.discount.limitPct ?? 15) }}% discount rule</span>
+                      <span v-if="overLimit(l)" class="ml-2 font-semibold text-attention">{{ ruleText }}</span>
                       <span v-for="key in ['qty', 'unitPrice', 'discountPct']" :key="key" class="ml-2 text-note-error-text">{{ errors[`lines[${i}].${key}`] }}</span>
                     </td>
                   </tr>
@@ -656,11 +668,16 @@ const overLimit = (l: EditLine) => Number(l.discountPct || 0) > Number(quote.val
         </template>
       </section>
 
-      <!-- Discount approval (rule 3: discount over 15% needs Sales Manager) -->
+      <!-- Discount approval (rule 3: discount over 15% needs Sales Manager), or the price range (phase 5) -->
       <section v-if="showDiscountPanel && quote" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
         <div>
-          <h2 class="m-0 text-[15px] font-bold text-note-warn-text">Discount needs approval</h2>
-          <p class="m-0 mt-0.5 text-xs text-erp-muted">
+          <h2 class="m-0 text-[15px] font-bold text-note-warn-text">{{ range ? 'Price needs approval' : 'Discount needs approval' }}</h2>
+          <p v-if="range" class="m-0 mt-0.5 text-xs text-erp-muted">
+            A price more than {{ Number(range.belowPct) }}% below or {{ Number(range.abovePct) }}% above the price list needs the Sales Manager's approval before the quotation can be released.
+            <template v-if="quote.priceCheck.over"> Now: {{ quote.priceCheck.reason }}.</template>
+            <template v-else> Save the draft to check it.</template>
+          </p>
+          <p v-else class="m-0 mt-0.5 text-xs text-erp-muted">
             A line discount above {{ Number(quote.discount.limitPct) }}% needs the Sales Manager's approval before the quotation can be released.
             <template v-if="quote.discount.over"> Highest discount now: {{ Number(quote.discount.highest) }}%.</template>
             <template v-else> Save the draft to check it.</template>

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `sal_setting` ADD COLUMN `priceAbovePct` DECIMAL(7, 4) NOT NULL DEFAULT 20,
+    ADD COLUMN `priceBelowPct` DECIMAL(7, 4) NOT NULL DEFAULT 10,
+    ADD COLUMN `priceRange` BOOLEAN NOT NULL DEFAULT false;

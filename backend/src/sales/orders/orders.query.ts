@@ -16,6 +16,8 @@ import { CreditService, type CreditOutcome } from '../shared/credit.service';
 import { SalesLinkedDocsService } from '../shared/linked-docs.service';
 import { CREDIT_DOC, SAL_ENTITY } from '../shared/sales.constants';
 import { taxLinesWithVouchers } from '../shared/voucher.rules';
+import { netUnitPrice, outsideRange, rangeReason } from '../shared/price-range.rules';
+import { PriceRules } from '../shared/price-rules.service';
 import { INSTALL_OPTION_LABEL, installationText, type InstallOption } from './installation.rules';
 import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
@@ -39,6 +41,7 @@ export class OrdersQuery {
     private readonly permissions: PermissionRegistry,
     private readonly credit: CreditService,
     private readonly linked: SalesLinkedDocsService,
+    private readonly priceRules: PriceRules,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -59,12 +62,36 @@ export class OrdersQuery {
     });
   }
 
-  actions(ctx: RequestContext, order: SalSalesOrder & { lines: SalSalesOrderLine[] }, credit: CreditOutcome | null) {
+  /**
+   * The price range (phase 5): with it on, a draft's lines priced outside it need the Sales Manager before release. A
+   * line made from its released quotation at the quoted price (same item, same net price) was checked there and is not
+   * asked again.
+   */
+  async priceCheck(tenantId: string, order: OrderWithLines) {
+    const rule = await this.priceRules.load(tenantId);
+    if (!rule.range) return { rangeOn: false, range: null, result: null, reason: null, needs: false };
+    const quoted = order.quotationId
+      ? await this.prisma.salQuotationLine.findMany({ where: { tenantId, quotationId: order.quotationId }, select: { itemCode: true, unitPrice: true, discountPct: true } })
+      : [];
+    const result = outsideRange(order.lines.map((l) => {
+      const net = netUnitPrice(l);
+      const quotedSame = quoted.some((q) => q.itemCode === l.itemCode && netUnitPrice(q).eq(net));
+      return { unitPrice: l.unitPrice, discountPct: l.discountPct, listPrice: l.listPrice, lineKind: l.lineKind, approvedNet: quotedSame ? net : null };
+    }), rule.range);
+    return {
+      rangeOn: true, range: rule.range, result,
+      reason: result.count ? rangeReason(result, rule.range) : null,
+      needs: order.status === 'DRAFT' && result.count > 0 && !order.approvedAt,
+    };
+  }
+
+  actions(ctx: RequestContext, order: SalSalesOrder & { lines: SalSalesOrderLine[] }, credit: CreditOutcome | null, priceNeeds = false) {
     const has = (p: string) => this.permissions.has(ctx.user.roles, p);
     return allowedOrderActions({
       status: order.status as SoStatus,
       isMigrated: order.isMigrated,
       creditNeedsApproval: credit ? credit.check.action === 'APPROVAL' : order.creditResult === 'OVER_LIMIT',
+      priceNeedsApproval: priceNeeds,
       creditBlocked: credit ? credit.check.action === 'BLOCK' : false,
       approved: Boolean(order.approvedAt),
       hasOpenBalance: order.lines.some((l) => open(l).gt(0)),
@@ -171,6 +198,7 @@ export class OrdersQuery {
     // Vouchers (phase 5) lower the tax of the items they are on.
     const taxLines = taxLinesWithVouchers(order.lines, order.vouchers).map((t) => ({ code: t.code, name: taxName(t.code), amount: toMoney(t.amount) }));
     const quotation = order.quotationId ? await this.prisma.salQuotation.findFirst({ where: { id: order.quotationId }, select: { id: true, docNo: true } }) : null;
+    const price = await this.priceCheck(ctx.tenantId, order);
 
     return {
       id: order.id,
@@ -255,6 +283,15 @@ export class OrdersQuery {
         blocked: credit ? credit.check.action === 'BLOCK' : false,
         approverRole: credit?.approverRole ?? null,
       },
+      /** The price range (phase 5): lines priced outside it need the Sales Manager before release. */
+      price: {
+        rangeOn: price.rangeOn,
+        range: price.range,
+        outside: price.result?.count ?? 0,
+        reason: price.reason,
+        lineIds: price.result ? price.result.lines.map((i) => order.lines[i]!.id) : [],
+        needsApproval: price.needs,
+      },
       approval: {
         state: !latest ? 'NONE' : latest.status === 'PENDING' ? 'PENDING' : latest.status === 'APPROVED' ? 'APPROVED' : latest.status === 'REJECTED' ? 'REJECTED' : 'NONE',
         reason: latest?.reason ?? null,
@@ -275,7 +312,7 @@ export class OrdersQuery {
       releasedByName: order.releasedByName,
       links,
       activity,
-      allowedActions: this.actions(ctx, order, credit),
+      allowedActions: this.actions(ctx, order, credit, price.needs),
     };
   }
 }

@@ -91,10 +91,10 @@ Theme: purple. Sidebar groups: **Sales Transaction**, **Billing**, **Operation P
 | S06 | Enquiry list | `EnquiryList.html` | `/sales/enquiries` |
 | S07 | New enquiry | `EnquiryForm.html` | `/sales/enquiries/:id` |
 | S08 | Quotation list | `QuotationList.html` | `/sales/quotations` |
-| S09 | Quotation | `QuotationForm.html` | `/sales/quotations/:id` |
+| S09 | Quotation. Phase 5: with the price range on, *Price needs approval* replaces *Discount needs approval* (`priceCheck` in the detail) | `QuotationForm.html` | `/sales/quotations/:id` |
 | S09 | Quotation print preview (A4, like S20) | `InvoicePrint.html` | `/sales/quotations/:id/print` |
 | S10 | Sales order list | `SalesOrderList.html` | `/sales/orders` |
-| S11 | Sales order | `SalesOrderForm.html` | `/sales/orders/:id` |
+| S11 | Sales order. Phase 5: with the price range on, *Price needs approval* (`price` in the detail) and the hint under each line | `SalesOrderForm.html` | `/sales/orders/:id` |
 | S11 | Sales order print preview (A4, like S20) | `InvoicePrint.html` | `/sales/orders/:id/print` |
 | S12 | Credit check failed | `CreditApproval.html` | state of S11 |
 | S13 | Cancel order list | `CancelOrderList.html` | `/sales/cancel-orders` |
@@ -104,7 +104,7 @@ Theme: purple. Sidebar groups: **Sales Transaction**, **Billing**, **Operation P
 | S16 | Delivery order print preview (A4, like S20; quantities only, no prices) | `InvoicePrint.html` | `/sales/deliveries/:id/print` |
 | S17 | Invoice list | `InvoiceList.html` | `/sales/invoices` |
 | S18 | Create invoice from order | `CreateInvoice.html` | `/sales/invoices/new` |
-| S19 | Invoice | `InvoiceForm.html` | `/sales/invoices/:id` |
+| S19 | Invoice. Phase 5: the price check names the range when it is on (`checks.priceReason`) | `InvoiceForm.html` | `/sales/invoices/:id` |
 | S20 | Invoice print preview | `InvoicePrint.html` | `/sales/invoices/:id/print` |
 | S21 | Proforma list | `ProformaList.html` | `/sales/proformas` |
 | S22 | Proforma | `ProformaForm.html` | `/sales/proformas/:id` |
@@ -194,7 +194,7 @@ The Service module is new: orange (side `#C2410C`, primary `#9A3412`, light `#FF
 
 | Code | Screen | Mockup | Route (proposed) |
 |---|---|---|---|
-| S34 | Sales flow (Operation Policies): the profile's switches. **Built (F1, parts 1, 5 and 6):** the two step switches, *Ask for an installation option on the order* and *Salespeople add new customers on the order*, `GET`, `PUT /api/v1/sales/settings/sales-flow`; the other settings on the mockup come with their own parts | `FsPolicies.html` | `/sales/settings/sales-flow` |
+| S34 | Sales flow (Operation Policies): the profile's switches. **Built (F1, parts 1, 5 and 6):** the two step switches, *Ask for an installation option on the order* and *Salespeople add new customers on the order*; the Prices card (*Salespeople set prices within a range of the price list* and its two percentages, 18 Nov), `GET`, `PUT /api/v1/sales/settings/sales-flow`; the other settings on the mockup come with their own parts | `FsPolicies.html` | `/sales/settings/sales-flow` |
 | S11 | Sales order with a package, a free gift, a voucher, the installation option and the customer's signature (profile on). **Built (F1, parts 3 and 4):** *Add package* (picture cards under category tabs, with the terms of the one picked, since 18 Nov) and the package and gift lines, `GET /api/v1/sales/lookups/packages?date=`; *Add voucher* (`vouchers` on `POST`, `PATCH /api/v1/sales/orders`); **part 5:** the Installation and Preferred date fields (`installOption`, `installDate`) when Sales Flow asks for them; **part 6:** *+ New customer* under the customer field when Sales Flow allows it (`POST /api/v1/sales/customers`; Core makes the customer); the signature comes with its own part | `FsOrder.html` | `/sales/orders/:id` |
 | C15 | Package list. **Built (F1, parts 2 and 3)**, the Orders column from the record-usage check; a picture and Category column (18 Nov) · `GET /api/v1/core/packages` | `CorePackages.html` | `/core/packages` |
 | C16 | Package: items, package price, free gift. **Built (F1, part 2)**, without branches and gift stock; Category, Terms and a Picture card (18 Nov); codes with `@`, up to 30 · `GET, POST, PATCH, DELETE /api/v1/core/packages/:id`, `POST …/end`, `GET /api/v1/core/lookups/active-items?q=` (gift picker) | `CorePackageForm.html` | `/core/packages/:id` |

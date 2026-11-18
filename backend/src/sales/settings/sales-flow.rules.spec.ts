@@ -1,18 +1,21 @@
-import { flowChanges, FLOW_SWITCHES, NEW_CUSTOMERS_OFF_MESSAGE, STANDARD_FLOW } from './sales-flow.rules';
+import { flowChanges, FLOW_SWITCHES, NEW_CUSTOMERS_OFF_MESSAGE, rangeChange, STANDARD_FLOW } from './sales-flow.rules';
 
 describe('sales flow rules (S34)', () => {
   it('starts every company on the standard flow', () => {
-    expect(STANDARD_FLOW).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false });
+    expect(STANDARD_FLOW).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false });
     expect(Object.keys(STANDARD_FLOW)).toEqual(Object.keys(FLOW_SWITCHES));
   });
 
   it('writes one history line per switch that changed, in plain words', () => {
-    expect(flowChanges(STANDARD_FLOW, { useEnquiries: false, officeDraftsQuotations: false, askInstallation: true, agentsAddCustomers: true })).toEqual([
+    expect(flowChanges(STANDARD_FLOW, { useEnquiries: false, officeDraftsQuotations: false, askInstallation: true, agentsAddCustomers: true, priceRange: true })).toEqual([
       'Use enquiries: On → Off',
       'Office drafts quotations: On → Off',
       'Ask for an installation option on the order: Off → On',
       'Salespeople add new customers on the order: Off → On',
+      'Salespeople set prices within a range of the price list: Off → On',
     ]);
+    expect(rangeChange({ belowPct: '10', abovePct: '20' }, { belowPct: '5', abovePct: '20' })).toBe('Price range: 10% below to 20% above → 5% below to 20% above');
+    expect(rangeChange({ belowPct: '10', abovePct: '20' }, { belowPct: '10', abovePct: '20' })).toBeNull();
     expect(flowChanges({ ...STANDARD_FLOW, useEnquiries: false }, STANDARD_FLOW)).toEqual(['Use enquiries: Off → On']);
   });
 

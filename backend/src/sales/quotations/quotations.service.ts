@@ -14,7 +14,7 @@ import { SalesDocumentLines } from '../shared/document-lines.service';
 import { SAL_DOC_TYPE, SAL_ENTITY, SAL_LINK, SAL_ROLE } from '../shared/sales.constants';
 import { SalesMailService } from '../shared/sales-mail.service';
 import type { CreateQuotationDto, DiscountApprovalDto, LostDto, TransferDto, UpdateQuotationDto } from './dto/quotation.dto';
-import { discountOverLimit, isExpired, QT_LOCKED_MESSAGE, releaseProblem, type QtAction } from './quotation.rules';
+import { isExpired, QT_LOCKED_MESSAGE, quotationPriceCheck, releaseProblem, type QtAction } from './quotation.rules';
 import { QuotationsQuery, type QuotationWithLines } from './quotations.query';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -146,17 +146,22 @@ export class QuotationsService {
   async requestApproval(ctx: RequestContext, id: string, dto: DiscountApprovalDto) {
     const q = await this.query.load(ctx.tenantId, id);
     const limits = await this.query.discountLimit(ctx.tenantId);
-    const discount = discountOverLimit(q.lines, limits.pct);
-    if (!discount.over) throw new BusinessRuleError('APPROVAL_NOT_NEEDED', `No line is above the ${limits.pct.toString()}% discount limit. Release it directly.`);
+    const check = quotationPriceCheck(limits.rule, q.lines);
+    if (!check.over) {
+      throw new BusinessRuleError('APPROVAL_NOT_NEEDED', check.mode === 'RANGE'
+        ? 'Every price is within the allowed range. Release it directly.'
+        : `No line is above the ${limits.pct.toString()}% discount limit. Release it directly.`);
+    }
     await this.requireAction(ctx, q, 'requestApproval', q.status === 'PENDING_APPROVAL' ? `${q.docNo} is already waiting for approval.` : QT_LOCKED_MESSAGE);
     const step = await this.docs.approver(ctx, SAL_ROLE.MANAGER, q.branchCode);
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, q.id, dto.version, { status: 'PENDING_APPROVAL', approvalRequired: true }, 'DRAFT');
       await this.approvals.create(tx, ctx, {
         entityType: SAL_ENTITY.QUOTATION, entityId: q.id, docNo: q.docNo, amount: q.total, title: `${q.docNo} · ${q.customerName}`,
-        reason: `Discount ${discount.highest}%, above ${limits.pct.toString()}% rule`, requesterNote: dto.reason, steps: [step],
+        reason: check.reason!, requesterNote: dto.reason, steps: [step],
       });
-      await this.log(tx, ctx, q.id, q.docNo, 'approval_requested', `Discount ${discount.highest}% · sent for approval to ${step.approverName}`, dto.reason.trim());
+      const what = check.mode === 'RANGE' ? check.reason : `Discount ${check.highest}%`;
+      await this.log(tx, ctx, q.id, q.docNo, 'approval_requested', `${what} · sent for approval to ${step.approverName}`, dto.reason.trim());
     });
     return this.query.detail(ctx, id);
   }
@@ -168,9 +173,9 @@ export class QuotationsService {
     const problem = releaseProblem({ validUntil: iso(q.validUntil), docDate: iso(q.docDate)! });
     if (q.status === 'DRAFT' && problem) throw ValidationFailedError.field('validUntil', problem);
     const limits = await this.query.discountLimit(ctx.tenantId);
-    const discount = discountOverLimit(q.lines, limits.pct);
-    if (q.status === 'DRAFT' && discount.over && !q.approvedAt) {
-      throw new BusinessRuleError('DISCOUNT_APPROVAL_REQUIRED', `A discount of ${discount.highest}% is above the ${limits.pct.toString()}% limit. Request approval first.`);
+    const check = quotationPriceCheck(limits.rule, q.lines);
+    if (q.status === 'DRAFT' && check.over && !q.approvedAt) {
+      throw new BusinessRuleError(check.mode === 'RANGE' ? 'PRICE_APPROVAL_REQUIRED' : 'DISCOUNT_APPROVAL_REQUIRED', check.refusal!);
     }
     await this.requireAction(ctx, q, 'release', q.status === 'PENDING_APPROVAL' ? `${q.docNo} is waiting for approval.` : `${q.docNo} is already released.`);
     await this.docs.activeCustomer(ctx, q.customerCode, 'a quotation');
@@ -284,7 +289,7 @@ export class QuotationsService {
 
   private async requireAction(ctx: RequestContext, q: QuotationWithLines, action: QtAction, message: string) {
     const limits = await this.query.discountLimit(ctx.tenantId);
-    if (!this.query.actions(ctx, q, limits.pct).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
+    if (!this.query.actions(ctx, q, limits.rule).includes(action)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', message);
   }
 
   private async bump(tx: Tx, ctx: RequestContext, id: string, version: number, data: Prisma.SalQuotationUpdateManyMutationInput, status?: 'DRAFT' | 'RELEASED') {

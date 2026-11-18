@@ -19,7 +19,9 @@ import { CREDIT_DOC, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.con
 import { taxLinesWithVouchers } from '../shared/voucher.rules';
 import { invoiceBalance } from '../shared/totals.rules';
 import type { InvoiceListQueryDto } from './dto/invoice.dto';
-import { allowedInvoiceActions, amountInWords, belowPriceList, paymentState, type InvStatus, type PaymentKey } from './invoice.rules';
+import { allowedInvoiceActions, amountInWords, belowPriceList, paymentState, priceReason, type InvStatus, type PaymentKey } from './invoice.rules';
+import { netUnitPrice, outsideRange, rangeReason } from '../shared/price-range.rules';
+import { PriceRules } from '../shared/price-rules.service';
 
 export type InvoiceWithLines = SalInvoice & { lines: SalInvoiceLine[] };
 
@@ -41,6 +43,7 @@ export class InvoicesQuery {
     private readonly linked: SalesLinkedDocsService,
     private readonly deposits: DepositsService,
     private readonly clock: ClockService,
+    private readonly priceRules: PriceRules,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -95,20 +98,37 @@ export class InvoicesQuery {
    * Approval still needed before release: a price below the list (Sales Manager) and/or a credit breach (Finance
    * Manager), each unless already approved.
    */
-  approvalNeeds(inv: InvoiceWithLines, credit: CreditOutcome | null, approved: Set<string>) {
-    const below = belowPriceList(inv.lines);
+  /**
+   * The invoice's price check (strict price list): a price below the list, or with the price range on (phase 5) a price
+   * outside it; a line invoiced at its order's price was checked on the order and is not asked again.
+   */
+  async priceCheck(tenantId: string, inv: InvoiceWithLines): Promise<{ count: number; reason: string | null; below: { count: number; highestPct: number } | null }> {
+    const rule = await this.priceRules.load(tenantId);
+    if (!rule.range) {
+      const below = belowPriceList(inv.lines);
+      return { count: below.count, reason: below.count ? priceReason(below) : null, below };
+    }
+    const soIds = inv.lines.map((l) => l.soLineId).filter((v): v is string => Boolean(v));
+    const ordered = soIds.length ? await this.prisma.salSalesOrderLine.findMany({ where: { tenantId, id: { in: soIds } }, select: { id: true, unitPrice: true, discountPct: true } }) : [];
+    const approvedNet = new Map(ordered.map((o) => [o.id, netUnitPrice(o)]));
+    const r = outsideRange(inv.lines.map((l) => ({ ...l, approvedNet: l.soLineId ? (approvedNet.get(l.soLineId) ?? null) : null })), rule.range);
+    return { count: r.count, reason: r.count ? rangeReason(r, rule.range) : null, below: null };
+  }
+
+  approvalNeeds(inv: InvoiceWithLines, credit: CreditOutcome | null, approved: Set<string>, price: { count: number; reason: string | null; below: { count: number; highestPct: number } | null }) {
     const creditRole = credit?.approverRole ?? SAL_ROLE.FINANCE_MANAGER;
     return {
-      below,
-      price: below.count > 0 && !approved.has(SAL_ROLE.MANAGER),
+      below: price.below,
+      priceReason: price.reason,
+      price: price.count > 0 && !approved.has(SAL_ROLE.MANAGER),
       credit: credit ? credit.check.action === 'APPROVAL' && !approved.has(creditRole) : false,
       blocked: credit ? credit.check.action === 'BLOCK' : false,
     };
   }
 
-  actions(ctx: RequestContext, inv: InvoiceWithLines, credit: CreditOutcome | null, balance: Prisma.Decimal, approved: Set<string>) {
+  actions(ctx: RequestContext, inv: InvoiceWithLines, credit: CreditOutcome | null, balance: Prisma.Decimal, approved: Set<string>, price: Awaited<ReturnType<InvoicesQuery['priceCheck']>>) {
     const has = (p: string) => this.permissions.has(ctx.user.roles, p);
-    const needs = this.approvalNeeds(inv, credit, approved);
+    const needs = this.approvalNeeds(inv, credit, approved, price);
     return allowedInvoiceActions({
       status: inv.status as InvStatus,
       isMigrated: inv.isMigrated,
@@ -294,7 +314,8 @@ export class InvoicesQuery {
     const paid = sum(receipts.map((r) => r.amount));
     const balance = inv.status === 'RELEASED' ? this.balanceOf(inv, paid) : inv.total;
     const approvedRoles = await this.approvedRoles(ctx.tenantId, inv);
-    const needs = this.approvalNeeds(inv, credit, approvedRoles);
+    const price = await this.priceCheck(ctx.tenantId, inv);
+    const needs = this.approvalNeeds(inv, credit, approvedRoles, price);
     const can = order && inv.status !== 'RELEASED' ? await this.canInvoice(ctx.tenantId, order.lines, inv.id) : null;
     const taxName = (code: string) => taxes.find((t) => t.code === code)?.name ?? code;
     const latest = approvals[0] ?? null;
@@ -382,6 +403,7 @@ export class InvoicesQuery {
       posting: { accounts: inv.isMigrated ? 'OLD_SYSTEM' : event?.status === 'PENDING' ? 'QUEUED' : event ? 'POSTED' : null, eInvoice: inv.isMigrated ? null : event?.status === 'PENDING' ? 'PENDING' : event ? 'SUBMITTED' : null },
       checks: {
         priceBelowList: needs.price ? needs.below : null,
+        priceReason: needs.price ? needs.priceReason : null,
         credit: credit ? { action: credit.check.action, snapshot: credit.snapshot } : null,
         creditBlocked: needs.blocked,
         needsApproval: needs.price || needs.credit,
@@ -402,7 +424,7 @@ export class InvoicesQuery {
       emailedAt: inv.emailedAt?.toISOString() ?? null,
       links,
       activity,
-      allowedActions: this.actions(ctx, inv, credit, balance, approvedRoles),
+      allowedActions: this.actions(ctx, inv, credit, balance, approvedRoles, price),
     };
   }
 }

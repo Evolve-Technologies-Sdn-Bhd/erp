@@ -16,7 +16,9 @@ import { CreditService } from '../shared/credit.service';
 import { SalesLinkedDocsService } from '../shared/linked-docs.service';
 import { CREDIT_DOC, SAL_ENTITY } from '../shared/sales.constants';
 import type { QuotationListQueryDto } from './dto/quotation.dto';
-import { allowedQuotationActions, discountOverLimit, expiresSoon, isExpired, quotationLabel, type QtStatus } from './quotation.rules';
+import { allowedQuotationActions, discountOverLimit, expiresSoon, isExpired, quotationLabel, quotationPriceCheck, type QtStatus } from './quotation.rules';
+import { PriceRules } from '../shared/price-rules.service';
+import type { PriceRule } from '../shared/price-range.rules';
 
 export type QuotationWithLines = SalQuotation & { lines: SalQuotationLine[] };
 
@@ -35,6 +37,7 @@ export class QuotationsQuery {
     private readonly credit: CreditService,
     private readonly linked: SalesLinkedDocsService,
     private readonly clock: ClockService,
+    private readonly priceRules: PriceRules,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -45,17 +48,17 @@ export class QuotationsQuery {
   }
 
   async discountLimit(tenantId: string) {
-    const setting = await this.prisma.salSetting.findUnique({ where: { tenantId } });
-    return { pct: setting?.discountApprovalPct ?? dec(15), warnDays: setting?.quoteExpiryWarnDays ?? 3, showMargin: setting?.showMargin ?? false };
+    const [setting, rule] = await Promise.all([this.prisma.salSetting.findUnique({ where: { tenantId } }), this.priceRules.load(tenantId)]);
+    return { pct: setting?.discountApprovalPct ?? dec(15), warnDays: setting?.quoteExpiryWarnDays ?? 3, showMargin: setting?.showMargin ?? false, rule };
   }
 
-  actions(ctx: RequestContext, q: QuotationWithLines, limitPct: Prisma.Decimal) {
+  actions(ctx: RequestContext, q: QuotationWithLines, rule: PriceRule) {
     const has = (p: string) => this.permissions.has(ctx.user.roles, p);
     return allowedQuotationActions({
       status: q.status as QtStatus,
       isMigrated: q.isMigrated,
       expired: isExpired(q.status, iso(q.validUntil), this.clock.today()),
-      discountOver: discountOverLimit(q.lines, limitPct).over,
+      discountOver: quotationPriceCheck(rule, q.lines).over,
       approved: Boolean(q.approvedAt),
       canEdit: has(P.QUOTATION_EDIT),
       canRelease: has(P.QUOTATION_RELEASE),
@@ -110,7 +113,7 @@ export class QuotationsQuery {
             id: r.id, docNo: r.docNo, branchCode: r.branchCode, revision: r.revision, docDate: iso(r.docDate), validUntil: iso(r.validUntil), customerName: r.customerName, agentName: r.agentName,
             total: toMoney(r.total), salesOrder: r.salesOrderNo ? { no: r.salesOrderNo, id: orders.find((o) => o.docNo === r.salesOrderNo)?.id ?? null } : null,
             status: r.status, label: quotationLabel(r.status as QtStatus, r.revision, expired), expired, isMigrated: r.isMigrated, version: r.version,
-            allowedActions: this.actions(ctx, r, limits.pct),
+            allowedActions: this.actions(ctx, r, limits.rule),
           };
         }),
         total,
@@ -148,6 +151,7 @@ export class QuotationsQuery {
     ]);
     const expired = isExpired(q.status, iso(q.validUntil), today);
     const discount = discountOverLimit(q.lines, limits.pct);
+    const priceCheck = quotationPriceCheck(limits.rule, q.lines);
     const taxName = (code: string) => taxes.find((t) => t.code === code)?.name ?? code;
     const latest = approvals[0] ?? null;
     const decided = latest?.steps.find((s) => s.decidedAt);
@@ -203,7 +207,9 @@ export class QuotationsQuery {
         taxLines: [...new Set(q.lines.map((l) => l.taxCode))].map((code) => ({ code, name: taxName(code), amount: toMoney(sum(q.lines.filter((l) => l.taxCode === code).map((l) => l.taxAmount))) })),
       },
       marginPct: canSeeMargin && q.costTotal && net.gt(0) ? net.sub(q.costTotal).div(net).mul(100).toFixed(1) : null,
-      discount: { over: discount.over, highest: discount.highest, limitPct: limits.pct.toDecimalPlaces(2).toString() },
+      discount: { over: priceCheck.mode === 'DISCOUNT' && discount.over, highest: discount.highest, limitPct: limits.pct.toDecimalPlaces(2).toString() },
+      /** The company's price rule (phase 5): the discount limit above, or the range around the price list. */
+      priceCheck: { mode: priceCheck.mode, over: priceCheck.over, reason: priceCheck.reason, range: limits.rule.range },
       creditWarning,
       approval: {
         state: !latest ? 'NONE' : latest.status === 'PENDING' ? 'PENDING' : latest.status === 'APPROVED' ? 'APPROVED' : latest.status === 'REJECTED' ? 'REJECTED' : 'NONE',
@@ -218,7 +224,7 @@ export class QuotationsQuery {
       emailedAt: q.emailedAt?.toISOString() ?? null,
       links,
       activity,
-      allowedActions: this.actions(ctx, q, limits.pct),
+      allowedActions: this.actions(ctx, q, limits.rule),
     };
   }
 }

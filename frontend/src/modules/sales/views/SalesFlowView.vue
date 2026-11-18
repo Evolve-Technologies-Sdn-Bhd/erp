@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'primevue/usetoast'
+import { ApiError } from '@/api/http'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import SwitchToggle from '@/components/erp/SwitchToggle.vue'
 import { useSession } from '@/composables/useSession'
 import { formatDate } from '@/utils/format'
 import { salesSettingsApi } from '../api/sales'
 import { setSalesFlow } from '../flow'
-import type { SalesFlowData, SalesFlowSwitches } from '../types'
+import type { PriceRangeSetting, SalesFlowData, SalesFlowSwitches } from '../types'
 
 /** S34 · Sales flow (FsPolicies.html): which steps the company uses. */
 const toast = useToast()
@@ -15,17 +16,21 @@ const { can } = useSession()
 
 const data = ref<SalesFlowData | null>(null)
 const draft = ref<SalesFlowSwitches | null>(null)
+const range = ref<PriceRangeSetting>({ belowPct: '10', abovePct: '20' })
+const errors = ref<Record<string, string>>({})
 const saving = ref(false)
 const canManage = computed(() => can('sales.settings.manage'))
 
 function reset() {
   draft.value = { ...data.value!.switches }
+  range.value = { ...data.value!.range }
+  errors.value = {}
 }
 onMounted(async () => {
   data.value = await salesSettingsApi.salesFlow()
   reset()
 })
-const dirty = computed(() => Boolean(data.value && draft.value && JSON.stringify(data.value.switches) !== JSON.stringify(draft.value)))
+const dirty = computed(() => Boolean(data.value && draft.value && (JSON.stringify(data.value.switches) !== JSON.stringify(draft.value) || JSON.stringify(data.value.range) !== JSON.stringify(range.value))))
 
 const ORDER: (keyof SalesFlowSwitches)[] = ['useEnquiries', 'officeDraftsQuotations']
 const HINT: Record<keyof SalesFlowSwitches, string> = {
@@ -33,16 +38,19 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   officeDraftsQuotations: 'Off: Draft Quotation is hidden. Sales agents build the quotation with the customer.',
   askInstallation: 'Installation, delivery only, or collect. An order with installation makes a job for the office to book.',
   agentsAddCustomers: 'A + New customer link on the sales order, for households that are not in the list yet.',
+  priceRange: 'Off: a discount over the limit on a quotation needs the Sales Manager. On: the range below decides, on quotations and sales orders.',
 }
 
 async function save() {
   saving.value = true
   try {
-    const result = await salesSettingsApi.saveSalesFlow(draft.value!)
+    const result = await salesSettingsApi.saveSalesFlow(draft.value!, range.value)
     data.value = result
     setSalesFlow(result.switches)
     reset()
     toast.add({ severity: 'success', summary: result.saved?.length ? 'Sales flow saved' : 'Nothing changed', detail: result.saved?.join(' · '), life: 4500 })
+  } catch (error) {
+    if (error instanceof ApiError) errors.value = error.fieldErrors
   } finally {
     saving.value = false
   }
@@ -80,6 +88,30 @@ async function save() {
         <SwitchToggle v-model="draft.agentsAddCustomers" :label="data.labels.agentsAddCustomers" :disabled="!canManage" />
       </div>
       <p class="m-0 text-xs text-erp-muted">They get cash terms, no credit limit and the cash customer's price list, and show in Core as To complete until the office checks them. A phone number already on file is refused.</p>
+    </section>
+
+    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+      <h2 class="m-0 text-[15px] font-bold">Prices</h2>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.priceRange }}</span><span class="text-xs text-erp-subtle">{{ HINT.priceRange }}</span></span>
+        <SwitchToggle v-model="draft.priceRange" :label="data.labels.priceRange" :disabled="!canManage" />
+      </div>
+      <div class="flex flex-wrap items-end gap-4 text-[13px]" :class="{ 'opacity-50': !draft.priceRange }">
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-erp-muted">Lowest: below the price list by</span>
+          <span class="flex items-center gap-1.5"><input v-model="range.belowPct" class="erp-input w-24 text-right" inputmode="decimal" :disabled="!canManage" :aria-invalid="Boolean(errors.priceBelowPct)" />%</span>
+          <span v-if="errors.priceBelowPct" class="text-xs text-note-error-text">{{ errors.priceBelowPct }}</span>
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-erp-muted">Highest: above the price list by</span>
+          <span class="flex items-center gap-1.5"><input v-model="range.abovePct" class="erp-input w-24 text-right" inputmode="decimal" :disabled="!canManage" :aria-invalid="Boolean(errors.priceAbovePct)" />%</span>
+          <span v-if="errors.priceAbovePct" class="text-xs text-note-error-text">{{ errors.priceAbovePct }}</span>
+        </label>
+      </div>
+      <p class="m-0 text-xs text-erp-muted">
+        The price is the unit price after the line discount, against the customer's price list. Package items, free gifts and items without a list price are left out,
+        and a price already approved on the quotation or the order is not asked again on the next document. Invoices follow the range too while Strict price list is on.
+      </p>
     </section>
 
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">

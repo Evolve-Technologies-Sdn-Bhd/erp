@@ -239,6 +239,15 @@ export interface OrderDetail {
   installation: OrderInstallation
   quantities: { ordered: string; delivered: string; uomCode: string }
   credit: { result: string | null; snapshot: CreditSnapshot | null; live: boolean; needsApproval: boolean; blocked: boolean; approverRole: string | null }
+  /** The price range (phase 5): lines priced outside it need the Sales Manager before release. */
+  price: {
+    rangeOn: boolean
+    range: PriceRangeSetting | null
+    outside: number
+    reason: string | null
+    lineIds: string[]
+    needsApproval: boolean
+  }
   approval: {
     state: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'
     reason: string | null
@@ -538,6 +547,8 @@ export interface QuotationDetail {
   totals: SaleTotals
   marginPct: string | null
   discount: { over: boolean; highest: string; limitPct: string }
+  /** The company's price rule (phase 5): the discount limit, or the range around the price list. */
+  priceCheck: PriceCheck
   creditWarning: string | null
   approval: { state: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'; reason: string | null; waitingFor: string | null; decidedBy: string | null; comment: string | null }
   revisions: { id: string; revision: number; status: string; docDate: string; total: string }[]
@@ -789,6 +800,8 @@ export interface InvoiceDetail {
   posting: { accounts: 'QUEUED' | 'POSTED' | 'OLD_SYSTEM' | null; eInvoice: 'PENDING' | 'SUBMITTED' | null }
   checks: {
     priceBelowList: { count: number; highestPct: number } | null
+    /** Why the prices need the Sales Manager: below the list, or outside the range (phase 5). */
+    priceReason: string | null
     credit: { action: string; snapshot: CreditSnapshot } | null
     creditBlocked: boolean
     needsApproval: boolean
@@ -1232,6 +1245,24 @@ export interface SalesFlowSwitches {
   officeDraftsQuotations: boolean
   askInstallation: boolean
   agentsAddCustomers: boolean
+  /** Salespeople set prices within a range of the price list; outside it the Sales Manager approves (phase 5). */
+  priceRange: boolean
+}
+
+/** Whether a document's prices need the Sales Manager (phase 5): discount limit, or the range around the price list. */
+export interface PriceCheck {
+  mode: 'DISCOUNT' | 'RANGE'
+  /** Needs approval now (not approved yet). */
+  over: boolean
+  /** "Price 12% below the price list on 1 line (allowed: 10% below to 20% above)", or the discount text. */
+  reason: string | null
+  range: PriceRangeSetting | null
+}
+
+/** The allowed range around the price list, in percent (phase 5). */
+export interface PriceRangeSetting {
+  belowPct: string
+  abovePct: string
 }
 
 /** A new household customer typed on the sales order (phase 5). Core fills in the rest. */
@@ -1245,6 +1276,7 @@ export interface NewCustomerInput {
 
 export interface SalesFlowData {
   switches: SalesFlowSwitches
+  range: PriceRangeSetting
   labels: Record<keyof SalesFlowSwitches, string>
   history: SettingChange[]
   saved?: string[]

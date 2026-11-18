@@ -59,6 +59,7 @@ import { SalesNewCustomersController } from './customers/new-customers.controlle
 import { SalesNewCustomersService } from './customers/new-customers.service';
 import { CreditService } from './shared/credit.service';
 import { SalesDocumentLines } from './shared/document-lines.service';
+import { PriceRules } from './shared/price-rules.service';
 import { PackageLines } from './shared/package-lines.service';
 import { SalesLinkedDocsService } from './shared/linked-docs.service';
 import { ReceivablesService } from './shared/receivables.service';
@@ -83,6 +84,7 @@ import { SalesMailService } from './shared/sales-mail.service';
     SalesOrderFlowQuery,
     OrdersService,
     SalesDocumentLines,
+    PriceRules,
     PackageLines,
     SalesMailService,
     QuotationsQuery,

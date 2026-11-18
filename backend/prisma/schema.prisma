@@ -2753,6 +2753,9 @@ model SalSetting {
   officeDraftsQuotations Boolean  @default(true) // off: Draft Quotation is hidden from the menu
   askInstallation        Boolean  @default(false) // on: the order asks installation, delivery only or collect (phase 5)
   agentsAddCustomers     Boolean  @default(false) // on: salespeople add a cash customer while keying an order; the office completes it in Core (phase 5)
+  priceRange             Boolean  @default(false) // on: prices within a range of the price list; outside it the Sales Manager approves (phase 5)
+  priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
+  priceAbovePct          Decimal  @default(20) @db.Decimal(7, 4)
   updatedAt              DateTime @updatedAt @db.DateTime(3)
   updatedBy              String   @db.VarChar(20)
 

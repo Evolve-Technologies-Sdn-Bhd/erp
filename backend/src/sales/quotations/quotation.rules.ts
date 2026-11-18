@@ -1,4 +1,5 @@
 import { dec, type DecimalInput } from '../../platform/http/decimal';
+import { outsideRange, rangeReason, type PriceRule, type RangeLine } from '../shared/price-range.rules';
 
 /** Quotation rules (FlowS1, S08–S09). Pure functions. */
 
@@ -31,6 +32,24 @@ export function quotationLabel(status: QtStatus, revision: number, expired: bool
 export function discountOverLimit(lines: { discountPct: DecimalInput }[], limitPct: DecimalInput): { over: boolean; highest: string } {
   const highest = lines.reduce((max, l) => (dec(l.discountPct).gt(max) ? dec(l.discountPct) : max), dec(0));
   return { over: highest.gt(dec(limitPct)), highest: highest.toDecimalPlaces(2).toString() };
+}
+
+/**
+ * Whether a quotation's prices need the Sales Manager before release: a discount over the limit (standard, rule 3), or
+ * with the price range on (phase 5) a price outside it. `reason` goes on the approval request and the activity.
+ */
+export function quotationPriceCheck(rule: PriceRule, lines: RangeLine[]): { mode: 'DISCOUNT' | 'RANGE'; over: boolean; reason: string | null; refusal: string | null; highest: string } {
+  const discount = discountOverLimit(lines, rule.discountPct);
+  if (!rule.range) {
+    return {
+      mode: 'DISCOUNT', over: discount.over, highest: discount.highest,
+      reason: discount.over ? `Discount ${discount.highest}%, above ${dec(rule.discountPct).toString()}% rule` : null,
+      refusal: discount.over ? `A discount of ${discount.highest}% is above the ${dec(rule.discountPct).toString()}% limit. Request approval first.` : null,
+    };
+  }
+  const r = outsideRange(lines, rule.range);
+  const reason = r.count ? rangeReason(r, rule.range) : null;
+  return { mode: 'RANGE', over: r.count > 0, highest: discount.highest, reason, refusal: reason ? `${reason}. Request approval first.` : null };
 }
 
 export function allowedQuotationActions(q: {

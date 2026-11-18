@@ -554,6 +554,9 @@ const partialChip = computed(() => {
 const released = computed(() => Boolean(order.value && !['DRAFT', 'PENDING_APPROVAL'].includes(order.value.status)))
 const credit = computed(() => order.value?.credit.snapshot ?? null)
 const showCreditFailed = computed(() => Boolean(order.value && order.value.status === 'DRAFT' && (order.value.credit.needsApproval || order.value.credit.blocked)))
+/** The price range (phase 5): prices outside it wait for the Sales Manager. Shown on its own when credit is fine. */
+const priceNeedsApproval = computed(() => Boolean(order.value && order.value.status === 'DRAFT' && order.value.price.needsApproval))
+const showPricePanel = computed(() => priceNeedsApproval.value && !showCreditFailed.value)
 const creditChip = computed(() => {
   const r = order.value?.credit.result
   if (r === 'OVER_LIMIT' || r === 'BLOCKED') return { status: 'REJECTED', label: 'Over limit', group: 'cancelled' as const }
@@ -572,6 +575,18 @@ const bar = computed(() => {
 const lineHint = (l: EditLine) =>
   l.item.listPrice ? `Price list${order.value ? ` ${order.value.priceList.name}` : ''}: RM ${formatPrice(l.item.listPrice)}` : 'Not on the price list'
 const belowList = (l: EditLine) => Boolean(l.item.listPrice && l.unitPrice && Number(l.unitPrice) < Number(l.item.listPrice))
+/** With the price range on: a preview of the server's check for the hint under the line (net after discount vs the list). */
+function outsideRange(l: EditLine): boolean {
+  const r = order.value?.price.range
+  const list = Number(l.item.listPrice ?? 0)
+  if (!r || !list || !l.unitPrice) return false
+  const net = Number(l.unitPrice) * (1 - Number(l.discountPct || 0) / 100)
+  return net < list * (1 - Number(r.belowPct) / 100) - 0.00001 || net > list * (1 + Number(r.abovePct) / 100) + 0.00001
+}
+const lineNote = (l: EditLine) => {
+  if (order.value?.price.rangeOn) return outsideRange(l) ? ` · outside the ${Number(order.value.price.range!.belowPct)}% below to ${Number(order.value.price.range!.abovePct)}% above range: the Sales Manager approves` : ''
+  return belowList(l) ? ' · below the price list, invoices at this price need approval' : ''
+}
 const lineErrors = (i: number) =>
   ['itemCode', 'packageCode', 'qty', 'unitPrice', 'discountPct', 'giftItemCode'].map((k) => errors.value[`lines[${i}].${k}`]).filter((m): m is string => Boolean(m))
 
@@ -621,7 +636,7 @@ const viewRows = computed<ViewRow[]>(() => {
           <RouterLink v-if="!isNew" to="/sales/orders" class="erp-btn erp-btn-secondary">Back</RouterLink>
           <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
           <button type="button" class="erp-btn" :class="isNew ? 'erp-btn-primary' : 'erp-btn-secondary'" :disabled="saving || (!isNew && !dirty)" @click="save">Save draft</button>
-          <button v-if="!isNew && !showCreditFailed" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
+          <button v-if="!isNew && !showCreditFailed && !priceNeedsApproval" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
         </template>
         <template v-else-if="order && released">
           <RouterLink :to="`/sales/orders/${order.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
@@ -863,8 +878,8 @@ const viewRows = computed<ViewRow[]>(() => {
                     </tr>
                     <tr>
                       <td />
-                      <td colspan="8" class="!pt-0 text-xs" :class="belowList(l) ? 'text-attention' : 'text-erp-muted'">
-                        {{ lineHint(l) }}<template v-if="belowList(l)"> · below the price list, invoices at this price need approval</template>
+                      <td colspan="8" class="!pt-0 text-xs" :class="lineNote(l) ? 'text-attention' : 'text-erp-muted'">
+                        {{ lineHint(l) }}{{ lineNote(l) }}
                         <span v-for="m in lineErrors(i)" :key="m" class="ml-2 text-note-error-text">{{ m }}</span>
                       </td>
                     </tr>
@@ -1013,6 +1028,7 @@ const viewRows = computed<ViewRow[]>(() => {
             <template v-else>Policy for <strong>Sales Order</strong>: require approval. </template>
             <RouterLink to="/sales/settings/credit-control" class="erp-link">See credit control policy</RouterLink>
           </p>
+          <p v-if="priceNeedsApproval && !order.credit.blocked" class="m-0 text-[13px]">Also: {{ order.price.reason }}. The Sales Manager decides the price in the same request.</p>
           <template v-if="!order.credit.blocked && can('requestApproval')">
             <FormField label="Reason for the approver" :error="reasonError" for="so-reason">
               <textarea id="so-reason" v-model="reason" rows="3" class="erp-input h-auto py-2" maxlength="1000" :aria-invalid="Boolean(reasonError)" />
@@ -1023,6 +1039,26 @@ const viewRows = computed<ViewRow[]>(() => {
             <div class="flex justify-end gap-2">
               <button type="button" class="erp-btn erp-btn-secondary" @click="backToEdit">Back to edit</button>
               <button type="button" class="erp-btn erp-btn-secondary" @click="keepAsDraft">Keep as draft</button>
+              <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
+            </div>
+          </template>
+        </section>
+
+        <!-- The price range (phase 5): a price outside it needs the Sales Manager before release -->
+        <section v-if="showPricePanel && order" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
+          <div>
+            <h2 class="m-0 text-[15px] font-bold text-note-warn-text">Price needs approval</h2>
+            <p class="m-0 mt-0.5 text-xs text-erp-muted">
+              {{ order.price.reason }}. A price more than {{ Number(order.price.range?.belowPct) }}% below or {{ Number(order.price.range?.abovePct) }}% above the customer's price list
+              needs the Sales Manager's approval before the order can be released.
+            </p>
+          </div>
+          <template v-if="can('requestApproval')">
+            <FormField label="Reason for the approver" :error="reasonError" for="so-price-reason">
+              <textarea id="so-price-reason" v-model="reason" rows="2" class="erp-input h-auto py-2" maxlength="1000" :aria-invalid="Boolean(reasonError)" />
+            </FormField>
+            <div class="flex justify-end gap-2">
+              <button type="button" class="erp-btn erp-btn-secondary" @click="backToEdit">Back to edit</button>
               <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
             </div>
           </template>

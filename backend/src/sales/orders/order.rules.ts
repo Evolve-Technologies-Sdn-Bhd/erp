@@ -18,6 +18,8 @@ export function allowedOrderActions(o: {
   status: SoStatus;
   isMigrated: boolean;
   creditNeedsApproval: boolean;
+  /** With the price range on (phase 5): a line priced outside it. */
+  priceNeedsApproval?: boolean;
   creditBlocked: boolean;
   approved: boolean;
   hasOpenBalance: boolean;
@@ -33,8 +35,9 @@ export function allowedOrderActions(o: {
   const actions: OrderAction[] = [];
   if (o.status === 'DRAFT') {
     if (o.canEdit) actions.push('edit', 'delete');
-    if (o.canEdit && o.creditNeedsApproval && !o.approved) actions.push('requestApproval');
-    if (o.canRelease && !o.creditBlocked && (!o.creditNeedsApproval || o.approved)) actions.push('release');
+    const needs = o.creditNeedsApproval || Boolean(o.priceNeedsApproval);
+    if (o.canEdit && needs && !o.approved) actions.push('requestApproval');
+    if (o.canRelease && !o.creditBlocked && (!needs || o.approved)) actions.push('release');
     return actions;
   }
   if (o.status === 'PENDING_APPROVAL') return [];
