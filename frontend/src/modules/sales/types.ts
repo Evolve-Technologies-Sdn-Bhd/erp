@@ -165,6 +165,8 @@ export interface OrderLinePackage {
   qty: string
   price: string
   uomCode: string
+  /** What the package includes and its warranty, as they were when the order was saved; printed on the order. */
+  terms: string | null
 }
 
 /** A running package for Add package on the order form (phase 5). */

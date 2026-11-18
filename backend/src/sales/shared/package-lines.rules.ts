@@ -28,9 +28,11 @@ export interface PackageMeta {
   packageQty: Prisma.Decimal | null;
   packagePrice: Prisma.Decimal | null;
   packageUomCode: string | null;
+  /** The package's terms (what it includes, its warranty) as they were when the order was saved, for the printout. */
+  packageTerms: string | null;
 }
 
-export const ITEM_META: PackageMeta = { lineKind: 'ITEM', packageGroup: null, packageCode: null, packageName: null, packageQty: null, packagePrice: null, packageUomCode: null };
+export const ITEM_META: PackageMeta = { lineKind: 'ITEM', packageGroup: null, packageCode: null, packageName: null, packageQty: null, packagePrice: null, packageUomCode: null, packageTerms: null };
 
 /** One line of the order the package becomes. */
 export interface ExpandedLine {
@@ -104,6 +106,7 @@ export function expandPackage(
 
   const meta = (lineKind: LineKind): PackageMeta => ({
     lineKind, packageGroup: ctx.group, packageCode: pkg.code, packageName: pkg.name, packageQty: sets, packagePrice: D(pkg.packagePrice), packageUomCode: pkg.uomCode,
+    packageTerms: pkg.terms?.trim() || null,
   });
   const items: ExpandedLine[] = pkg.items.map((i, n) => {
     const unitPrice = spread.lines[n]!.unitPrice.toFixed(4);

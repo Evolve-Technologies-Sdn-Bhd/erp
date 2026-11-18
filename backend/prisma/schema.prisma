@@ -2205,6 +2205,7 @@ model SalSalesOrderLine {
   packageQty           Decimal?             @db.Decimal(18, 4) // sets
   packagePrice         Decimal?             @db.Decimal(18, 2) // one set, before tax, as it was on the order
   packageUomCode       String?              @db.VarChar(10)
+  packageTerms         String?              @db.Text // what the package includes and its warranty when the order was saved; printed on the order
   salesOrder           SalSalesOrder        @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   deliveryLines        SalDeliveryLine[]
   invoiceLines         SalInvoiceLine[]

@@ -15,6 +15,7 @@ describe('Pictures, package categories and terms (end to end)', () => {
   let api: Api;
   let picture: string;
   let pkg: Pkg;
+  let orderId: string;
 
   beforeAll(async () => {
     reseed();
@@ -128,8 +129,12 @@ describe('Pictures, package categories and terms (end to end)', () => {
       lines: [{ packageCode: CODE, qty: '1', giftItemCode: 'CH-KID-01' }],
     });
     expect(order.status).toBe(201);
+    orderId = order.body.id;
     const lines = await api.prisma.salSalesOrderLine.findMany({ where: { salesOrderId: order.body.id }, select: { itemCode: true, packageCode: true } });
     expect(lines.map((l) => [l.itemCode, l.packageCode]).sort()).toEqual([['CH-DIN-01', CODE], ['CH-KID-01', CODE], ['TB-DIN-06', CODE]]);
+    // The order keeps the package's terms for its printout.
+    const detail = await api.get<{ lines: { package: { code: string; terms: string | null } | null }[] }>(`sales/orders/${orderId}`, 'AR');
+    expect(detail.lines.map((l) => l.package?.terms)).toEqual([TERMS, TERMS, TERMS]);
   });
 
   it('takes the picture off, logged with the file name', async () => {
@@ -137,6 +142,17 @@ describe('Pictures, package categories and terms (end to end)', () => {
     const off = await api.call<Pkg>('PATCH', `core/packages/${pkg.id}`, 'ADM', { ...rest, packagePrice: '2650.00', category: 'Indoor', terms: TERMS, pictureId: null, version: pkg.version });
     expect(off.body).toMatchObject({ pictureId: null, pictureUrl: null });
     expect(off.body.activity[0]!.message).toBe('Picture: dining-poster.png → —');
+    pkg = off.body;
+  });
+
+  it('keeps the terms the order was made with when the package changes later', async () => {
+    const { code: _code, ...rest } = body;
+    const changed = await api.call<Pkg>('PATCH', `core/packages/${pkg.id}`, 'ADM', { ...rest, packagePrice: '2650.00', category: 'Indoor', terms: '1 year warranty only.', version: pkg.version });
+    expect(changed.body.terms).toBe('1 year warranty only.');
+    const order = await api.get<{ status: string; lines: { package: { terms: string | null } | null }[] }>(`sales/orders/${orderId}`, 'AR');
+    expect(order.status).toBe('DRAFT');
+    // A draft refreshes them on its next save; until then, and always once released, it keeps its own.
+    expect(order.lines[0]!.package!.terms).toBe(TERMS);
   });
 
   it('gives an item a picture, which the Add item dialog shows', async () => {

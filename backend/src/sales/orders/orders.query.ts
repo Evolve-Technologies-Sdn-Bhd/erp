@@ -262,7 +262,7 @@ export class OrdersQuery {
         purchaseOrderNo: l.purchaseOrderNo,
         purchase: buyToOrderStatus(l),
         lineKind: l.lineKind,
-        package: l.packageCode ? { group: l.packageGroup, code: l.packageCode, name: l.packageName, qty: l.packageQty ? toQty(l.packageQty) : null, price: l.packagePrice ? toMoney(l.packagePrice) : null, uomCode: l.packageUomCode } : null,
+        package: l.packageCode ? { group: l.packageGroup, code: l.packageCode, name: l.packageName, qty: l.packageQty ? toQty(l.packageQty) : null, price: l.packagePrice ? toMoney(l.packagePrice) : null, uomCode: l.packageUomCode, terms: l.packageTerms } : null,
       })),
       vouchers: order.vouchers.map((v) => ({
         voucherNo: v.voucherNo, description: v.description, amount: toMoney(v.amount), taxCode: v.taxCode, taxName: taxName(v.taxCode), taxAmount: toMoney(v.taxAmount),

@@ -95,7 +95,7 @@ Theme: purple. Sidebar groups: **Sales Transaction**, **Billing**, **Operation P
 | S09 | Quotation print preview (A4, like S20) | `InvoicePrint.html` | `/sales/quotations/:id/print` |
 | S10 | Sales order list | `SalesOrderList.html` | `/sales/orders` |
 | S11 | Sales order. Phase 5: with the price range on, *Price needs approval* (`price` in the detail) and the hint under each line | `SalesOrderForm.html` | `/sales/orders/:id` |
-| S11 | Sales order print preview (A4, like S20) | `InvoicePrint.html` | `/sales/orders/:id/print` |
+| S11 | Sales order print preview (A4, like S20). Phase 5: each package's terms under the lines, as kept on the order | `InvoicePrint.html` | `/sales/orders/:id/print` |
 | S12 | Credit check failed | `CreditApproval.html` | state of S11 |
 | S13 | Cancel order list | `CancelOrderList.html` | `/sales/cancel-orders` |
 | S14 | Cancel order balance | `CancelOrder.html` | `/sales/cancel-orders/:id` |

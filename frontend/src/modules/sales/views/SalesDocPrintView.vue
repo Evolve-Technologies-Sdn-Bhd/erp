@@ -255,6 +255,16 @@ const notes = computed(() => {
   if (!x) return []
   if (x.kind === 'quotation' && x.d.customerNote) return [{ label: 'Note', text: x.d.customerNote }]
   if (x.kind === 'proforma' && x.d.note) return [{ label: 'Note', text: x.d.note }]
+  // Phase 5: each package's terms (what it includes, its warranty), as kept on the order when it was saved.
+  if (x.kind === 'order') {
+    const seen = new Set<number>()
+    return x.d.lines.flatMap((l) => {
+      const p = l.package
+      if (!p?.terms || seen.has(p.group)) return []
+      seen.add(p.group)
+      return [{ label: `${p.name} (${p.code})`, text: p.terms }]
+    })
+  }
   return []
 })
 
