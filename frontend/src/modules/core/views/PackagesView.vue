@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import Column from 'primevue/column'
 import { Plus } from '@lucide/vue'
+import AuthImage from '@/components/erp/AuthImage.vue'
 import DataList from '@/components/erp/DataList.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
@@ -39,12 +40,20 @@ const runs = (p: PackageListItem) => `${formatDate(p.runsFrom)} – ${p.endedOn 
     <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
 
     <DataList :rows="rows" :loading="list.loading.value" empty-text="No packages yet.">
+      <Column header="Picture">
+        <template #body="{ data }: { data: PackageListItem }">
+          <div class="h-[42px] w-[56px] overflow-hidden rounded border border-erp-border"><AuthImage :src="data.pictureUrl" :alt="data.name" /></div>
+        </template>
+      </Column>
       <Column header="Code">
         <template #body="{ data }: { data: PackageListItem }">
           <RouterLink :to="`/core/packages/${data.id}`" class="erp-link font-semibold whitespace-nowrap">{{ data.code }}</RouterLink>
         </template>
       </Column>
       <Column header="Name" field="name" />
+      <Column header="Category">
+        <template #body="{ data }: { data: PackageListItem }"><span v-if="data.category">{{ data.category }}</span><span v-else class="text-erp-muted">—</span></template>
+      </Column>
       <Column header="Items" field="itemsText" />
       <Column header="Normal value" class="erp-col-num">
         <template #body="{ data }: { data: PackageListItem }">{{ formatMoney(data.normalValue) }}</template>

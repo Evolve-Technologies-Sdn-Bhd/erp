@@ -74,6 +74,7 @@ function toItem(row: MdmItem): MdItem {
     preferredSupplierCode: row.preferredSupplierCode,
     reorderLevel: row.reorderLevel?.toFixed(4) ?? null,
     serviceIntervalMonths: row.serviceIntervalMonths ?? null,
+    pictureId: row.pictureId ?? null,
     packSize: row.packSize.toFixed(4),
     isPurchasable: row.isPurchasable,
     isBuyToOrder: row.isBuyToOrder,
@@ -356,6 +357,9 @@ export class PrismaMasterDataAdapter implements MasterDataPort {
       runsFrom: isoDate(r.runsFrom),
       runsUntil: r.runsUntil ? isoDate(r.runsUntil) : null,
       endedOn: r.endedOn ? isoDate(r.endedOn) : null,
+      category: r.category,
+      terms: r.terms,
+      pictureId: r.pictureId,
       items: items.filter((i) => i.packageCode === r.code).map(line),
       gifts: gifts.filter((g) => g.packageCode === r.code).map(line),
     }));

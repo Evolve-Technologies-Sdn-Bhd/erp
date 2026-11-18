@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 import { GIFT_RULES, PACKAGE_CODE, type GiftRule } from '../packages.rules';
 
 const MONEY = /^\d{1,14}(\.\d{1,2})?$/;
@@ -64,6 +64,25 @@ class PackageFieldsDto {
   @Matches(DATE_ONLY, { message: 'Runs until must look like 2026-12-31, or be empty for no end.' })
   runsUntil?: string | null;
 
+  /** The tab it shows under when picking (Core › Reference lists › Package categories). Not sent: kept as it is. */
+  @IsOptional()
+  @Transform(blankToNull)
+  @IsString()
+  @MaxLength(50)
+  category?: string | null;
+
+  /** What the package includes and its warranty terms, as customers read them. Not sent: kept as it is. */
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.replace(/\r\n/g, '\n').trim() || null : value))
+  @IsString()
+  @MaxLength(4000, { message: 'The terms can be up to 4,000 characters.' })
+  terms?: string | null;
+
+  /** A picture uploaded first (POST /attachments), or null to take it off. Not sent: kept as it is. */
+  @IsOptional()
+  @IsUUID('all', { message: 'Upload the picture again.' })
+  pictureId?: string | null;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PackageLineDto)
@@ -77,7 +96,7 @@ class PackageFieldsDto {
 
 export class CreatePackageDto extends PackageFieldsDto {
   @Transform(upper)
-  @Matches(PACKAGE_CODE, { message: 'Use capitals, digits and dashes, like PK-DIN-06 (up to 20).' })
+  @Matches(PACKAGE_CODE, { message: 'Use capitals, digits, dashes and @, like PK-DIN-06 or SET@2Y@FG (up to 30).' })
   code!: string;
 }
 

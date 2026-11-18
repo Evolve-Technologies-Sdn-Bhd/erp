@@ -10,6 +10,7 @@ import { pageArgs, statusFromKey, statusKey, toListResponse, type StatusCounts }
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { RecordUsageRegistry } from '../../platform/usage/record-usage.registry';
 import { deleteRefusal } from '../usage/usage.rules';
+import { pictureUrl } from '../shared/picture.rules';
 import { CORE_ENTITY } from '../core.constants';
 import { CORE_PERMISSIONS as P } from '../core.permissions';
 import {
@@ -182,6 +183,10 @@ export class PackagesQuery {
       priceListCode: p.priceListCode,
       packagePrice: p.packagePrice.toFixed(2),
       giftRule: p.giftRule as GiftRule,
+      category: p.category,
+      terms: p.terms,
+      pictureId: p.pictureId,
+      pictureUrl: pictureUrl(p.pictureId),
       ...dates,
       status,
       statusLabel: STATUS_LABEL[status],

@@ -54,7 +54,7 @@ export class OrderEntryLineDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(30)
   packageCode?: string;
 
   @Matches(DECIMAL_4, { message: 'Quantity must be a number with up to 4 decimals.' })

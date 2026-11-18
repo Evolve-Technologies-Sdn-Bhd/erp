@@ -26,13 +26,15 @@ export class CoreLookupsController {
   async itemForm(@CurrentContext() ctx: RequestContext) {
     const tenantId = ctx.tenantId;
     const today = this.clock.todayDate();
-    const [groups, uoms, taxes] = await Promise.all([
+    const [groups, uoms, taxes, packageCategories] = await Promise.all([
       this.prisma.mdmItemGroup.findMany({ where: { tenantId, isActive: true }, orderBy: { name: 'asc' }, select: { name: true } }),
       this.prisma.mdmUom.findMany({ where: { tenantId, isActive: true }, orderBy: { code: 'asc' }, select: { code: true, name: true, decimals: true } }),
       this.prisma.mdmTaxCode.findMany({ where: { tenantId, isActive: true, validFrom: { lte: today } }, orderBy: [{ code: 'asc' }, { validFrom: 'asc' }] }),
+      this.prisma.mdmPackageCategory.findMany({ where: { tenantId, isActive: true }, orderBy: { name: 'asc' }, select: { name: true } }),
     ]);
     return {
       itemGroups: groups.map((g) => g.name),
+      packageCategories: packageCategories.map((c) => c.name),
       uoms,
       taxCodes: latestValidByKey(taxes, (t) => t.code, today).map((t) => ({ code: t.code, name: t.name, type: t.type, rate: t.rate.toFixed(4) })),
       classifications: EINVOICE_CLASSIFICATIONS,

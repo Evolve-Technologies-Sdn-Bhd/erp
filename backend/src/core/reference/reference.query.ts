@@ -37,11 +37,17 @@ interface ReferenceDelegate {
 
 /** The table behind a list, in or outside a transaction. */
 export function referenceTable(db: PrismaService | Tx, list: ReferenceList): ReferenceDelegate {
-  const table = { 'item-groups': db.mdmItemGroup, 'customer-categories': db.mdmCustomerCategory, areas: db.mdmArea, 'credit-terms': db.mdmCreditTerm }[list];
+  const table = {
+    'item-groups': db.mdmItemGroup,
+    'customer-categories': db.mdmCustomerCategory,
+    areas: db.mdmArea,
+    'credit-terms': db.mdmCreditTerm,
+    'package-categories': db.mdmPackageCategory,
+  }[list];
   return table as unknown as ReferenceDelegate;
 }
 
-/** C12 · Reference lists: the four lists with who uses each entry (counted from Core's own records). */
+/** C12 · Reference lists: the five lists with who uses each entry (counted from Core's own records). */
 @Injectable()
 export class ReferenceQuery {
   constructor(
@@ -52,7 +58,7 @@ export class ReferenceQuery {
   async lists(ctx: RequestContext) {
     const tenantId = ctx.tenantId;
     const where = { tenantId };
-    const [groups, categories, areas, terms, items, customers, suppliers] = await Promise.all([
+    const [groups, categories, areas, terms, items, customers, suppliers, packageCategories, packages] = await Promise.all([
       this.prisma.mdmItemGroup.findMany({ where, orderBy: { name: 'asc' } }),
       this.prisma.mdmCustomerCategory.findMany({ where, orderBy: { name: 'asc' } }),
       this.prisma.mdmArea.findMany({ where, orderBy: { name: 'asc' } }),
@@ -61,12 +67,15 @@ export class ReferenceQuery {
       // Which entries customers use is a fact about the shared lists, not limited by the reader's data scope.
       asSystem(() => this.prisma.mdmCustomer.findMany({ where, select: { category: true, area: true, creditTermDays: true } })),
       this.prisma.mdmSupplier.findMany({ where, select: { paymentTermDays: true } }),
+      this.prisma.mdmPackageCategory.findMany({ where, orderBy: { name: 'asc' } }),
+      this.prisma.mdmPackage.findMany({ where, select: { category: true } }),
     ]);
     const same = (a: string | null, b: string) => (a ?? '').toLowerCase() === b.toLowerCase();
     const useOf = (list: ReferenceList, row: ReferenceRow): ReferenceUse => {
       if (list === 'item-groups') return { items: items.filter((i) => same(i.itemGroup, row.name)).length };
       if (list === 'customer-categories') return { customers: customers.filter((c) => same(c.category, row.name)).length };
       if (list === 'areas') return { customers: customers.filter((c) => same(c.area, row.name)).length };
+      if (list === 'package-categories') return { packages: packages.filter((p) => same(p.category, row.name)).length };
       return { customers: customers.filter((c) => c.creditTermDays === row.days).length, suppliers: suppliers.filter((s) => s.paymentTermDays === row.days).length };
     };
     const shape = (list: ReferenceList, rows: ReferenceRow[]) =>
@@ -93,6 +102,7 @@ export class ReferenceQuery {
         'customer-categories': shape('customer-categories', categories),
         areas: shape('areas', areas),
         'credit-terms': shape('credit-terms', terms),
+        'package-categories': shape('package-categories', packageCategories),
       },
       lookAlike: lookAlikeWarning(groups.map((g) => ({ name: g.name, items: items.filter((i) => same(i.itemGroup, g.name)).map((i) => i.code) }))),
       canEdit: this.permissions.has(ctx.user.roles, P.REFERENCE_EDIT),
@@ -114,6 +124,7 @@ export class ReferenceQuery {
     if (list === 'item-groups') return { items: await this.prisma.mdmItem.count({ where: { tenantId, itemGroup: row.name } }) };
     if (list === 'customer-categories') return { customers: await this.prisma.mdmCustomer.count({ where: { tenantId, category: row.name } }) };
     if (list === 'areas') return { customers: await this.prisma.mdmCustomer.count({ where: { tenantId, area: row.name } }) };
+    if (list === 'package-categories') return { packages: await this.prisma.mdmPackage.count({ where: { tenantId, category: row.name } }) };
     const [customers, suppliers] = await Promise.all([
       this.prisma.mdmCustomer.count({ where: { tenantId, creditTermDays: row.days } }),
       this.prisma.mdmSupplier.count({ where: { tenantId, paymentTermDays: row.days } }),

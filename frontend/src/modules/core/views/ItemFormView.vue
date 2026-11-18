@@ -9,6 +9,7 @@ import ActivityList from '@/components/erp/ActivityList.vue'
 import FormField from '@/components/erp/FormField.vue'
 import MasterDataPicker from '@/components/erp/MasterDataPicker.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
+import PictureField from '@/components/erp/PictureField.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import SwitchToggle from '@/components/erp/SwitchToggle.vue'
@@ -64,6 +65,7 @@ const form = reactive({
   salesTaxCode: '',
   standardCost: '',
   serviceIntervalMonths: '',
+  pictureId: null as string | null,
   conversions: [] as ConversionRow[],
 })
 
@@ -97,13 +99,14 @@ function fill(i: ItemDetail | null) {
       salesTaxCode: i.salesTaxCode ?? '',
       standardCost: i.standardCost === null ? '' : Number(i.standardCost).toFixed(2),
       serviceIntervalMonths: i.serviceIntervalMonths === null ? '' : String(i.serviceIntervalMonths),
+      pictureId: i.pictureId,
       conversions: i.conversions.map((c) => ({ key: nextKey++, fromUom: c.fromUom, toUom: c.toUom, factor: String(Number(c.factor)) })),
     })
   } else {
     Object.assign(form, {
       code: '', name: '', itemGroup: '', type: 'STOCK', baseUom: '', barcode: '', einvoiceClassification: '', isPurchasable: true, isBuyToOrder: false,
       purchaseUom: '', purchaseTaxCode: '', preferredSupplier: null, reorderLevel: '', packSize: '1', isSellable: false, salesUom: '', salesTaxCode: '',
-      standardCost: '', serviceIntervalMonths: '', conversions: [],
+      standardCost: '', serviceIntervalMonths: '', pictureId: null, conversions: [],
     })
   }
   saved.value = snapshot()
@@ -168,6 +171,7 @@ function body(): ItemInput {
     salesTaxCode: form.salesTaxCode || null,
     standardCost: canSeeCost.value ? form.standardCost.trim() || null : item.value?.standardCost ?? null,
     serviceIntervalMonths: form.serviceIntervalMonths.trim() ? Number(form.serviceIntervalMonths.trim()) : null,
+    pictureId: form.pictureId,
     conversions: form.conversions.map((c) => ({ fromUom: c.fromUom, toUom: c.toUom, factor: c.factor.trim() })),
   }
 }
@@ -423,6 +427,9 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
       </div>
 
       <div class="flex flex-col gap-4">
+        <SideCard title="Picture">
+          <PictureField v-model="form.pictureId" :editable="editable" :alt="form.name || 'the item'" :error="errors.pictureId" />
+        </SideCard>
         <template v-if="item">
           <InUseCard :usage="item.usage" :waits="statusWaits" />
           <SideCard title="Prices">

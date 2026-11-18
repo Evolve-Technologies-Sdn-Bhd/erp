@@ -3,7 +3,8 @@ import type { FieldError } from '../../platform/http/errors';
 
 /** Package rules (C15, C16; CLAUDE.md → Phase 5). Pure functions, tested in packages.rules.spec.ts. */
 
-export const PACKAGE_CODE = /^[A-Z0-9][A-Z0-9-]{1,19}$/;
+/** Capitals, digits, dashes and @ (codes kept from another system, like SET@2Y@FG), up to 30. */
+export const PACKAGE_CODE = /^[A-Z0-9][A-Z0-9@-]{1,29}$/;
 
 export const GIFT_RULES = ['NONE', 'ALWAYS', 'CHOOSE_ONE'] as const;
 export type GiftRule = (typeof GIFT_RULES)[number];

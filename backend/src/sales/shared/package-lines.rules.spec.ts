@@ -4,7 +4,7 @@ import { dayText, expandPackage, notRunningReason, toEnteredLine } from './packa
 // PK-DIN-06 from FIELD_SALES_SEED_DATA.md, with two gifts to choose from.
 const dining: MdPackage = {
   code: 'PK-DIN-06', name: 'Dining set, 6-seater', uomCode: 'SET', salesTaxCode: 'SST10', priceListCode: 'STD-2026', packagePrice: '2700.00',
-  giftRule: 'CHOOSE_ONE', runsFrom: '2026-09-01', runsUntil: '2026-12-31', endedOn: null,
+  giftRule: 'CHOOSE_ONE', runsFrom: '2026-09-01', runsUntil: '2026-12-31', endedOn: null, category: null, terms: null, pictureId: null,
   items: [{ itemCode: 'TB-DIN-06', qty: '1.0000', uomCode: 'PCS' }, { itemCode: 'CH-DIN-01', qty: '6.0000', uomCode: 'PCS' }],
   gifts: [{ itemCode: 'GF-CUSH-04', qty: '1.0000', uomCode: 'SET' }, { itemCode: 'GF-RUN-01', qty: '1.0000', uomCode: 'PCS' }],
 };

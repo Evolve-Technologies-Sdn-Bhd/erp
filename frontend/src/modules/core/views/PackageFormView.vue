@@ -11,6 +11,7 @@ import FormField from '@/components/erp/FormField.vue'
 import MasterDataPicker from '@/components/erp/MasterDataPicker.vue'
 import NoticeBanner from '@/components/erp/NoticeBanner.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
+import PictureField from '@/components/erp/PictureField.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
@@ -56,6 +57,9 @@ const form = reactive({
   giftRule: 'NONE' as GiftRule,
   runsFrom: '',
   runsUntil: '',
+  category: '',
+  terms: '',
+  pictureId: null as string | null,
   items: [] as Line[],
   gifts: [] as Line[],
 })
@@ -90,11 +94,13 @@ function fill(p: PackageDetail | null) {
     Object.assign(form, {
       code: p.code, name: p.name, uomCode: p.uomCode, salesTaxCode: p.salesTaxCode, priceListCode: p.priceListCode, packagePrice: p.packagePrice,
       giftRule: p.giftRule, runsFrom: p.runsFrom, runsUntil: p.runsUntil ?? '', items: p.items.map(toLine), gifts: p.gifts.map(toLine),
+      category: p.category ?? '', terms: p.terms ?? '', pictureId: p.pictureId,
     })
   } else {
     Object.assign(form, {
       code: '', name: '', uomCode: 'SET', salesTaxCode: options.value?.taxCodes.find((t) => t.type === 'SALES_TAX')?.code ?? '',
       priceListCode: priceLists.value[0]?.code ?? '', packagePrice: '', giftRule: 'NONE', runsFrom: session.today.value, runsUntil: '', items: [], gifts: [],
+      category: '', terms: '', pictureId: null,
     })
   }
   saved.value = snapshot()
@@ -125,6 +131,12 @@ onMounted(async () => {
   }
 })
 
+/** Active categories, plus the one the package already has if it was made inactive since. */
+const categoryOptions = computed(() => {
+  const active = options.value?.packageCategories ?? []
+  return form.category && !active.includes(form.category) ? [...active, form.category] : active
+})
+
 const searchSellable = async (q: string) => (await coreLookupsApi.sellableItems(q)).items
 const searchGifts = async (q: string) => (await coreLookupsApi.activeItems(q)).items
 const addLine = (list: Line[]) => list.push({ key: nextKey++, item: null, itemId: null, qty: '1', uomCode: '' })
@@ -146,6 +158,9 @@ function body(): PackageInput {
     giftRule: form.giftRule,
     runsFrom: form.runsFrom,
     runsUntil: form.runsUntil || null,
+    category: form.category || null,
+    terms: form.terms.trim() || null,
+    pictureId: form.pictureId,
     items: form.items.map(lineOut),
     gifts: form.giftRule === 'NONE' ? [] : form.gifts.map(lineOut),
   }
@@ -239,7 +254,7 @@ const savedLine = (i: number, l: Line) => {
           <h2 class="m-0 text-[15px] font-bold">General</h2>
           <div class="grid grid-cols-4 gap-x-[18px] gap-y-3.5">
             <FormField v-if="isNew" label="Code" for="code" :error="errors.code">
-              <input id="code" v-model="form.code" class="erp-input uppercase placeholder:normal-case" maxlength="20" placeholder="PK-DIN-06" />
+              <input id="code" v-model="form.code" class="erp-input uppercase placeholder:normal-case" maxlength="30" placeholder="PK-DIN-06" />
             </FormField>
             <div v-else class="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-erp-muted">
               <span class="flex justify-between gap-2">
@@ -293,6 +308,12 @@ const savedLine = (i: number, l: Line) => {
             <FormField label="Items priced from" for="priceList" :error="errors.priceListCode">
               <select id="priceList" v-model="form.priceListCode" class="erp-input" :disabled="!editable">
                 <option v-for="l in priceLists" :key="l.code" :value="l.code">{{ l.code }} · {{ l.name }}</option>
+              </select>
+            </FormField>
+            <FormField label="Category" for="category" :error="errors.category">
+              <select id="category" v-model="form.category" class="erp-input" :disabled="!editable">
+                <option value="">—</option>
+                <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
               </select>
             </FormField>
           </div>
@@ -408,12 +429,32 @@ const savedLine = (i: number, l: Line) => {
           </template>
           <p class="m-0 text-xs text-erp-muted">A gift is added to the order at RM 0.00 and prints as Free, so its stock still goes out on the delivery order.</p>
         </section>
+
+        <!-- Terms -->
+        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+          <h2 class="m-0 text-[15px] font-bold">Terms shown to customers</h2>
+          <FormField label="What the package includes, its warranty and conditions" for="terms" :error="errors.terms">
+            <textarea
+              id="terms"
+              v-model="form.terms"
+              rows="6"
+              maxlength="4000"
+              class="erp-input h-auto py-2 text-[13px] leading-relaxed text-erp-text"
+              :disabled="!editable"
+              placeholder="For example: 3 years warranty on the unit, 1 year on parts. Filter change every 6 months, labour charged."
+            />
+          </FormField>
+          <p class="m-0 text-xs text-erp-muted">Salespeople read this when they pick the package on an order.</p>
+        </section>
       </div>
 
       <div class="flex flex-col gap-4">
+        <SideCard title="Picture">
+          <PictureField v-model="form.pictureId" :editable="editable" :alt="form.name || 'the package'" :error="errors.pictureId" />
+        </SideCard>
         <template v-if="pkg">
           <SideCard title="Where it is used">
-            <p class="m-0 text-[13px] text-erp-muted">Sales orders cannot carry packages yet. Once they can, those orders show here, and a package that is used can only be ended, not deleted.</p>
+            <p class="m-0 text-[13px] text-erp-muted">A package on a sales order can only be ended, not deleted. The package list shows how many orders carry each one.</p>
           </SideCard>
           <ActivityList v-if="pkg.activity.length" :items="pkg.activity" />
         </template>

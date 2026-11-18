@@ -199,6 +199,26 @@ export async function openFile(path: string): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
+const objectUrls = new Map<string, Promise<string>>()
+
+/**
+ * A stored picture as a URL an <img> can show, fetched with the access token (or the dev user), since a plain image
+ * link cannot send it. A stored file never changes, so each one is fetched once while the page is open.
+ */
+export function fileObjectUrl(path: string): Promise<string> {
+  const known = objectUrls.get(path)
+  if (known) return known
+  const loading = (async () => {
+    let response = await fetch(buildUrl(path), { headers: authHeaders(), credentials: 'include' })
+    if (response.status === 401 && accessToken && (await refreshAccess())) response = await fetch(buildUrl(path), { headers: authHeaders(), credentials: 'include' })
+    if (!response.ok) throw new ApiError(response.status, await readError(response))
+    return URL.createObjectURL(await response.blob())
+  })()
+  objectUrls.set(path, loading)
+  loading.catch(() => objectUrls.delete(path))
+  return loading
+}
+
 /**
  * Saves a file the server builds (a CSV export) under the name the server gives, fetched with the access token (or
  * the dev user), since a plain link cannot send it.

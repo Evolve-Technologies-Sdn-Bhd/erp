@@ -6,7 +6,7 @@
  */
 import { lookAlikeNames } from '../dashboard/dashboard.rules';
 
-export const REFERENCE_LISTS = ['item-groups', 'customer-categories', 'areas', 'credit-terms'] as const;
+export const REFERENCE_LISTS = ['item-groups', 'customer-categories', 'areas', 'credit-terms', 'package-categories'] as const;
 export type ReferenceList = (typeof REFERENCE_LISTS)[number];
 
 export const LIST_WORDS: Record<ReferenceList, { one: string; title: string }> = {
@@ -14,18 +14,20 @@ export const LIST_WORDS: Record<ReferenceList, { one: string; title: string }> =
   'customer-categories': { one: 'customer category', title: 'Customer categories' },
   areas: { one: 'area', title: 'Areas' },
   'credit-terms': { one: 'credit term', title: 'Credit terms' },
+  'package-categories': { one: 'package category', title: 'Package categories' },
 };
 
-/** Who uses an entry: items for a group; customers for a category or area; customers and suppliers for a credit term. */
+/** Who uses an entry: items for a group; customers for a category or area; customers and suppliers for a credit term; packages for a package category. */
 export interface ReferenceUse {
   items?: number;
   customers?: number;
   suppliers?: number;
+  packages?: number;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-export const usedCount = (u: ReferenceUse) => (u.items ?? 0) + (u.customers ?? 0) + (u.suppliers ?? 0);
+export const usedCount = (u: ReferenceUse) => (u.items ?? 0) + (u.customers ?? 0) + (u.suppliers ?? 0) + (u.packages ?? 0);
 
 /** "1 item", "6 customers · 10 suppliers", "Not used" */
 export function usedByText(u: ReferenceUse): string {
@@ -33,6 +35,7 @@ export function usedByText(u: ReferenceUse): string {
     u.items ? plural(u.items, 'item') : null,
     u.customers ? plural(u.customers, 'customer') : null,
     u.suppliers ? plural(u.suppliers, 'supplier') : null,
+    u.packages ? plural(u.packages, 'package') : null,
   ].filter(Boolean);
   return parts.length ? parts.join(' · ') : 'Not used';
 }

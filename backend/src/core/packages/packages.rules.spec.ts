@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { endRefusal, headerErrors, lineErrors, linesText, packageStatus, priceWarning, spreadPrice, type LineItem } from './packages.rules';
+import { endRefusal, headerErrors, lineErrors, linesText, PACKAGE_CODE, packageStatus, priceWarning, spreadPrice, type LineItem } from './packages.rules';
 
 const d = (v: string | number) => new Prisma.Decimal(v);
 
@@ -85,5 +85,12 @@ describe('package rules (C15, C16)', () => {
   it('writes the lines as text for the audit trail', () => {
     expect(linesText([{ itemCode: 'TB-DIN-06', qty: d(1), uomCode: 'PCS' }, { itemCode: 'CH-DIN-01', qty: d(6), uomCode: 'PCS' }])).toBe('1 × TB-DIN-06 PCS, 6 × CH-DIN-01 PCS');
     expect(linesText([])).toBe('—');
+  });
+});
+
+describe('package codes', () => {
+  it('takes capitals, digits, dashes and @, up to 30, as codes kept from another system have them', () => {
+    for (const ok of ['PK-DIN-06', 'SET@2Y@FG', 'M3399', 'AB', 'A'.repeat(30)]) expect(PACKAGE_CODE.test(ok)).toBe(true);
+    for (const bad of ['A', '@SET', '-PK', 'pk-din', 'PK DIN', 'PK_DIN', 'A'.repeat(31)]) expect(PACKAGE_CODE.test(bad)).toBe(false);
   });
 });

@@ -117,6 +117,9 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.mdmCustomerCategory.deleteMany({ where: madeInCore }),
     prisma.mdmArea.deleteMany({ where: madeInCore }),
     prisma.mdmCreditTerm.deleteMany({ where: madeInCore }),
+    // Phase 5: package categories, and pictures (their files went with the upload folder above).
+    prisma.mdmPackageCategory.deleteMany({ where }),
+    prisma.mdmItem.updateMany({ where, data: { pictureId: null } }),
   ]);
 }
 

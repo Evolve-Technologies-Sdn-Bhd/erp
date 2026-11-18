@@ -839,10 +839,10 @@ describe('Core (end to end)', () => {
       const patch = (list: string, e: Entry, body: Record<string, unknown>, user = 'ADM') =>
         api.call('PATCH', `core/reference/${list}/${e.id}`, user, { name: e.name, days: e.days, isActive: e.isActive, version: e.version, ...body });
 
-      it('shows the four lists with who uses each entry, and the look-alike groups', async () => {
+      it('shows the lists (the fifth, package categories, empty) with who uses each entry, and the look-alike groups', async () => {
         const all = await lists('AR');
         expect(all.canEdit).toBe(false);
-        expect(Object.fromEntries(Object.entries(all.lists).map(([k, v]) => [k, v.length]))).toEqual({ 'item-groups': 19, 'customer-categories': 6, areas: 2, 'credit-terms': 2 });
+        expect(Object.fromEntries(Object.entries(all.lists).map(([k, v]) => [k, v.length]))).toEqual({ 'item-groups': 19, 'customer-categories': 6, areas: 2, 'credit-terms': 2, 'package-categories': 0 });
         expect(all.lists['item-groups']!.slice(0, 4).map((e) => [e.name, e.usedBy])).toEqual([
           ['Beds', '1 item'],
           ['Cabinets', '1 item'],

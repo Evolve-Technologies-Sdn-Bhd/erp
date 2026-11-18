@@ -65,6 +65,8 @@ export interface MdItem {
   standardCost: string | null;
   /** Service reminders (phase 5, F6): change every so many months after installation. Null: none. */
   serviceIntervalMonths: number | null;
+  /** The picture shown when picking (phase 5): an attachment id, or null. */
+  pictureId: string | null;
   status: 'ACTIVE' | 'BLOCKED' | 'DISCONTINUED';
 }
 
@@ -88,6 +90,12 @@ export interface MdPackage {
   runsFrom: string;
   runsUntil: string | null;
   endedOn: string | null;
+  /** The tab it shows under when picking (phase 5). */
+  category: string | null;
+  /** What it includes and its warranty terms, as customers read them. */
+  terms: string | null;
+  /** The picture shown when picking: an attachment id, or null. */
+  pictureId: string | null;
   items: MdPackageLine[];
   gifts: MdPackageLine[];
 }

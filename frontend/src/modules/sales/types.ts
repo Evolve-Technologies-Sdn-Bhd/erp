@@ -64,6 +64,8 @@ export interface SaleItemOption {
   inStock: string | null
   state: ItemState
   reason: string | null
+  /** The item's picture in Core, when it has one (phase 5). */
+  pictureUrl: string | null
 }
 
 export interface ItemSearchResult {
@@ -178,6 +180,11 @@ export interface PackageOption {
   normalValue: string | null
   saves: string | null
   runsUntil: string | null
+  /** The tab it shows under (Core › Reference lists › Package categories). */
+  category: string | null
+  /** What it includes and its warranty terms, as customers read them. */
+  terms: string | null
+  pictureUrl: string | null
   items: { itemCode: string; itemName: string; qty: string; uomCode: string; unitPrice: string | null }[]
   gifts: { itemCode: string; itemName: string; qty: string; uomCode: string }[]
   problem: string | null

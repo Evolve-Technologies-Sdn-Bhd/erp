@@ -93,3 +93,4 @@ The board mockup shows Thu 1 Oct with JB-0013 to JB-0015 already booked and JB-0
 | 7 | The Service module is orange | A colour no other module uses |
 | 8 | Job numbers JB-####, voucher numbers typed by the user | Vouchers are not issued or checked by the system in this phase |
 | 9 | A customer a salesperson adds from an order gets cash terms, no credit limit and the cash customer's price list, and is marked *To complete* until the office checks it in Core. A phone already on file is refused | Households pay on delivery or on site; the office keeps master data right; one household, one record. The demo seed has no such customer and turns the switch off |
+| 10 | A package or item picture is only a picture. The card shows the system's price under it, and the order is priced from Core | Promotion posters carry a printed price that goes out of date; the order must never take a price from a picture |

@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
 import { ITEM_CODE, ITEM_TYPES, type ItemType } from '../items.rules';
 
@@ -113,6 +113,11 @@ class ItemFieldsDto {
   @Min(1, { message: 'Service interval is 1 to 60 months.' })
   @Max(60, { message: 'Service interval is 1 to 60 months.' })
   serviceIntervalMonths?: number | null;
+
+  /** The picture shown when picking (phase 5): uploaded first (POST /attachments), or null to take it off. Not sent: kept as it is. */
+  @IsOptional()
+  @IsUUID('all', { message: 'Upload the picture again.' })
+  pictureId?: string | null;
 
   @IsBoolean()
   isSellable!: boolean;

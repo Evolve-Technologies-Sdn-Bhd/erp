@@ -92,7 +92,8 @@ export async function verifyCoreSeed(ctx: SeedCtx): Promise<Check[]> {
   const reference = await new ReferenceQuery(prisma as PrismaService, noEdit).lists(viewer);
   expect(
     'Reference lists (C12 tabs · Seating · 30 days)',
-    '19 · 6 · 2 · 2 · 6 items · 6 customers · 10 suppliers',
+    // The fifth tab, package categories (phase 5), starts empty.
+    '19 · 6 · 2 · 2 · 0 · 6 items · 6 customers · 10 suppliers',
     [...Object.values(reference.lists).map((l) => l.length), reference.lists['item-groups'].find((e) => e.name === 'Seating')?.usedBy, reference.lists['credit-terms'].find((e) => e.days === 30)?.usedBy].join(' · '),
   );
   const stores = await new WarehousesQuery(prisma as PrismaService, undefined as never, undefined as never, noEdit, new PrismaMasterDataAdapter(prisma as PrismaService, clock)).list(viewer);

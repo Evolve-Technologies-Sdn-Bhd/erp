@@ -117,6 +117,7 @@ export class SalesLookupsController {
         const price = prices.find((p) => p.itemCode === i.code);
         return {
           code: i.code, name: i.name, group: i.itemGroup, uomCode: i.salesUomCode, type: i.type, isBuyToOrder: i.isBuyToOrder,
+          pictureUrl: i.pictureId ? `/attachments/${i.pictureId}/download` : null,
           taxCode: tax?.code ?? '', taxName: tax?.name ?? '', taxRate: tax?.rate ?? '0.0000',
           listPrice: blocked || !price ? null : toPrice(price.unitPrice),
           lastSold: blocked || !last ? null : { price: toPrice(last.unitPrice), date: iso(last.invoice.docDate), docNo: last.invoice.docNo },
@@ -157,6 +158,7 @@ export class SalesLookupsController {
         const tax = taxes.find((t) => t.code === p.salesTaxCode);
         return {
           code: p.code, name: p.name, uomCode: p.uomCode, price: p.packagePrice, giftRule: p.giftRule,
+          category: p.category, terms: p.terms, pictureUrl: p.pictureId ? `/attachments/${p.pictureId}/download` : null,
           taxCode: p.salesTaxCode, taxName: tax?.name ?? p.salesTaxCode, taxRate: tax?.rate ?? '0.0000',
           normalValue: spread.missing.length ? null : toMoney(spread.normalValue),
           saves: spread.missing.length ? null : toMoney(spread.saves),

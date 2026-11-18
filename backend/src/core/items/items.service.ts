@@ -8,6 +8,7 @@ import { RecordUsageRegistry } from '../../platform/usage/record-usage.registry'
 import { CORE_ENTITY, CORE_EVENT } from '../core.constants';
 import { changeMessage, diffRecord } from '../shared/audit.rules';
 import { CoreRecordsService } from '../shared/core-records.service';
+import { CorePictures } from '../shared/pictures.service';
 import type { RecordPreview } from '../shared/record-preview';
 import { EINVOICE_CLASSIFICATIONS } from '../shared/einvoice-classifications';
 import { deactivateRefusal, deleteRefusal } from '../usage/usage.rules';
@@ -63,24 +64,28 @@ export class ItemsService {
     private readonly records: CoreRecordsService,
     private readonly usage: RecordUsageRegistry,
     private readonly query: ItemsQuery,
+    private readonly pictures: CorePictures,
   ) {}
 
   async create(ctx: RequestContext, dto: CreateItemDto) {
     const tenantId = ctx.tenantId;
     const { errors } = await this.preview(ctx, dto, null, []);
+    const picture = await this.pictures.change(tenantId, CORE_ENTITY.ITEM, null, null, dto.pictureId ?? null);
+    if (picture.error) errors.push(picture.error);
     if (errors.length) throw new ValidationFailedError(errors);
 
     const data = this.data(dto);
     const id = await this.prisma.$transaction(async (tx) => {
-      const row = await tx.mdmItem.create({ data: { tenantId, code: dto.code, ...data, status: 'ACTIVE', createdBy: ctx.user.code, updatedBy: ctx.user.code } });
+      const row = await tx.mdmItem.create({ data: { tenantId, code: dto.code, ...data, pictureId: picture.pictureId, status: 'ACTIVE', createdBy: ctx.user.code, updatedBy: ctx.user.code } });
       if (dto.conversions.length) await tx.mdmUomConversion.createMany({ data: this.conversionRows(tenantId, row.code, dto.conversions) });
+      await this.pictures.attach(tx, ctx, picture, CORE_ENTITY.ITEM, row.id);
       await this.records.record(tx, ctx, {
         entityType: CORE_ENTITY.ITEM,
         entityId: row.id,
         code: row.code,
         action: 'created',
         message: `Item ${row.code} created`,
-        changes: diffRecord(null, itemAudit(record(row), dto.conversions), ITEM_LABELS),
+        changes: [...diffRecord(null, itemAudit(record(row), dto.conversions), ITEM_LABELS), ...(picture.change ? [picture.change] : [])],
         event: CORE_EVENT.ITEM_CREATED,
         snapshot: itemSnapshot(record(row), dto.conversions),
       });
@@ -95,17 +100,20 @@ export class ItemsService {
     if (before.version !== dto.version) throw new StaleVersionError();
     const beforeConversions = await this.prisma.mdmUomConversion.findMany({ where: { tenantId, itemCode: before.code } });
     const preview = await this.preview(ctx, dto, before, beforeConversions);
-    if (preview.errors.length) throw new ValidationFailedError(preview.errors);
+    const picture = await this.pictures.change(tenantId, CORE_ENTITY.ITEM, before.id, before.pictureId, dto.pictureId);
+    const errors = [...preview.errors, ...(picture.error ? [picture.error] : [])];
+    if (errors.length) throw new ValidationFailedError(errors);
     if (preview.conflict) throw new BusinessRuleError('BASE_UNIT_IN_USE', preview.conflict);
 
     const data = this.data(dto);
     const after: ItemRecord = { ...record(before), ...data };
-    const changes = preview.changes;
+    const changes = [...preview.changes, ...(picture.change ? [picture.change] : [])];
     if (!changes.length) return this.query.detail(ctx, id);
 
     await this.prisma.$transaction(async (tx) => {
-      const saved = await tx.mdmItem.updateMany({ where: { id, tenantId, version: dto.version }, data: { ...data, version: { increment: 1 }, updatedBy: ctx.user.code } });
+      const saved = await tx.mdmItem.updateMany({ where: { id, tenantId, version: dto.version }, data: { ...data, pictureId: picture.pictureId, version: { increment: 1 }, updatedBy: ctx.user.code } });
       if (saved.count === 0) throw new StaleVersionError();
+      await this.pictures.attach(tx, ctx, picture, CORE_ENTITY.ITEM, id);
       if (changes.some((c) => c.field === 'conversions')) {
         await tx.mdmUomConversion.deleteMany({ where: { tenantId, itemCode: before.code } });
         if (dto.conversions.length) await tx.mdmUomConversion.createMany({ data: this.conversionRows(tenantId, before.code, dto.conversions) });

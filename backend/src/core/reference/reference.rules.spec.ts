@@ -5,6 +5,8 @@ describe('reference list rules', () => {
     expect(usedByText({ items: 1 })).toBe('1 item');
     expect(usedByText({ customers: 6, suppliers: 10 })).toBe('6 customers · 10 suppliers');
     expect(usedByText({ customers: 0 })).toBe('Not used');
+    expect(usedByText({ packages: 2 })).toBe('2 packages');
+    expect(referenceDeleteRefusal('Outdoor', { packages: 1 })).toBe('“Outdoor” is used by 1 package, so it cannot be deleted. Make it inactive instead.');
     expect(creditTermName(0)).toBe('Cash');
     expect(creditTermName(60)).toBe('60 days');
   });

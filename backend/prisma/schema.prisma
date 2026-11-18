@@ -683,6 +683,7 @@ model MdmItem {
   standardCost           Decimal?      @db.Decimal(18, 4) // for the estimated margin on sales documents
   einvoiceClassification String?       @db.VarChar(10) // LHDN classification code (SRS FR-MST-008)
   serviceIntervalMonths  Int? // a filter or part to change every so many months after installation (phase 5, F6)
+  pictureId              String?       @db.Char(36) // sys_attachment: the picture shown when picking (phase 5)
   status                 MdmItemStatus @default(ACTIVE)
   createdAt              DateTime      @default(now()) @db.DateTime(3)
   updatedAt              DateTime      @updatedAt @db.DateTime(3)
@@ -1764,7 +1765,7 @@ model MdmPriceList {
 model MdmPackage {
   id            String    @id @default(uuid()) @db.Char(36)
   tenantId      String    @db.Char(36)
-  code          String    @db.VarChar(20) // PK-DIN-06; typed once, never changed or reused
+  code          String    @db.VarChar(30) // PK-DIN-06, SET@2Y@FG; typed once, never changed or reused
   name          String    @db.VarChar(100) // shown to customers
   uomCode       String    @db.VarChar(10) // SET
   salesTaxCode  String    @db.VarChar(10)
@@ -1774,6 +1775,9 @@ model MdmPackage {
   runsFrom      DateTime  @db.Date
   runsUntil     DateTime? @db.Date // null = no end
   endedOn       DateTime? @db.Date // End now: the last day it ran
+  category      String?   @db.VarChar(50) // matches MdmPackageCategory.name; the tab it shows under when picking
+  terms         String?   @db.Text // what the package includes and its warranty terms, as customers read them
+  pictureId     String?   @db.Char(36) // sys_attachment: the picture shown when picking (JPG, PNG or WEBP)
   createdAt     DateTime  @default(now()) @db.DateTime(3)
   updatedAt     DateTime  @default(now()) @updatedAt @db.DateTime(3)
   version       Int       @default(1)
@@ -1789,7 +1793,7 @@ model MdmPackage {
 model MdmPackageItem {
   id          String  @id @default(uuid()) @db.Char(36)
   tenantId    String  @db.Char(36)
-  packageCode String  @db.VarChar(20)
+  packageCode String  @db.VarChar(30)
   itemCode    String  @db.VarChar(30)
   qty         Decimal @db.Decimal(18, 4)
   uomCode     String  @db.VarChar(10)
@@ -1804,7 +1808,7 @@ model MdmPackageItem {
 model MdmPackageGift {
   id          String  @id @default(uuid()) @db.Char(36)
   tenantId    String  @db.Char(36)
-  packageCode String  @db.VarChar(20)
+  packageCode String  @db.VarChar(30)
   itemCode    String  @db.VarChar(30)
   qty         Decimal @db.Decimal(18, 4)
   uomCode     String  @db.VarChar(10)
@@ -1878,6 +1882,22 @@ model MdmArea {
 
   @@unique([tenantId, name])
   @@map("mdm_area")
+}
+
+/// Package categories (phase 5): the tabs a salesperson picks packages under ("Outdoor", "Indoor", "Combo" …).
+model MdmPackageCategory {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  name      String   @db.VarChar(50) // matches MdmPackage.category
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  version   Int      @default(1)
+  createdBy String?  @db.VarChar(20)
+  updatedBy String?  @db.VarChar(20)
+
+  @@unique([tenantId, name])
+  @@map("mdm_package_category")
 }
 
 model MdmCreditTerm {
@@ -2180,7 +2200,7 @@ model SalSalesOrderLine {
   // Packages (phase 5): a package is kept as its items, priced from the package; its gifts are lines at 0.00.
   lineKind             String               @default("ITEM") @db.VarChar(10) // ITEM, PACKAGE (an item of a package), GIFT
   packageGroup         Int? // the lines of one package on this order share it
-  packageCode          String?              @db.VarChar(20)
+  packageCode          String?              @db.VarChar(30)
   packageName          String?              @db.VarChar(100)
   packageQty           Decimal?             @db.Decimal(18, 4) // sets
   packagePrice         Decimal?             @db.Decimal(18, 2) // one set, before tax, as it was on the order

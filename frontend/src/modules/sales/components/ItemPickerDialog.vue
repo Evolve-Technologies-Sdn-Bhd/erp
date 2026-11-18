@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Dialog from 'primevue/dialog'
+import AuthImage from '@/components/erp/AuthImage.vue'
 import { formatDayMonth, formatPrice, formatQty } from '@/utils/format'
 import { isPositiveDecimal } from '@/utils/money'
 import { salesLookupsApi } from '../api/sales'
@@ -136,8 +137,13 @@ function add() {
                 <input type="checkbox" :checked="i.code in picked" :disabled="!canPick(i)" :aria-label="`Pick ${i.code}`" @change="toggle(i)" />
               </td>
               <td>
-                <div class="font-semibold whitespace-nowrap">{{ i.code }}</div>
-                <div class="text-xs" :class="canPick(i) ? 'text-erp-muted' : ''">{{ i.name }}</div>
+                <div class="flex items-center gap-2.5">
+                  <div v-if="i.pictureUrl" class="h-9 w-9 shrink-0 overflow-hidden rounded border border-erp-border"><AuthImage :src="i.pictureUrl" :alt="i.name" /></div>
+                  <div>
+                    <div class="font-semibold whitespace-nowrap">{{ i.code }}</div>
+                    <div class="text-xs" :class="canPick(i) ? 'text-erp-muted' : ''">{{ i.name }}</div>
+                  </div>
+                </div>
               </td>
               <td>{{ i.uomCode }}</td>
               <td class="num">{{ i.listPrice ? formatPrice(i.listPrice) : '—' }}</td>

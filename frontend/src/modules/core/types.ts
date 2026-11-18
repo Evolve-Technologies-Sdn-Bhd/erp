@@ -116,12 +116,15 @@ export interface ItemInput {
   standardCost: string | null
   /** A filter or part to change every so many months after installation (Service reminders). */
   serviceIntervalMonths: number | null
+  /** The picture shown when picking (phase 5): an uploaded file's id. */
+  pictureId: string | null
   conversions: Conversion[]
 }
 
 export interface ItemDetail extends ItemInput {
   id: string
   code: string
+  pictureUrl: string | null
   typeLabel: string
   baseUomName: string | null
   einvoiceClassificationName: string | null
@@ -144,6 +147,8 @@ export interface ItemFormOptions {
   uoms: { code: string; name: string; decimals: number }[]
   taxCodes: { code: string; name: string; type: string; rate: string }[]
   classifications: { code: string; name: string }[]
+  /** Active package categories (Reference lists), for the package form. */
+  packageCategories: string[]
 }
 
 export interface SupplierOption {
@@ -457,7 +462,7 @@ export interface TaxCodeDetail {
   refusals: { delete?: string; deactivate?: string }
 }
 
-export type ReferenceListKey = 'item-groups' | 'customer-categories' | 'areas' | 'credit-terms'
+export type ReferenceListKey = 'item-groups' | 'customer-categories' | 'areas' | 'credit-terms' | 'package-categories'
 
 export interface ReferenceEntry {
   id: string
@@ -546,6 +551,12 @@ interface PackageFields {
   runsFrom: string
   runsUntil: string | null
   endedOn: string | null
+  /** The tab it shows under when picking (phase 5). */
+  category: string | null
+  /** What it includes and its warranty terms, as customers read them. */
+  terms: string | null
+  pictureId: string | null
+  pictureUrl: string | null
   status: PackageStatus
   statusLabel: string
   version: number
@@ -575,6 +586,9 @@ export interface PackageInput {
   giftRule: GiftRule
   runsFrom: string
   runsUntil: string | null
+  category: string | null
+  terms: string | null
+  pictureId: string | null
   items: PackageLineInput[]
   gifts: PackageLineInput[]
 }

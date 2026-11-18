@@ -29,6 +29,7 @@ import { CoreReferenceController } from './reference/reference.controller';
 import { ReferenceQuery } from './reference/reference.query';
 import { ReferenceService } from './reference/reference.service';
 import { CoreRecordsService } from './shared/core-records.service';
+import { CorePictures } from './shared/pictures.service';
 import { CoreSuppliersController } from './suppliers/suppliers.controller';
 import { SuppliersQuery } from './suppliers/suppliers.query';
 import { SuppliersService } from './suppliers/suppliers.service';
@@ -50,7 +51,7 @@ import { WarehousesService } from './warehouses/warehouses.service';
  */
 @Module({
   controllers: [CoreDashboardController, CoreUsageController, CoreLookupsController, CoreItemsController, CoreUomsController, CoreCustomersController, CoreSuppliersController, CorePriceListsController, CorePackagesController, CoreTaxCodesController, CoreReferenceController, CoreWarehousesController, CoreImportsController],
-  providers: [CoreDashboardQuery, CoreRecordsService, CoreUsageQuery, ItemsQuery, ItemsService, UomsQuery, UomsService, CustomersQuery, CustomersService, SuppliersQuery, SuppliersService, PriceListsQuery, PriceListsService, PackagesQuery, PackagesService, TaxCodesQuery, TaxCodesService, ReferenceQuery, ReferenceService, WarehousesQuery, WarehousesService, ImportsService, CustomerImporter, SupplierImporter, ItemImporter, PriceImporter],
+  providers: [CoreDashboardQuery, CoreRecordsService, CorePictures, CoreUsageQuery, ItemsQuery, ItemsService, UomsQuery, UomsService, CustomersQuery, CustomersService, SuppliersQuery, SuppliersService, PriceListsQuery, PriceListsService, PackagesQuery, PackagesService, TaxCodesQuery, TaxCodesService, ReferenceQuery, ReferenceService, WarehousesQuery, WarehousesService, ImportsService, CustomerImporter, SupplierImporter, ItemImporter, PriceImporter],
 })
 export class CoreModule implements OnModuleInit {
   constructor(

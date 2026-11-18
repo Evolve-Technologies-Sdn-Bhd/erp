@@ -15,6 +15,7 @@ import { classificationName } from '../shared/einvoice-classifications';
 import { deactivateRefusal, deleteRefusal } from '../usage/usage.rules';
 import type { ItemListQueryDto } from './dto/item.dto';
 import { conversionText, ITEM_STATUSES, STATUS_LABEL, statusActions, TYPE_LABEL, type ItemAction, type ItemStatus, type ItemType } from './items.rules';
+import { pictureUrl } from '../shared/picture.rules';
 
 const qty = (v: Prisma.Decimal | null) => (v === null ? null : v.toFixed(4));
 
@@ -167,6 +168,8 @@ export class ItemsQuery {
       preferredSupplierCode: item.preferredSupplierCode,
       reorderLevel: qty(item.reorderLevel),
       serviceIntervalMonths: item.serviceIntervalMonths,
+      pictureId: item.pictureId,
+      pictureUrl: pictureUrl(item.pictureId),
       packSize: item.packSize.toFixed(4),
       isSellable: item.isSellable,
       salesUom: item.salesUom,

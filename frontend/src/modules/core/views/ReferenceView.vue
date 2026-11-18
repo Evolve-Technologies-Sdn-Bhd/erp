@@ -26,6 +26,7 @@ const LISTS: { key: ReferenceListKey; label: string; one: string }[] = [
   { key: 'customer-categories', label: 'Customer categories', one: 'customer category' },
   { key: 'areas', label: 'Areas', one: 'area' },
   { key: 'credit-terms', label: 'Credit terms', one: 'credit term' },
+  { key: 'package-categories', label: 'Package categories', one: 'package category' },
 ]
 
 const data = ref<ReferenceData | null>(null)
