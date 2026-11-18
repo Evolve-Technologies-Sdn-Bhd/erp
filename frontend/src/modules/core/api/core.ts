@@ -40,6 +40,8 @@ export const coreCustomersApi = {
   create: (input: CustomerInput & { status: 'ACTIVE' | 'PROSPECT'; cameFromEnquiry: string | null }) => api<CustomerDetail>('/core/customers', { method: 'POST', body: input }),
   update: (id: string, input: CustomerInput & { version: number }) => api<CustomerDetail>(`/core/customers/${id}`, { method: 'PATCH', body: input }),
   setStatus: (id: string, action: 'block' | 'activate', version: number) => api<CustomerDetail>(`/core/customers/${id}/${action}`, { method: 'POST', body: { version } }),
+  /** The office has checked a customer a salesperson added from an order (phase 5). */
+  complete: (id: string, version: number) => api<CustomerDetail>(`/core/customers/${id}/complete`, { method: 'POST', body: { version } }),
   remove: (id: string, version: number) => api<{ deleted: boolean; code: string }>(`/core/customers/${id}`, { method: 'DELETE', query: { version } }),
 }
 

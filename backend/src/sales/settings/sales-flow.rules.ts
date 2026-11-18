@@ -5,12 +5,13 @@ export const FLOW_SWITCHES = {
   useEnquiries: 'Use enquiries',
   officeDraftsQuotations: 'Office drafts quotations',
   askInstallation: 'Ask for an installation option on the order',
+  agentsAddCustomers: 'Salespeople add new customers on the order',
 } as const;
 export type FlowSwitchKey = keyof typeof FLOW_SWITCHES;
 export type FlowSwitches = Record<FlowSwitchKey, boolean>;
 
 /** What a company gets before anyone touches the page: the standard flow (no installation asked). */
-export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false };
+export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false };
 
 /** Change-history lines, in the wording of the other policies: "Use enquiries: On → Off". */
 export function flowChanges(before: FlowSwitches, after: FlowSwitches): string[] {
@@ -20,6 +21,10 @@ export function flowChanges(before: FlowSwitches, after: FlowSwitches): string[]
   }
   return out;
 }
+
+/** The refusal when a salesperson tries to add a customer from an order while the company does not allow it. */
+export const NEW_CUSTOMERS_OFF_MESSAGE =
+  'Customers cannot be added from an order in this company. Turn on "Salespeople add new customers on the order" in Operation Policies › Sales Flow, or ask the office to add the customer in Core.';
 
 /** The refusal when someone tries to log an enquiry while enquiries are off. */
 export const ENQUIRIES_OFF_MESSAGE = 'Enquiries are turned off for this company. Turn on "Use enquiries" in Operation Policies › Sales Flow to log one.';

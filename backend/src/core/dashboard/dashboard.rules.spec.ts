@@ -70,6 +70,18 @@ describe('buildAttention', () => {
     expect(buildAttention(seed).map((l) => l.to)).toEqual(['/core/items', '/core/suppliers', '/core/customers', '/core/items', '/core/reference']);
   });
 
+  it('asks the office to complete the customers salespeople added from an order (phase 5)', () => {
+    const lines = buildAttention({ ...seed, customersToComplete: 2 });
+    expect(lines[2]).toEqual({
+      key: 'customer-to-complete',
+      lead: '2 customers',
+      text: 'were added by salespeople from an order. Check them, fill in what is missing and mark them complete.',
+      to: '/core/customers?toComplete=1',
+    });
+    expect(buildAttention({ ...seed, customersToComplete: 1 })[2].text).toBe('was added by salespeople from an order. Check it, fill in what is missing and mark it complete.');
+    expect(buildAttention({ ...seed, customersToComplete: 0 }).some((l) => l.key === 'customer-to-complete')).toBe(false);
+  });
+
   it('words a single gap and a mix of gaps', () => {
     const lines = buildAttention({
       ...seed,

@@ -32,6 +32,7 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   useEnquiries: 'Off: Enquiry is hidden from the menu and cannot be created.',
   officeDraftsQuotations: 'Off: Draft Quotation is hidden. Sales agents build the quotation with the customer.',
   askInstallation: 'Installation, delivery only, or collect. An order with installation makes a job for the office to book.',
+  agentsAddCustomers: 'A + New customer link on the sales order, for households that are not in the list yet.',
 }
 
 async function save() {
@@ -70,6 +71,15 @@ async function save() {
       </div>
       <p class="m-0 text-xs text-erp-muted">Turning a step off hides it for new documents. Documents already made keep working.</p>
       <p v-if="!canManage" class="m-0 text-xs text-erp-muted">Only an admin with Operation Policies rights can change these.</p>
+    </section>
+
+    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+      <h2 class="m-0 text-[15px] font-bold">Customers</h2>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.agentsAddCustomers }}</span><span class="text-xs text-erp-subtle">{{ HINT.agentsAddCustomers }}</span></span>
+        <SwitchToggle v-model="draft.agentsAddCustomers" :label="data.labels.agentsAddCustomers" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">They get cash terms, no credit limit and the cash customer's price list, and show in Core as To complete until the office checks them. A phone number already on file is refused.</p>
     </section>
 
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">

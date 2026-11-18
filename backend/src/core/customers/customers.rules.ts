@@ -82,7 +82,7 @@ export function limitError(value: DecimalInput | null | undefined, label: string
   return dec(value).lt(0) ? `${label} cannot be below 0. Leave it empty for no limit.` : null;
 }
 
-export type CustomerAction = 'edit' | 'editCredit' | 'block' | 'activate' | 'delete';
+export type CustomerAction = 'edit' | 'editCredit' | 'block' | 'activate' | 'delete' | 'complete';
 
 /** Which status actions the status allows, before the usage check. A prospect becomes a customer by Activate. */
 export function statusActions(status: CustomerStatus): ('block' | 'activate')[] {
@@ -147,4 +147,78 @@ export function customerAudit(c: CustomerRecord): Record<string, unknown> {
 /** The customer after a change, as mdm.customer.* events carry it (codes and plain values). */
 export function customerSnapshot(c: CustomerRecord) {
   return { ...c, creditLimit: money(c.creditLimit), overdueLimit: money(c.overdueLimit) };
+}
+
+// ── Customers added by salespeople from an order (phase 5, Sales Flow switch) ──
+
+/** Fewer digits than this cannot tell one phone from another. */
+export const PHONE_DIGITS_MIN = 7;
+
+/**
+ * A phone as digits only, Malaysian style, so the same number typed two ways matches: "+60 12-345 6789",
+ * "6012 3456789" and "012-345 6789" all give "0123456789".
+ */
+export function phoneKey(phone: string | null | undefined): string {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  return digits.startsWith('60') ? `0${digits.slice(2)}` : digits;
+}
+
+/** Households are known by their phone: one already on file is picked on the order, not added again. */
+export function phoneInUseMessage(code: string): string {
+  return `${code} already has this phone number. Pick that customer on the order, or ask the office if it is someone else.`;
+}
+
+/** What a salesperson types for a new household customer. Core fills in the rest. */
+export interface OrderCustomerInput {
+  name: string;
+  phone: string;
+  address: string;
+  email: string | null;
+  idNumber: string | null;
+  branchCode: string;
+  agentCode: string | null;
+}
+
+/**
+ * The customer Core makes from it: active at once so the order can use it, cash terms (0 days) and no credit limit,
+ * the cash customer's price list, before-tax pricing like every sales order, and one address for billing and
+ * delivery. The office completes the rest (category, area, tax identity) in Core.
+ */
+export function customerFromOrder(input: OrderCustomerInput, cash: { priceListCode: string }) {
+  const name = input.name.trim();
+  const address = input.address.trim();
+  return {
+    name,
+    category: null,
+    area: null,
+    branchCode: input.branchCode,
+    defaultAgentCode: input.agentCode,
+    billingAddress: address,
+    deliveryAddress: address,
+    contactName: name.slice(0, 100),
+    email: input.email?.trim() || null,
+    phone: input.phone.trim(),
+    tin: null,
+    idType: input.idNumber ? ('NRIC' as const) : null,
+    idNumber: input.idNumber?.trim().toUpperCase() || null,
+    salesTaxNo: null,
+    serviceTaxNo: null,
+    einvoiceEmail: null,
+    taxMode: 'EXCLUSIVE' as const,
+    creditTermDays: 0,
+    creditLimit: null,
+    overdueLimit: null,
+    creditScope: null,
+    priceListCode: cash.priceListCode,
+  };
+}
+
+/** The activity line when a salesperson adds a customer from an order. */
+export function addedFromOrderMessage(code: string, userName: string): string {
+  return `Customer ${code} added by ${userName} from a sales order, to be completed by the office`;
+}
+
+/** The refusal when Core is not set up for it (no cash term, an inactive price list …): the office has to fix Core. */
+export function setupProblemMessage(problems: string[]): string {
+  return `This customer cannot be added from an order yet: ${problems.join(' ')} Ask the office to check Core.`;
 }

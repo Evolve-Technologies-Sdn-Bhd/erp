@@ -11,6 +11,7 @@ import { ContextModule } from './context/context.module';
 import { DashboardBoardsService } from './indicators/dashboard-boards.service';
 import { IndicatorRegistry } from './indicators/indicator.registry';
 import { NumberingService } from './numbering/numbering.service';
+import { CustomerOnboarding } from './onboarding/customer-onboarding.registry';
 import { OutboxConsumers } from './outbox/outbox.consumers';
 import { OutboxDispatcher } from './outbox/outbox.dispatcher';
 import { OutboxWriter } from './outbox/outbox.writer';
@@ -19,7 +20,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
 
 /**
  * Shared building blocks with no business rules: database, clock, current user, numbering, activity,
- * approvals, outbox, attachments, the record-usage registry and the home-dashboard indicators. Global, so business modules just inject the services.
+ * approvals, outbox, attachments, the record-usage registry, customer onboarding and the home-dashboard indicators. Global, so business modules just inject the services.
  */
 @Global()
 @Module({
@@ -44,6 +45,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
     OutboxDispatcher,
     AttachmentsService,
     RecordUsageRegistry,
+    CustomerOnboarding,
     IndicatorRegistry,
     DashboardBoardsService,
   ],
@@ -58,6 +60,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
     OutboxConsumers,
     AttachmentsService,
     RecordUsageRegistry,
+    CustomerOnboarding,
     IndicatorRegistry,
     DashboardBoardsService,
   ],

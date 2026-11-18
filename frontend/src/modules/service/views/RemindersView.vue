@@ -110,7 +110,7 @@ async function dismiss() {
       </Column>
       <Column header="">
         <template #body="{ data }: { data: ReminderRow }">
-          <button v-if="data.status === 'UPCOMING' && can('service.job.edit')" type="button" class="erp-link border-0 bg-transparent p-0 text-[13px]" @click="dismissing = data">Dismiss</button>
+          <button v-if="data.status === 'UPCOMING' && can('service.job.edit')" type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-[13px] text-erp-link" @click="dismissing = data">Dismiss</button>
         </template>
       </Column>
     </DataList>

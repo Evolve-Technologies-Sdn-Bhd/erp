@@ -36,6 +36,7 @@ export class CustomersQuery {
       ...(query.branch && { branchCode: query.branch }),
       ...(query.category && { category: query.category }),
       ...(query.agent && { defaultAgentCode: query.agent }),
+      ...(query.toComplete && { toComplete: true }),
     };
     const status = statusFromKey(query.status, CUSTOMER_STATUSES);
     const where = { ...base, ...(status && { status }) };
@@ -58,6 +59,7 @@ export class CustomersQuery {
       creditLimit: money(c.creditLimit),
       overdueLimit: money(c.overdueLimit),
       tin: c.tin,
+      toComplete: c.toComplete,
       status: c.status,
       statusLabel: STATUS_LABEL[c.status as CustomerStatus],
     }));
@@ -72,6 +74,8 @@ export class CustomersQuery {
       this.activity.listFor(tenantId, CORE_ENTITY.CUSTOMER, c.id),
       this.names(tenantId, [c]),
     ]);
+    // Phase 5: who added it from an order and when, as its first activity line says (the business clock).
+    const created = c.toComplete ? activity.find((a) => a.action === 'created') : undefined;
     const canEdit = this.permissions.has(ctx.user.roles, P.CUSTOMER_EDIT);
     const canEditCredit = this.permissions.has(ctx.user.roles, P.CUSTOMER_CREDIT);
     const deactivate = deactivateRefusal(c.code, usage);
@@ -87,6 +91,7 @@ export class CustomersQuery {
       }
       if (remove) refusals.delete = remove;
       else allowedActions.push('delete');
+      if (c.toComplete) allowedActions.push('complete');
     }
     return {
       ...this.fields(c),
@@ -94,6 +99,8 @@ export class CustomersQuery {
       agentName: c.defaultAgentCode ? (names.agents.get(c.defaultAgentCode) ?? c.defaultAgentCode) : null,
       priceListName: names.priceLists.get(c.priceListCode) ?? c.priceListCode,
       eInvoiceGap: eInvoiceGap(c),
+      // Phase 5: who added it from an order and when, while the office has not completed it.
+      addedFromOrder: c.toComplete ? { by: created?.userName ?? c.createdBy ?? '', at: created?.at ?? c.createdAt.toISOString() } : null,
       usage,
       activity,
       allowedActions,
@@ -136,6 +143,7 @@ export class CustomersQuery {
       visibleToAllBranches: c.visibleToAllBranches,
       isCash: c.isCash,
       cameFromEnquiry: c.cameFromEnquiry,
+      toComplete: c.toComplete,
       status: c.status,
       statusLabel: STATUS_LABEL[c.status as CustomerStatus],
       version: c.version,

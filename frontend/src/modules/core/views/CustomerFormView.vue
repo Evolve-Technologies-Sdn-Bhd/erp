@@ -12,6 +12,7 @@ import SwitchToggle from '@/components/erp/SwitchToggle.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
+import { formatDateTime } from '@/utils/format'
 import { usePageCrumb } from '@/composables/usePageCrumb'
 import { useSession } from '@/composables/useSession'
 import { coreCustomersApi, coreLookupsApi } from '../api/core'
@@ -165,6 +166,13 @@ async function save(status: 'ACTIVE' | 'PROSPECT' = 'ACTIVE') {
   }
 }
 
+/** Phase 5: the office has checked a customer a salesperson added from an order. */
+async function markComplete() {
+  const c = customer.value!
+  show(await coreCustomersApi.complete(c.id, c.version))
+  toast.add({ severity: 'success', summary: `${c.code} is complete`, life: 3000 })
+}
+
 async function setStatus(action: 'block' | 'activate') {
   const c = customer.value!
   const run = async () => {
@@ -246,12 +254,27 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
             <button v-if="can('activate')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || dirty" @click="setStatus('activate')">
               {{ customer.status === 'PROSPECT' ? 'Make customer' : 'Activate' }}
             </button>
+            <button
+              v-if="can('complete')"
+              type="button"
+              class="erp-btn erp-btn-secondary"
+              :disabled="saving || dirty"
+              :title="dirty ? 'Save or undo your changes first.' : undefined"
+              @click="markComplete"
+            >
+              Mark as complete
+            </button>
             <button v-if="anyEditable" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !dirty" @click="save()">Save changes</button>
             <RouterLink v-else to="/core/customers" class="erp-btn erp-btn-secondary">Back</RouterLink>
           </template>
         </template>
       </PageHeader>
     </section>
+
+    <NoticeBanner v-if="customer?.addedFromOrder">
+      Added by {{ customer.addedFromOrder.by }} from a sales order on {{ formatDateTime(customer.addedFromOrder.at) }}, on cash terms with no credit limit. Check the details, fill
+      in what is missing, then click <strong>Mark as complete</strong>.
+    </NoticeBanner>
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_320px]">
       <div class="flex min-w-0 flex-col gap-4">

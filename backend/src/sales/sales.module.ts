@@ -55,6 +55,8 @@ import { QuotationsService } from './quotations/quotations.service';
 import { SALES_PERMISSION_CATALOGUE } from './sales.permissions';
 import { SalesUsageProvider } from './usage/sales-usage.provider';
 import { SalesProspectLinkListener } from './enquiries/prospect-link.listener';
+import { SalesNewCustomersController } from './customers/new-customers.controller';
+import { SalesNewCustomersService } from './customers/new-customers.service';
 import { CreditService } from './shared/credit.service';
 import { SalesDocumentLines } from './shared/document-lines.service';
 import { PackageLines } from './shared/package-lines.service';
@@ -67,8 +69,9 @@ import { SalesMailService } from './shared/sales-mail.service';
  * MasterDataPort and cross-module effects go out as outbox events.
  */
 @Module({
-  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController],
+  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController, SalesNewCustomersController],
   providers: [
+    SalesNewCustomersService,
     SalesBuyToOrderListener,
     SalesDashboardService,
     SalesIndicators,

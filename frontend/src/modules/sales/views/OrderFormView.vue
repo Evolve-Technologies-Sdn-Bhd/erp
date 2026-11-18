@@ -23,6 +23,7 @@ import { formatDate, formatDateTime, formatMoney, formatPrice, formatQty, format
 import { isPositiveDecimal, previewSaleLine, sumMoney } from '@/utils/money'
 import { salesDeliveriesApi, salesLookupsApi, salesOrdersApi, salesProformasApi } from '../api/sales'
 import ItemPickerDialog from '../components/ItemPickerDialog.vue'
+import NewCustomerDialog from '../components/NewCustomerDialog.vue'
 import PackagePickerDialog from '../components/PackagePickerDialog.vue'
 import { salesFlow } from '../flow'
 import { docRoute } from '../routes'
@@ -34,7 +35,7 @@ const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 const setCrumb = usePageCrumb()
-const { today, user } = useSession()
+const { today, user, can: canDo } = useSession()
 
 const id = computed(() => String(route.params.id))
 const isNew = computed(() => id.value === 'new')
@@ -239,6 +240,16 @@ function onCustomerPicked(c: CustomerOption) {
   form.customer = c
   if (!form.contactName) form.contactName = c.contactName ?? ''
   if (!form.deliveryAddress) form.deliveryAddress = c.deliveryAddress ?? ''
+}
+
+// ── New customer (phase 5): when Sales Flow lets salespeople add one, Core makes it and the order uses it at once ──
+const newCustomerOpen = ref(false)
+const canAddCustomer = computed(() => editable.value && salesFlow.value.agentsAddCustomers && canDo('sales.order.edit'))
+function onCustomerAdded(c: CustomerOption) {
+  form.customer = c
+  form.contactName = c.contactName ?? ''
+  form.deliveryAddress = c.deliveryAddress ?? ''
+  errors.value = { ...errors.value, customerCode: '' }
 }
 
 // ── Lines ────────────────────────────────────────────────────────────────────
@@ -656,6 +667,7 @@ const viewRows = computed<ViewRow[]>(() => {
               @picked="onCustomerPicked"
             />
             <div v-else class="erp-input-ro">{{ form.customer?.name }}</div>
+            <button v-if="canAddCustomer" type="button" class="erp-link self-start cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-erp-link" @click="newCustomerOpen = true">+ New customer</button>
           </FormField>
           <FormField label="Contact" for="so-contact">
             <input v-if="editable" id="so-contact" v-model="form.contactName" class="erp-input" maxlength="100" />
@@ -1056,6 +1068,7 @@ const viewRows = computed<ViewRow[]>(() => {
       </aside>
     </div>
 
+    <NewCustomerDialog v-model:visible="newCustomerOpen" @added="onCustomerAdded" />
     <ItemPickerDialog
       v-model:visible="pickerOpen"
       :context="`${order?.docNo ?? 'New order'} · ${form.customer?.name ?? ''} · ${order?.branch.name ?? form.customer?.branchCode ?? ''}${order ? ` · price list ${order.priceList.name}` : ''}`"

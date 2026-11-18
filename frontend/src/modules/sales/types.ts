@@ -1224,6 +1224,16 @@ export interface SalesFlowSwitches {
   useEnquiries: boolean
   officeDraftsQuotations: boolean
   askInstallation: boolean
+  agentsAddCustomers: boolean
+}
+
+/** A new household customer typed on the sales order (phase 5). Core fills in the rest. */
+export interface NewCustomerInput {
+  name: string
+  phone: string
+  address: string
+  email: string | null
+  idNumber: string | null
 }
 
 export interface SalesFlowData {

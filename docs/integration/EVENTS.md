@@ -91,7 +91,7 @@ Purchase and Sales read master data through `MasterDataPort` and keep no copy, s
 | Event | When | Main payload | Who listens |
 |---|---|---|---|
 | `mdm.item.created` / `mdm.item.updated` | Item saved, including status changes | code, item, changedFields | WMS, MES — later |
-| `mdm.customer.created` / `mdm.customer.updated` | Customer saved | code, customer, changedFields; `created` may carry enquiryNo | **Sales** (`created` with enquiryNo: links the enquiry's prospect); WMS (outbound), Finance — later |
+| `mdm.customer.created` / `mdm.customer.updated` | Customer saved | code, customer, changedFields; `created` may carry enquiryNo, and `addedFrom: SALES_ORDER` when a salesperson added it from an order (phase 5) | **Sales** (`created` with enquiryNo: links the enquiry's prospect); WMS (outbound), Finance — later |
 | `mdm.supplier.created` / `mdm.supplier.updated` | Supplier saved, including its contract prices | code, supplier, changedFields | WMS (inbound), Finance — later |
 | `mdm.price_list.updated` | Price list or its prices saved, including a new list (`created: true`) and Deactivate or Activate | code, price list with all its dated prices, changedFields | — |
 | `mdm.tax_code.updated` | Tax code added or changed, a rate added or a waiting rate removed (`created: true` for a new code) | code, the code with every rate period, changedFields | Finance — later |

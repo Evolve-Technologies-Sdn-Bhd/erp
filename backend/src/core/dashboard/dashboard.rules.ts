@@ -69,6 +69,8 @@ export interface AttentionInput {
   itemGroups: string[];
   customerCategories: string[];
   areas: string[];
+  /** Customers salespeople added from an order that the office has not completed yet (phase 5). */
+  customersToComplete?: number;
 }
 
 const blank = (v: string | null) => !v || !v.trim();
@@ -114,6 +116,15 @@ export function buildAttention(input: AttentionInput): AttentionLine[] {
     lines.push({ key: 'item-classification', lead: plural(n, 'item'), text: `${n === 1 ? 'has' : 'have'} no e-Invoice classification code yet. LHDN needs it on every e-Invoice line.`, to: '/core/items' });
   }
   lines.push(partyLine('supplier-identity', 'supplier', 'walk-in shops left out', input.suppliers, '/core/suppliers'));
+  const toComplete = input.customersToComplete ?? 0;
+  if (toComplete > 0) {
+    lines.push({
+      key: 'customer-to-complete',
+      lead: plural(toComplete, 'customer'),
+      text: `${toComplete === 1 ? 'was' : 'were'} added by salespeople from an order. Check ${toComplete === 1 ? 'it' : 'them'}, fill in what is missing and mark ${toComplete === 1 ? 'it' : 'them'} complete.`,
+      to: '/core/customers?toComplete=1',
+    });
+  }
   lines.push(partyLine('customer-identity', 'customer', 'the cash customer left out', input.customers, '/core/customers'));
   const noSupplier = input.purchasableWithoutSupplier;
   if (noSupplier.length) {

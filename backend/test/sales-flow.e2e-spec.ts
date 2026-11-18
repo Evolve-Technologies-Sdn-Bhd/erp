@@ -1,7 +1,7 @@
 import { reseed, startApi, type Api } from './e2e-helpers';
 
 interface Flow {
-  switches: { useEnquiries: boolean; officeDraftsQuotations: boolean; askInstallation: boolean };
+  switches: { useEnquiries: boolean; officeDraftsQuotations: boolean; askInstallation: boolean; agentsAddCustomers: boolean };
   labels: Record<string, string>;
   history: { message: string; userName: string }[];
   saved?: string[];
@@ -34,8 +34,8 @@ describe('Sales flow switches (end to end)', () => {
 
   it('starts on the standard flow: both steps on, nothing in the history', async () => {
     const flow = await api.get<Flow>('sales/settings/sales-flow', 'AR');
-    expect(flow.switches).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false });
-    expect(flow.labels).toEqual({ useEnquiries: 'Use enquiries', officeDraftsQuotations: 'Office drafts quotations', askInstallation: 'Ask for an installation option on the order' });
+    expect(flow.switches).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false });
+    expect(flow.labels).toEqual({ useEnquiries: 'Use enquiries', officeDraftsQuotations: 'Office drafts quotations', askInstallation: 'Ask for an installation option on the order', agentsAddCustomers: 'Salespeople add new customers on the order' });
     expect(flow.history).toEqual([]);
   });
 
@@ -54,7 +54,7 @@ describe('Sales flow switches (end to end)', () => {
     const saved = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: false, officeDraftsQuotations: false, askInstallation: false });
     expect(saved.status).toBe(200);
     expect(saved.body.saved).toEqual(['Use enquiries: On → Off', 'Office drafts quotations: On → Off']);
-    expect(saved.body.switches).toEqual({ useEnquiries: false, officeDraftsQuotations: false, askInstallation: false });
+    expect(saved.body.switches).toEqual({ useEnquiries: false, officeDraftsQuotations: false, askInstallation: false, agentsAddCustomers: false });
     expect(saved.body.history.map((h) => h.message).sort()).toEqual(['Office drafts quotations: On → Off', 'Use enquiries: On → Off']);
 
     const refused = await api.call('POST', 'sales/enquiries', 'AR', await enquiry());

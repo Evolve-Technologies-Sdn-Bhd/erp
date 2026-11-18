@@ -135,11 +135,11 @@ The item, customer and supplier forms show where the record is used. Delete is p
 
 | Code | Screen | Mockup | Route | Main API |
 |---|---|---|---|---|
-| C01 | Core home | `CoreHome.html` | `/core` | GET /api/v1/core/dashboard |
+| C01 | Core home | `CoreHome.html` | `/core` | GET /api/v1/core/dashboard (phase 5: *Needs attention* also counts the customers salespeople added from an order, still to complete) |
 | C02 | Item list | `CoreItemList.html` | `/core/items` | GET /api/v1/core/items |
 | C03 | Item | `CoreItemForm.html` | `/core/items/:id` | GET, POST, PATCH /api/v1/core/items/:id (GET includes where it is used) · POST …/block, …/activate, …/discontinue · DELETE /api/v1/core/items/:id (only if never used) |
-| C04 | Customer list | `CoreCustomerList.html` | `/core/customers` | GET /api/v1/core/customers |
-| C05 | Customer | `CoreCustomerForm.html` | `/core/customers/:id` | GET, POST, PATCH /api/v1/core/customers/:id (credit fields need core.customer.credit; GET includes where it is used) · POST …/block, …/activate · DELETE /api/v1/core/customers/:id (only if never used) |
+| C04 | Customer list | `CoreCustomerList.html` | `/core/customers` | GET /api/v1/core/customers (phase 5: `?toComplete=1` shows the customers added from an order, still to complete, each with a *To complete* chip) |
+| C05 | Customer | `CoreCustomerForm.html` | `/core/customers/:id` | GET, POST, PATCH /api/v1/core/customers/:id (credit fields need core.customer.credit; GET includes where it is used) · POST …/block, …/activate · DELETE /api/v1/core/customers/:id (only if never used) · phase 5: a banner and POST …/complete (*Mark as complete*, core.customer.edit) for a customer a salesperson added from an order |
 | C06 | Supplier list | `CoreSupplierList.html` | `/core/suppliers` | GET /api/v1/core/suppliers · GET /api/v1/core/suppliers/supplies (the *Supplies* filter) |
 | C07 | Supplier with contract prices | `CoreSupplierForm.html` | `/core/suppliers/:id` | GET, POST, PATCH /api/v1/core/suppliers/:id (contract prices need core.supplier.contract; GET includes where it is used) · POST …/block, …/activate · DELETE /api/v1/core/suppliers/:id (only if never used) |
 | C08 | Price lists | `CorePriceLists.html` | `/core/price-lists` | GET /api/v1/core/price-lists (prices, used by) |
@@ -194,8 +194,8 @@ The Service module is new: orange (side `#C2410C`, primary `#9A3412`, light `#FF
 
 | Code | Screen | Mockup | Route (proposed) |
 |---|---|---|---|
-| S34 | Sales flow (Operation Policies): the profile's switches. **Built (F1, parts 1 and 5):** the two step switches and *Ask for an installation option on the order*, `GET`, `PUT /api/v1/sales/settings/sales-flow`; the other settings on the mockup come with their own parts | `FsPolicies.html` | `/sales/settings/sales-flow` |
-| S11 | Sales order with a package, a free gift, a voucher, the installation option and the customer's signature (profile on). **Built (F1, parts 3 and 4):** *Add package* and the package and gift lines, `GET /api/v1/sales/lookups/packages?date=`; *Add voucher* (`vouchers` on `POST`, `PATCH /api/v1/sales/orders`); **part 5:** the Installation and Preferred date fields (`installOption`, `installDate`) when Sales Flow asks for them; the signature comes with its own part | `FsOrder.html` | `/sales/orders/:id` |
+| S34 | Sales flow (Operation Policies): the profile's switches. **Built (F1, parts 1, 5 and 6):** the two step switches, *Ask for an installation option on the order* and *Salespeople add new customers on the order*, `GET`, `PUT /api/v1/sales/settings/sales-flow`; the other settings on the mockup come with their own parts | `FsPolicies.html` | `/sales/settings/sales-flow` |
+| S11 | Sales order with a package, a free gift, a voucher, the installation option and the customer's signature (profile on). **Built (F1, parts 3 and 4):** *Add package* and the package and gift lines, `GET /api/v1/sales/lookups/packages?date=`; *Add voucher* (`vouchers` on `POST`, `PATCH /api/v1/sales/orders`); **part 5:** the Installation and Preferred date fields (`installOption`, `installDate`) when Sales Flow asks for them; **part 6:** *+ New customer* under the customer field when Sales Flow allows it (`POST /api/v1/sales/customers`; Core makes the customer); the signature comes with its own part | `FsOrder.html` | `/sales/orders/:id` |
 | C15 | Package list. **Built (F1, parts 2 and 3)**, the Orders column from the record-usage check · `GET /api/v1/core/packages` | `CorePackages.html` | `/core/packages` |
 | C16 | Package: items, package price, free gift. **Built (F1, part 2)**, without branches and gift stock · `GET, POST, PATCH, DELETE /api/v1/core/packages/:id`, `POST …/end`, `GET /api/v1/core/lookups/active-items?q=` (gift picker) | `CorePackageForm.html` | `/core/packages/:id` |
 | V01 | Service home. **Built (F3, part 1):** not booked, oldest waiting, waiting to be booked · `GET /api/v1/service/home`; today by person comes with the booking board | `SvcHome.html` | `/service` |

@@ -5,6 +5,14 @@ import { NumberingService } from '../../platform/numbering/numbering.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import type { AddOrderTypeDto, SaveCreditControlDto, SaveDocumentTypesDto, SaveSalesFlowDto } from './dto/settings.dto';
 import { flowChanges, FLOW_SWITCHES, type FlowSwitches } from './sales-flow.rules';
+
+/** The Sales Flow switches as stored. */
+const flowOf = (s: FlowSwitches): FlowSwitches => ({
+  useEnquiries: s.useEnquiries,
+  officeDraftsQuotations: s.officeDraftsQuotations,
+  askInstallation: s.askInstallation,
+  agentsAddCustomers: s.agentsAddCustomers,
+});
 import { codeFromName, creditChanges, CREDIT_DOCS, normaliseRule, numberingChanges, ruleProblems, TOGGLES, type CreditRuleView, type ToggleKey } from './settings.rules';
 
 /** Order of the Sales documents on Document types (S30). */
@@ -106,14 +114,18 @@ export class SalesPoliciesService {
   /** Which steps the company uses. Anyone in Sales reads it: the menu and the forms follow it. */
   async salesFlow(ctx: RequestContext) {
     const [s, history] = await Promise.all([this.setting(ctx.tenantId), this.history(ctx.tenantId, 'SALES_FLOW')]);
-    const switches: FlowSwitches = { useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations, askInstallation: s.askInstallation };
-    return { switches, labels: FLOW_SWITCHES, history };
+    return { switches: flowOf(s), labels: FLOW_SWITCHES, history };
   }
 
   async saveSalesFlow(ctx: RequestContext, dto: SaveSalesFlowDto) {
     const s = await this.setting(ctx.tenantId);
-    const after: FlowSwitches = { useEnquiries: dto.useEnquiries, officeDraftsQuotations: dto.officeDraftsQuotations, askInstallation: dto.askInstallation };
-    const changes = flowChanges({ useEnquiries: s.useEnquiries, officeDraftsQuotations: s.officeDraftsQuotations, askInstallation: s.askInstallation }, after);
+    const after: FlowSwitches = {
+      useEnquiries: dto.useEnquiries,
+      officeDraftsQuotations: dto.officeDraftsQuotations,
+      askInstallation: dto.askInstallation,
+      agentsAddCustomers: dto.agentsAddCustomers ?? s.agentsAddCustomers,
+    };
+    const changes = flowChanges(flowOf(s), after);
     if (changes.length) {
       await this.prisma.$transaction(async (tx) => {
         await tx.salSetting.update({ where: { tenantId: ctx.tenantId }, data: { ...after, updatedBy: ctx.user.code } });

@@ -4,6 +4,7 @@ import Column from 'primevue/column'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
+import NoticeBanner from '@/components/erp/NoticeBanner.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
@@ -17,7 +18,7 @@ import { CUSTOMER_STATUS_GROUP } from './customers'
 
 /** C04 · List of Customers (CoreCustomerList.html) */
 const { can, today } = useSession()
-const list = useListPage({ filterKeys: ['branch', 'category', 'agent'], fetch: coreCustomersApi.list })
+const list = useListPage({ filterKeys: ['branch', 'category', 'agent', 'toComplete'], fetch: coreCustomersApi.list })
 const rows = computed(() => list.data.value?.items ?? [])
 
 const TABS = [
@@ -93,6 +94,11 @@ async function exportCsv() {
       </select>
     </FilterBar>
 
+    <NoticeBanner v-if="list.params.value.toComplete">
+      Showing only the customers salespeople added from an order, still to complete.
+      <button type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-[13px] font-semibold text-erp-link" @click="list.setFilter('toComplete', '')">Show all customers</button>
+    </NoticeBanner>
+
     <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
 
     <div class="flex items-center justify-between gap-3">
@@ -112,7 +118,11 @@ async function exportCsv() {
           <RouterLink :to="`/core/customers/${data.id}`" class="erp-link font-semibold whitespace-nowrap">{{ data.code }}</RouterLink>
         </template>
       </Column>
-      <Column header="Name" field="name" />
+      <Column header="Name">
+        <template #body="{ data }: { data: CustomerListItem }">
+          {{ data.name }}<StatusChip v-if="data.toComplete" class="ml-2" status="TO_COMPLETE" label="To complete" group="pending" />
+        </template>
+      </Column>
       <Column header="Category · area">
         <template #body="{ data }: { data: CustomerListItem }">{{ data.category ?? '—' }}<template v-if="data.area"> · {{ data.area }}</template></template>
       </Column>

@@ -1725,6 +1725,7 @@ model MdmCustomer {
   isCash               Boolean           @default(false) // the walk-in customer for cash sales
   cameFromEnquiry      String?           @db.VarChar(30) // EQ-2609-0010: the enquiry a new customer came from (decision 7)
   visibleToAllBranches Boolean           @default(false) // seen by users of every branch, not only its own (A7, FR-SEC-033)
+  toComplete           Boolean           @default(false) // added by a salesperson from an order: the office checks it and marks it complete (phase 5)
   status               MdmCustomerStatus @default(ACTIVE)
   createdAt            DateTime          @default(now()) @db.DateTime(3)
   updatedAt            DateTime          @updatedAt @db.DateTime(3)
@@ -2731,6 +2732,7 @@ model SalSetting {
   useEnquiries           Boolean  @default(true) // off: Enquiry is hidden and new enquiries are refused
   officeDraftsQuotations Boolean  @default(true) // off: Draft Quotation is hidden from the menu
   askInstallation        Boolean  @default(false) // on: the order asks installation, delivery only or collect (phase 5)
+  agentsAddCustomers     Boolean  @default(false) // on: salespeople add a cash customer while keying an order; the office completes it in Core (phase 5)
   updatedAt              DateTime @updatedAt @db.DateTime(3)
   updatedBy              String   @db.VarChar(20)
 

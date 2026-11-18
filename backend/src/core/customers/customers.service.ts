@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { MdmCustomer } from '@prisma/client';
+import type { MdmCustomer, Prisma } from '@prisma/client';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
 import type { RequestContext } from '../../platform/context/request-context';
 import { dec } from '../../platform/http/decimal';
-import { BusinessRuleError, PermissionDeniedError, StaleVersionError, ValidationFailedError, type FieldError } from '../../platform/http/errors';
+import { BusinessRuleError, ConfigurationError, PermissionDeniedError, StaleVersionError, ValidationFailedError, type FieldError } from '../../platform/http/errors';
 import { NumberingService } from '../../platform/numbering/numbering.service';
+import type { NewOrderCustomer } from '../../platform/onboarding/customer-onboarding.registry';
 import { PrismaService } from '../../platform/prisma/prisma.service';
+import { asSystem } from '../../platform/scope/data-scope';
 import { RecordUsageRegistry } from '../../platform/usage/record-usage.registry';
 import { CORE_DOC_TYPE, CORE_ENTITY, CORE_EVENT } from '../core.constants';
 import { CORE_PERMISSIONS as P } from '../core.permissions';
@@ -17,11 +19,17 @@ import { deactivateRefusal, deleteRefusal } from '../usage/usage.rules';
 import type { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import {
   activationGaps,
+  addedFromOrderMessage,
   CUSTOMER_LABELS,
   customerAudit,
+  customerFromOrder,
   customerSnapshot,
   limitError,
   permissionsNeeded,
+  PHONE_DIGITS_MIN,
+  phoneInUseMessage,
+  phoneKey,
+  setupProblemMessage,
   STATUS_LABEL,
   statusActions,
   type CustomerRecord,
@@ -79,29 +87,64 @@ export class CustomersService {
    * With an enquiry number, Sales links that enquiry to it (decision 7).
    */
   async create(ctx: RequestContext, dto: CreateCustomerDto, keptCode?: string) {
-    const tenantId = ctx.tenantId;
     const preview = await this.preview(ctx, dto, null);
     if (preview.errors.length) throw new ValidationFailedError(preview.errors);
     if (preview.permission) throw new PermissionDeniedError(preview.permission);
-    const data = this.data(dto);
     const status = dto.status ?? 'ACTIVE';
-    const id = await this.prisma.$transaction(async (tx) => {
-      const code = keptCode ?? (await this.numbering.next(tx, tenantId, CORE_DOC_TYPE.CUSTOMER));
-      const row = await tx.mdmCustomer.create({
-        data: { tenantId, code, ...data, cameFromEnquiry: dto.cameFromEnquiry ?? null, status, createdBy: ctx.user.code, updatedBy: ctx.user.code },
-      });
+    const { id } = await this.insert(ctx, dto, {
+      keptCode,
+      status,
+      cameFromEnquiry: dto.cameFromEnquiry ?? null,
+      message: (code) => `${status === 'PROSPECT' ? 'Prospect' : 'Customer'} ${code} created${dto.cameFromEnquiry ? ` from enquiry ${dto.cameFromEnquiry}` : ''}`,
+      extra: { enquiryNo: dto.cameFromEnquiry ?? null },
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /**
+   * Phase 5: a salesperson adds a household customer while keying an order. Sales checks its Sales Flow switch and
+   * asks through the platform's customer onboarding, so Core stays the only writer of customers. The customer is
+   * active at once, on cash terms with no credit limit and the cash customer's price list, and marked to complete
+   * for the office. A phone already on file is refused, whoever's customer it is.
+   */
+  async addFromOrder(ctx: RequestContext, input: NewOrderCustomer): Promise<{ id: string; code: string }> {
+    const tenantId = ctx.tenantId;
+    const key = phoneKey(input.phone);
+    if (key.length < PHONE_DIGITS_MIN) throw ValidationFailedError.field('phone', "Type the customer's phone number.");
+    const taken = await this.phoneOwner(tenantId, key);
+    if (taken) throw new BusinessRuleError('PHONE_IN_USE', phoneInUseMessage(taken));
+    const cash = await asSystem(() => this.prisma.mdmCustomer.findFirst({ where: { tenantId, isCash: true }, select: { priceListCode: true } }));
+    if (!cash) throw new ConfigurationError('There is no cash customer to take the price list from. Set one up in Core first.');
+    const dto = customerFromOrder(input, cash);
+    const preview = await this.preview(ctx, dto, null);
+    if (preview.errors.length) throw new BusinessRuleError('NEW_CUSTOMER_SETUP', setupProblemMessage(preview.errors.map((e) => e.message)));
+    return this.insert(ctx, dto, {
+      status: 'ACTIVE',
+      toComplete: true,
+      message: (code) => addedFromOrderMessage(code, ctx.user.name),
+      extra: { enquiryNo: null, addedFrom: 'SALES_ORDER' },
+    });
+  }
+
+  /** The office has checked a customer a salesperson added from an order, and filled in what was missing. */
+  async complete(ctx: RequestContext, id: string, version: number) {
+    const tenantId = ctx.tenantId;
+    const c = await this.query.load(ctx, id);
+    if (c.version !== version) throw new StaleVersionError();
+    if (!c.toComplete) throw new BusinessRuleError('ALREADY_COMPLETE', `${c.code} is already complete.`);
+    await this.prisma.$transaction(async (tx) => {
+      const saved = await tx.mdmCustomer.updateMany({ where: { id, tenantId, version }, data: { toComplete: false, version: { increment: 1 }, updatedBy: ctx.user.code } });
+      if (saved.count === 0) throw new StaleVersionError();
       await this.records.record(tx, ctx, {
         entityType: CORE_ENTITY.CUSTOMER,
-        entityId: row.id,
-        code,
-        action: 'created',
-        message: `${status === 'PROSPECT' ? 'Prospect' : 'Customer'} ${code} created${dto.cameFromEnquiry ? ` from enquiry ${dto.cameFromEnquiry}` : ''}`,
-        changes: diffRecord(null, customerAudit(record(row)), CUSTOMER_LABELS),
-        event: CORE_EVENT.CUSTOMER_CREATED,
-        snapshot: customerSnapshot(record(row)),
-        extra: { enquiryNo: dto.cameFromEnquiry ?? null },
+        entityId: id,
+        code: c.code,
+        action: 'completed',
+        message: `Customer ${c.code} checked and marked complete`,
+        changes: [{ field: 'toComplete', label: 'To complete', from: 'Yes', to: 'No' }],
+        event: CORE_EVENT.CUSTOMER_UPDATED,
+        snapshot: customerSnapshot(record(c)),
       });
-      return row.id;
     });
     return this.query.detail(ctx, id);
   }
@@ -211,6 +254,53 @@ export class CustomersService {
     const needed = permissionsNeeded(changes.map((c) => c.field));
     const permission = needed.details && !has(P.CUSTOMER_EDIT) ? P.CUSTOMER_EDIT : needed.credit && !has(P.CUSTOMER_CREDIT) ? P.CUSTOMER_CREDIT : null;
     return { changes, permission, errors: await this.check(ctx, dto, before) };
+  }
+
+  /** One new customer in one transaction: the next C-#### (or the kept code), its activity with the values, and the event. */
+  private async insert(
+    ctx: RequestContext,
+    dto: CustomerInput,
+    opts: {
+      keptCode?: string;
+      status: 'ACTIVE' | 'PROSPECT';
+      cameFromEnquiry?: string | null;
+      toComplete?: boolean;
+      message: (code: string) => string;
+      extra: Record<string, Prisma.InputJsonValue | null>;
+    },
+  ): Promise<{ id: string; code: string }> {
+    const tenantId = ctx.tenantId;
+    const data = this.data(dto);
+    return this.prisma.$transaction(async (tx) => {
+      const code = opts.keptCode ?? (await this.numbering.next(tx, tenantId, CORE_DOC_TYPE.CUSTOMER));
+      const row = await tx.mdmCustomer.create({
+        data: {
+          tenantId, code, ...data, cameFromEnquiry: opts.cameFromEnquiry ?? null, toComplete: opts.toComplete ?? false, status: opts.status,
+          createdBy: ctx.user.code, updatedBy: ctx.user.code,
+        },
+      });
+      await this.records.record(tx, ctx, {
+        entityType: CORE_ENTITY.CUSTOMER,
+        entityId: row.id,
+        code,
+        action: 'created',
+        message: opts.message(code),
+        changes: diffRecord(null, customerAudit(record(row)), CUSTOMER_LABELS),
+        event: CORE_EVENT.CUSTOMER_CREATED,
+        snapshot: customerSnapshot(record(row)),
+        extra: opts.extra,
+      });
+      return { id: row.id, code };
+    });
+  }
+
+  /** Which customer already has this phone, if any: every customer counts, in every branch and of every agent. */
+  private async phoneOwner(tenantId: string, key: string): Promise<string | null> {
+    const tail = `%${key.slice(-PHONE_DIGITS_MIN)}`;
+    const rows = await this.prisma.$queryRaw<{ code: string; phone: string }[]>`
+      SELECT code, phone FROM mdm_customer
+      WHERE tenantId = ${tenantId} AND phone IS NOT NULL AND REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ${tail}`;
+    return rows.find((r) => phoneKey(r.phone) === key)?.code ?? null;
   }
 
   private data(dto: CustomerInput) {

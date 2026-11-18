@@ -54,6 +54,13 @@ export class CoreCustomersController {
     return this.customers.setStatus(ctx, id, 'activate', dto.version);
   }
 
+  /** The office has checked a customer a salesperson added from an order (phase 5). */
+  @Post(':id/complete')
+  @RequirePermission(P.CUSTOMER_EDIT)
+  complete(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: CustomerVersionDto) {
+    return this.customers.complete(ctx, id, dto.version);
+  }
+
   @Delete(':id')
   @RequirePermission(P.CUSTOMER_EDIT)
   remove(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Query() q: CustomerVersionDto) {

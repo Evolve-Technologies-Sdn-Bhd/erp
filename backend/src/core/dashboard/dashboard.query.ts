@@ -73,7 +73,7 @@ export class CoreDashboardQuery {
 
   /** *Needs attention*: gaps that LHDN e-Invoices or buyers will trip over. Nothing here blocks Purchase or Sales. */
   private async attention(tenantId: string) {
-    const [itemsWithoutClassification, suppliers, customers, noSupplier, itemGroups, categories, areas] = await Promise.all([
+    const [itemsWithoutClassification, suppliers, customers, noSupplier, itemGroups, categories, areas, customersToComplete] = await Promise.all([
       this.prisma.mdmItem.count({ where: { tenantId, status: 'ACTIVE', OR: [{ einvoiceClassification: null }, { einvoiceClassification: '' }] } }),
       this.prisma.mdmSupplier.findMany({ where: { tenantId, status: 'ACTIVE', isWalkIn: false }, select: { code: true, tin: true, regNo: true }, orderBy: { code: 'asc' } }),
       this.prisma.mdmCustomer.findMany({ where: { tenantId, status: 'ACTIVE', isCash: false }, select: { code: true, tin: true, idNumber: true }, orderBy: { code: 'asc' } }),
@@ -85,6 +85,7 @@ export class CoreDashboardQuery {
       this.prisma.mdmItemGroup.findMany({ where: { tenantId, isActive: true }, select: { name: true } }),
       this.prisma.mdmCustomerCategory.findMany({ where: { tenantId, isActive: true }, select: { name: true } }),
       this.prisma.mdmArea.findMany({ where: { tenantId, isActive: true }, select: { name: true } }),
+      this.prisma.mdmCustomer.count({ where: { tenantId, toComplete: true } }),
     ]);
     return buildAttention({
       itemsWithoutClassification,
@@ -94,6 +95,7 @@ export class CoreDashboardQuery {
       itemGroups: itemGroups.map((g) => g.name),
       customerCategories: categories.map((c) => c.name),
       areas: areas.map((a) => a.name),
+      customersToComplete,
     });
   }
 }

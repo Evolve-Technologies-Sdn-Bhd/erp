@@ -1,6 +1,7 @@
 import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
 import type {
+  NewCustomerInput,
   CancelDetail,
   CashKpis,
   CashListItem,
@@ -290,4 +291,9 @@ export const salesLookupsApi = {
   branches: () => api<{ items: { code: string; name: string }[] }>('/sales/lookups/branches'),
   enquiryTypes: () => api<{ types: EnquiryTypeOption[]; sources: { code: string; name: string }[] }>('/sales/lookups/enquiry-types'),
   packages: (date?: string) => api<{ date: string; items: PackageOption[] }>('/sales/lookups/packages', { query: { date } }),
+}
+
+/** Phase 5 · a new household customer from the sales order (S11) — /api/v1/sales/customers. Core makes it. */
+export const salesCustomersApi = {
+  add: (input: NewCustomerInput) => api<CustomerOption>('/sales/customers', { method: 'POST', body: input }),
 }

@@ -23,6 +23,12 @@ export class CustomerListQueryDto extends ListQueryDto {
   @IsString()
   @MaxLength(20)
   agent?: string;
+
+  /** Only customers salespeople added from an order that the office has not completed yet (C01 *Needs attention*). */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  toComplete?: boolean;
 }
 
 /** Everything the customer form (C05) saves. The code comes from numbering on create and never changes. */

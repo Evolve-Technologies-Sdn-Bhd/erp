@@ -39,6 +39,8 @@ export class SaveSalesFlowDto {
   @IsBoolean() useEnquiries!: boolean;
   @IsBoolean() officeDraftsQuotations!: boolean;
   @IsBoolean() askInstallation!: boolean;
+  /** Left as it is when not sent, so a page that does not show it keeps it. */
+  @IsOptional() @IsBoolean() agentsAddCustomers?: boolean;
 }
 
 export class SequenceDto {

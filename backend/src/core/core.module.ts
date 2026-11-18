@@ -1,5 +1,6 @@
 import { Module, type OnModuleInit } from '@nestjs/common';
 import { PermissionCatalogue } from '../platform/context/permission-catalogue';
+import { CustomerOnboarding } from '../platform/onboarding/customer-onboarding.registry';
 import { ScopeRegistry } from '../platform/scope/scope.registry';
 import { CORE_SCOPE_RULES } from './core.scope';
 import { CORE_PERMISSION_CATALOGUE } from './core.permissions';
@@ -55,10 +56,14 @@ export class CoreModule implements OnModuleInit {
   constructor(
     private readonly permissions: PermissionCatalogue,
     private readonly scopes: ScopeRegistry,
+    private readonly onboarding: CustomerOnboarding,
+    private readonly customers: CustomersService,
   ) {}
 
   onModuleInit(): void {
     this.permissions.register(CORE_PERMISSION_CATALOGUE);
     this.scopes.register(CORE_SCOPE_RULES);
+    // Phase 5: a salesperson adds a customer from an order; Sales asks, Core writes it.
+    this.onboarding.register({ addFromOrder: (ctx, input) => this.customers.addFromOrder(ctx, input) });
   }
 }

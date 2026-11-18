@@ -187,13 +187,15 @@ export interface UomDetail {
 // ── Customers (C04, C05) ──
 
 export type CustomerStatus = 'ACTIVE' | 'PROSPECT' | 'BLOCKED'
-export type CustomerAction = 'edit' | 'editCredit' | 'block' | 'activate' | 'delete'
+export type CustomerAction = 'edit' | 'editCredit' | 'block' | 'activate' | 'delete' | 'complete'
 export type IdType = 'BRN' | 'NRIC' | 'PASSPORT' | 'ARMY'
 
 export interface CustomerListItem {
   id: string
   code: string
   name: string
+  /** Added by a salesperson from an order, not yet completed by the office (phase 5). */
+  toComplete: boolean
   category: string | null
   area: string | null
   branchCode: string
@@ -240,6 +242,10 @@ export interface CustomerDetail extends CustomerInput {
   code: string
   isCash: boolean
   cameFromEnquiry: string | null
+  /** Added by a salesperson from an order, not yet completed by the office (phase 5). */
+  toComplete: boolean
+  /** Who added it from an order and when, while it is still to complete. */
+  addedFromOrder: { by: string; at: string } | null
   status: CustomerStatus
   statusLabel: string
   version: number
