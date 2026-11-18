@@ -8,11 +8,18 @@ export const serviceApi = {
   customers: (q: string) => api<{ items: ServiceCustomerOption[] }>('/service/lookups/customers', { query: { q } }),
   board: (date?: string) => api<Board>('/service/board', { query: { date } }),
   settings: () => api<ServiceSettings>('/service/settings'),
-  addPerson: (body: { name: string; role: PersonRole; phone?: string }) => api<ServiceSettings>('/service/settings/people', { method: 'POST', body }),
-  updatePerson: (id: string, body: { name: string; role: PersonRole; phone?: string; isActive: boolean; version: number }) =>
-    api<ServiceSettings>(`/service/settings/people/${id}`, { method: 'PATCH', body }),
+  addPerson: (body: PersonInput) => api<ServiceSettings>('/service/settings/people', { method: 'POST', body }),
+  updatePerson: (id: string, body: PersonInput & { isActive: boolean; version: number }) => api<ServiceSettings>(`/service/settings/people/${id}`, { method: 'PATCH', body }),
   addSlotGroup: (body: SlotGroupInput) => api<ServiceSettings>('/service/settings/slot-groups', { method: 'POST', body }),
   updateSlotGroup: (id: string, body: SlotGroupInput & { version: number }) => api<ServiceSettings>(`/service/settings/slot-groups/${id}`, { method: 'PATCH', body }),
+}
+
+export interface PersonInput {
+  name: string
+  role: PersonRole
+  phone?: string
+  jobTypes: string[]
+  siteTypes: string[]
 }
 
 export interface SlotGroupInput {
@@ -21,6 +28,7 @@ export interface SlotGroupInput {
   firstStart: number
   lastEnd: number
   jobTypes: string[]
+  defaultFor: string[]
   isActive: boolean
 }
 
@@ -33,6 +41,8 @@ export const serviceJobsApi = {
   book: (id: string, body: { version: number; personId: string; date: string; slotGroupCode: string; start: number }) =>
     api<JobDetail>(`/service/jobs/${id}/book`, { method: 'POST', body }),
   unbook: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/unbook`, { method: 'POST', body: { version } }),
+  /** Give a booked job longer: a later expected completion that day ("16:30"), with the reason. */
+  extend: (id: string, body: { version: number; until: string; reason: string }) => api<JobDetail>(`/service/jobs/${id}/extend`, { method: 'POST', body }),
   record: (id: string, body: VisitInput & { version: number }) => api<JobDetail>(`/service/jobs/${id}/record`, { method: 'POST', body }),
   followUp: (id: string) => api<JobDetail>(`/service/jobs/${id}/follow-up`, { method: 'POST' }),
   /** A photo of the work, attached to the job straight away. */

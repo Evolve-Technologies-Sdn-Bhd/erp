@@ -11,20 +11,25 @@ import { OutboxWriter } from '../../platform/outbox/outbox.writer';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { SVC_DOC_TYPE, SVC_ENTITY, SVC_EVENT, SVC_SEQUENCES } from '../service.constants';
 import { AttachmentsService } from '../../platform/attachments/attachments.service';
-import type { BookJobDto, CancelJobDto, CreateJobDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import type { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import { extendErrors, momentText, parseTime, runsInto, stickyOverdue, type JobTiming } from './timing.rules';
 import { visitErrors, visitText } from './visit.rules';
 import { reminderJobNote, remindersFrom } from '../reminders/reminder.rules';
 import type { SvcReminder } from '@prisma/client';
 import type { JobWithItems } from './jobs.query';
-import { bookingRefusal, slotLabel } from '../board/booking.rules';
+import { bookingRefusal, busyEnd, goesTo, SITE_TYPE_LABEL, slotLabel, timeLabel, type SiteType } from '../board/booking.rules';
 import { ServiceSettingsService } from '../settings/settings.service';
 import { allowedJobActions, JOB_STAGE_LABEL, JOB_TYPE_LABEL, manualJobErrors, shortDay, type JobAction, type JobStage, type JobType, type ReleasedOrder } from './jobs.rules';
 import { JobsQuery } from './jobs.query';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
-/** What taking a job off the board clears. */
-const FREE_SLOT = { personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null } as const;
+/** What taking a job off the board clears, the expected completion and its extension with it. */
+const FREE_SLOT = { personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null, expectedEnd: null, extendReason: null } as const;
+/** A job's timing, for the rules in timing.rules.ts. */
+const timing = (j: { stage: string; jobDate: Date | null; slotEnd: number | null; expectedEnd: number | null; overdueSince: Date | null }): JobTiming => ({
+  stage: j.stage, jobDate: j.jobDate ? isoDay(j.jobDate) : null, slotEnd: j.slotEnd, expectedEnd: j.expectedEnd, overdueSince: j.overdueSince,
+});
 const trimOrNull = (v: string | undefined) => (v === undefined ? undefined : v.trim() || null);
 
 /**
@@ -60,7 +65,7 @@ export class JobsService {
       const job = await this.insert(tx, ctx, {
         jobType: dto.jobType as JobType, branchCode, customerCode: customer.code, customerName: customer.name,
         contactName: dto.contactName?.trim() || customer.contactName, phone: dto.phone?.trim() || customer.phone,
-        siteAddress, area: dto.area?.trim() || customer.area, source: 'MANUAL', preferredDate, note: dto.note?.trim() || null,
+        siteAddress, area: dto.area?.trim() || customer.area, source: 'MANUAL', preferredDate, note: dto.note?.trim() || null, siteType: dto.siteType || null,
       }, [], `Added by ${ctx.user.name}`);
       return job;
     });
@@ -93,6 +98,14 @@ export class JobsService {
     const preferredDate = dto.preferredDate === undefined ? undefined : dto.preferredDate || null;
     if (preferredDate && preferredDate < this.clock.today()) throw ValidationFailedError.field('preferredDate', 'The preferred date cannot be in the past.');
     if (dto.siteAddress !== undefined && !dto.siteAddress.trim()) throw ValidationFailedError.field('siteAddress', 'Type the address the installer goes to.');
+    const siteType = dto.siteType === undefined ? undefined : dto.siteType || null;
+    if (siteType && siteType !== job.siteType && job.stage === 'BOOKED' && job.personId) {
+      // The person booked must go to that kind of site: the office moves the job first.
+      const person = await this.prisma.svcPerson.findFirst({ where: { tenantId: ctx.tenantId, id: job.personId } });
+      if (person && !goesTo(person.siteTypes, siteType)) {
+        throw new BusinessRuleError('SITE_NOT_SUITED', `${person.name}, who is booked, does not go to ${SITE_TYPE_LABEL[siteType as SiteType].toLowerCase()} sites. Move the job to someone who does first.`);
+      }
+    }
     const data: Prisma.SvcJobUpdateManyMutationInput = {
       ...(dto.contactName !== undefined && { contactName: trimOrNull(dto.contactName) }),
       ...(dto.phone !== undefined && { phone: trimOrNull(dto.phone) }),
@@ -100,6 +113,7 @@ export class JobsService {
       ...(dto.area !== undefined && { area: trimOrNull(dto.area) }),
       ...(preferredDate !== undefined && { preferredDate: preferredDate ? day(preferredDate) : null, ...(preferredDate && { afterStock: false }) }),
       ...(dto.note !== undefined && { note: trimOrNull(dto.note) }),
+      ...(siteType !== undefined && { siteType }),
     };
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, job.id, dto.version, data, ['NOT_BOOKED', 'BOOKED']);
@@ -143,25 +157,29 @@ export class JobsService {
     if (!person) throw ValidationFailedError.field('personId', 'Pick a person from the list.');
     if (!group) throw ValidationFailedError.field('slotGroupCode', 'Pick a slot group from the list.');
     const moving = job.stage === 'BOOKED';
+    // Moving an overdue job keeps the flag: it stays overdue until the visit is recorded.
+    const overdueSince = stickyOverdue(timing(job), this.query.now());
 
     await this.prisma.$transaction(async (tx) => {
       // Lock the person's row: bookings for the same person wait for each other.
       await tx.$queryRaw`SELECT id FROM svc_person WHERE id = ${person.id} FOR UPDATE`;
       const taken = await tx.svcJob.findMany({
         where: { tenantId: ctx.tenantId, personId: person.id, jobDate: day(dto.date), stage: { notIn: ['CANCELLED', 'NOT_BOOKED'] }, id: { not: job.id } },
-        select: { docNo: true, slotStart: true, slotEnd: true },
+        select: { docNo: true, slotStart: true, slotEnd: true, expectedEnd: true },
       });
       const refusal = bookingRefusal({
-        jobNo: job.docNo, jobType: job.jobType as JobType, date: dto.date, today: this.clock.today(), start: dto.start,
-        person: { name: person.name, role: person.role, isActive: person.isActive },
+        jobNo: job.docNo, jobType: job.jobType as JobType, siteType: job.siteType, date: dto.date, today: this.clock.today(), start: dto.start,
+        person: { name: person.name, role: person.role, isActive: person.isActive, jobTypes: person.jobTypes, siteTypes: person.siteTypes },
         group,
-        taken: taken.filter((t) => t.slotStart !== null && t.slotEnd !== null).map((t) => ({ docNo: t.docNo, start: t.slotStart!, end: t.slotEnd! })),
+        taken: taken
+          .filter((t) => t.slotStart !== null && t.slotEnd !== null)
+          .map((t) => ({ docNo: t.docNo, start: t.slotStart!, end: busyEnd({ slotEnd: t.slotEnd!, expectedEnd: t.expectedEnd }) })),
       });
       if (refusal) throw new BusinessRuleError('SLOT_NOT_FREE', refusal);
       const end = dto.start + group.slotMinutes;
       await this.bump(tx, ctx, job.id, dto.version, {
         stage: 'BOOKED', personId: person.id, personName: person.name, jobDate: day(dto.date), slotStart: dto.start, slotEnd: end,
-        slotGroupCode: group.code, bookedAt: this.clock.now(),
+        slotGroupCode: group.code, bookedAt: this.clock.now(), expectedEnd: end, extendReason: null, overdueSince,
       }, ['NOT_BOOKED', 'BOOKED']);
       await this.log(tx, ctx, job.id, job.docNo, moving ? 'moved' : 'booked', `${moving ? 'Moved to' : 'Booked for'} ${person.name}, ${shortDay(dto.date)}, ${slotLabel(dto.start, end)}`);
       await this.outbox.publish(tx, ctx, [{
@@ -176,9 +194,46 @@ export class JobsService {
   async unbook(ctx: RequestContext, id: string, dto: VersionDto) {
     const job = await this.query.load(ctx.tenantId, id);
     this.require(job.stage as JobStage, 'unbook', `${job.docNo} is not booked.`);
+    const overdueSince = stickyOverdue(timing(job), this.query.now());
     await this.prisma.$transaction(async (tx) => {
-      await this.bump(tx, ctx, job.id, dto.version, { stage: 'NOT_BOOKED', ...FREE_SLOT }, 'BOOKED');
+      await this.bump(tx, ctx, job.id, dto.version, { stage: 'NOT_BOOKED', ...FREE_SLOT, overdueSince }, 'BOOKED');
       await this.log(tx, ctx, job.id, job.docNo, 'unbooked', `Taken off the board by ${ctx.user.name}; the slot of ${job.personName} is free again`);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /**
+   * Gives a booked job longer (F3 part 4): a later expected completion that day, with the reason. The person stays
+   * busy until then, so nothing new is booked over it; jobs already booked after it are named, as they will start
+   * late. An overdue job stays overdue.
+   */
+  async extend(ctx: RequestContext, id: string, dto: ExtendJobDto) {
+    const job = await this.query.load(ctx.tenantId, id);
+    this.require(job.stage as JobStage, 'extend', `${job.docNo} must be booked before it is given longer.`);
+    const current = busyEnd({ slotEnd: job.slotEnd!, expectedEnd: job.expectedEnd });
+    const errors = extendErrors({ until: dto.until, reason: dto.reason }, current);
+    if (errors.length) throw new ValidationFailedError(errors);
+    const until = parseTime(dto.until)!;
+    const reason = dto.reason.trim();
+    const overdueSince = stickyOverdue(timing(job), this.query.now());
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM svc_person WHERE id = ${job.personId} FOR UPDATE`;
+      const others = await tx.svcJob.findMany({
+        where: { tenantId: ctx.tenantId, personId: job.personId, jobDate: job.jobDate, stage: { notIn: ['CANCELLED', 'NOT_BOOKED'] }, id: { not: job.id } },
+        select: { docNo: true, slotStart: true, slotEnd: true },
+      });
+      const late = runsInto({ start: job.slotStart!, end: until }, others.filter((o) => o.slotStart !== null && o.slotEnd !== null).map((o) => ({ docNo: o.docNo, start: o.slotStart!, end: o.slotEnd! })));
+      await this.bump(tx, ctx, job.id, dto.version, { expectedEnd: until, extendReason: reason, overdueSince }, 'BOOKED');
+      await this.log(tx, ctx, job.id, job.docNo, 'extended', [
+        `Expected completion extended from ${timeLabel(current)} to ${timeLabel(until)} by ${ctx.user.name}`,
+        ...(late.length ? [`it runs into ${late.map((o) => `${o.docNo} at ${slotLabel(o.start, o.end)}`).join(', ')}`] : []),
+        ...(overdueSince ? [`it stays overdue (since ${momentText(overdueSince)})`] : []),
+      ].join('; '), reason);
+      await this.outbox.publish(tx, ctx, [{
+        name: SVC_EVENT.JOB_EXTENDED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
+        payload: { jobNo: job.docNo, personId: job.personId, personName: job.personName, date: job.jobDate ? isoDay(job.jobDate) : null, from: current, to: until, reason, runsInto: late.map((o) => o.docNo) },
+      }]);
     });
     return this.query.detail(ctx, id);
   }
@@ -196,6 +251,8 @@ export class JobsService {
     if (dto.nextDate && dto.nextDate < this.clock.today()) errors.push({ field: 'nextDate', message: 'The new date cannot be in the past.' });
     if (errors.length) throw new ValidationFailedError(errors);
     const by = job.personName && job.personName !== ctx.user.name ? `${ctx.user.name} for ${job.personName}` : ctx.user.name;
+    // Recording the visit ends the overdue flag; a done job keeps when it became overdue, so its page says it was late.
+    const overdueSince = stickyOverdue(timing(job), this.query.now());
     const reason = dto.reason?.trim() || null;
     const text = visitText(dto);
     // Service reminders (F6): a complete visit starts one for each item with a service interval in Core.
@@ -206,10 +263,10 @@ export class JobsService {
     await this.prisma.$transaction(async (tx) => {
       if (dto.result === 'POSTPONED') {
         await this.bump(tx, ctx, job.id, dto.version, {
-          stage: 'NOT_BOOKED', ...FREE_SLOT, result: 'POSTPONED', resultReason: reason, postponedCount: { increment: 1 },
+          stage: 'NOT_BOOKED', ...FREE_SLOT, result: 'POSTPONED', resultReason: reason, postponedCount: { increment: 1 }, overdueSince: null,
           ...(dto.nextDate && { preferredDate: day(dto.nextDate), afterStock: false }),
         }, 'BOOKED');
-        await this.log(tx, ctx, job.id, job.docNo, 'postponed', `Postponed, recorded by ${by}; waiting to be booked again${dto.nextDate ? `, the customer asks for ${shortDay(dto.nextDate)}` : ''}`, reason);
+        await this.log(tx, ctx, job.id, job.docNo, 'postponed', `Postponed, recorded by ${by}; waiting to be booked again${dto.nextDate ? `, the customer asks for ${shortDay(dto.nextDate)}` : ''}${overdueSince ? ` (it was overdue since ${momentText(overdueSince)})` : ''}`, reason);
         return;
       }
       await this.bump(tx, ctx, job.id, dto.version, {
@@ -217,9 +274,9 @@ export class JobsService {
         result: dto.result, resultReason: reason, arrivedAt: dto.arrivedAt || null, finishedAt: dto.finishedAt || null,
         paidStatus: dto.paidStatus ?? null, paidMethod: dto.paidStatus === 'PAID' ? (dto.paidMethod ?? null) : null,
         notPaidReason: dto.paidStatus === 'NOT_PAID' ? (dto.notPaidReason?.trim() ?? null) : null,
-        recordedBy: by, recordedAt: this.clock.now(),
+        recordedBy: by, recordedAt: this.clock.now(), overdueSince,
       }, 'BOOKED');
-      await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}`, dto.note?.trim() || reason);
+      await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}${overdueSince ? ` · late: overdue since ${momentText(overdueSince)}` : ''}`, dto.note?.trim() || reason);
       if (dto.result === 'COMPLETE') await this.startReminders(tx, ctx, job, intervals);
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_DONE, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
@@ -243,7 +300,7 @@ export class JobsService {
         jobType: job.jobType as JobType, branchCode: job.branchCode, customerCode: job.customerCode, customerName: job.customerName,
         contactName: job.contactName, phone: job.phone, siteAddress: job.siteAddress, area: job.area, source: 'MANUAL',
         salesOrderId: undefined, salesOrderNo: job.salesOrderNo ?? undefined, preferredDate: null,
-        note: `Follow-up of ${job.docNo}: ${job.resultReason ?? 'finish the work'}`, followUpOfId: job.id, followUpOfNo: job.docNo,
+        note: `Follow-up of ${job.docNo}: ${job.resultReason ?? 'finish the work'}`, followUpOfId: job.id, followUpOfNo: job.docNo, siteType: job.siteType,
       }, job.items.map((i) => ({ itemCode: i.itemCode, itemName: i.itemName, qty: i.qty.toString(), uomCode: i.uomCode })), `Follow-up of ${job.docNo}, added by ${ctx.user.name}`);
       await this.log(tx, ctx, job.id, job.docNo, 'follow_up', `Follow-up job ${next.docNo} added by ${ctx.user.name}`);
       return next;
@@ -265,7 +322,10 @@ export class JobsService {
 
   /** The service job a due reminder makes (RemindersService), in its transaction: Not booked, asking for the due day. */
   async createFromReminder(tx: Tx, ctx: RequestContext, r: SvcReminder, today: string): Promise<{ id: string; docNo: string }> {
+    // The service visit goes to the site the item was installed at, so it keeps that job's site type.
+    const from = await tx.svcJob.findFirst({ where: { tenantId: ctx.tenantId, id: r.fromJobId }, select: { siteType: true } });
     return this.insert(tx, ctx, {
+      siteType: from?.siteType ?? null,
       jobType: 'SERVICE', branchCode: r.branchCode, customerCode: r.customerCode, customerName: r.customerName,
       contactName: r.contactName, phone: r.phone, siteAddress: r.siteAddress, area: r.area, source: 'MANUAL',
       preferredDate: isoDay(r.dueOn) < today ? today : isoDay(r.dueOn),
@@ -299,6 +359,7 @@ export class JobsService {
       jobType: JobType; branchCode: string; customerCode: string; customerName: string; contactName: string | null; phone: string | null;
       siteAddress: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
       preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string; reminderId?: string;
+      siteType?: string | null;
     },
     lines: { itemCode: string; itemName: string; qty: string; uomCode: string }[],
     message: string,
@@ -311,7 +372,7 @@ export class JobsService {
         customerCode: j.customerCode, customerName: j.customerName, contactName: j.contactName, phone: j.phone, siteAddress: j.siteAddress, area: j.area,
         source: j.source, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
         preferredDate: j.preferredDate ? day(j.preferredDate) : null, afterStock: j.afterStock ?? false, note: j.note,
-        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null,
+        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null, siteType: j.siteType ?? null,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
         items: { create: lines.map((l, i) => ({ tenantId: ctx.tenantId, lineNo: i + 1, itemCode: l.itemCode, itemName: l.itemName, qty: dec(l.qty), uomCode: l.uomCode })) },
       },

@@ -16,7 +16,7 @@ import { JOB_TYPE_OPTIONS, STAGE_GROUP } from './stages'
 
 /** V03 · List of Jobs (SvcJobs.html). Person, date and slot fill in with the planning board (F3 part 2). */
 const { can } = useSession()
-const list = useListPage({ filterKeys: ['type'], fetch: serviceJobsApi.list })
+const list = useListPage({ filterKeys: ['type', 'overdue'], fetch: serviceJobsApi.list })
 const rows = computed(() => list.data.value?.items ?? [])
 const paged = computed(() => (list.data.value?.total ?? 0) > (list.data.value?.pageSize ?? Infinity))
 
@@ -53,6 +53,10 @@ watch(search, (v) => {
         <option value="">All types</option>
         <option v-for="t in JOB_TYPE_OPTIONS" :key="t.value" :value="t.value">{{ t.label }}</option>
       </select>
+      <select class="erp-input" aria-label="Filter by timing" :value="list.params.value.overdue" @change="list.setFilter('overdue', ($event.target as HTMLSelectElement).value)">
+        <option value="">On time or late</option>
+        <option value="1">Overdue only</option>
+      </select>
     </FilterBar>
 
     <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
@@ -68,6 +72,9 @@ watch(search, (v) => {
       <Column header="Area">
         <template #body="{ data }: { data: JobRow }">{{ data.area ?? '—' }}</template>
       </Column>
+      <Column header="Site">
+        <template #body="{ data }: { data: JobRow }"><span class="whitespace-nowrap">{{ data.siteTypeLabel ?? '—' }}</span></template>
+      </Column>
       <Column header="Order">
         <template #body="{ data }: { data: JobRow }"><span class="whitespace-nowrap">{{ data.salesOrderNo ?? '—' }}</span></template>
       </Column>
@@ -81,7 +88,12 @@ watch(search, (v) => {
         <template #body="{ data }: { data: JobRow }"><span :class="data.paidLabel === 'Not paid' ? 'font-semibold text-attention' : ''">{{ data.paidLabel ?? '—' }}</span></template>
       </Column>
       <Column header="Stage">
-        <template #body="{ data }: { data: JobRow }"><StatusChip :status="data.stage" :label="data.stageLabel" :group="STAGE_GROUP[data.stage]" /></template>
+        <template #body="{ data }: { data: JobRow }">
+          <span class="flex flex-wrap items-center gap-1">
+            <StatusChip :status="data.stage" :label="data.stageLabel" :group="STAGE_GROUP[data.stage]" />
+            <StatusChip v-if="data.overdue" status="OVERDUE" label="Overdue" group="cancelled" :title="`Overdue since ${data.overdueSinceText}`" />
+          </span>
+        </template>
       </Column>
     </DataList>
 

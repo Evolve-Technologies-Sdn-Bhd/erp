@@ -136,9 +136,9 @@ describe('Service jobs (end to end)', () => {
     expect(board.people.map((p) => `${p.name}: ${p.jobTypes.join(',')}`)).toEqual(['Hafiz Rahman: INSTALLATION', 'Lee Jun Wei: INSTALLATION', 'Suresh Nair: SERVICE,REPAIR']);
 
     const first = await jobId('Asks for Thu, 1 Oct');
-    expect(await book(first, people['Suresh Nair']!, '2026-10-01', 'STANDARD', 720)).toMatchObject({ status: 409, body: { message: 'Suresh Nair is Technician and does not take installation jobs.' } });
+    expect(await book(first, people['Suresh Nair']!, '2026-10-01', 'STANDARD', 720)).toMatchObject({ status: 409, body: { message: 'Suresh Nair does not take installation jobs.' } });
     const booked = await book(first, people['Hafiz Rahman']!, '2026-10-01', 'STANDARD', 720);
-    expect(booked.body).toMatchObject({ stage: 'BOOKED', personName: 'Hafiz Rahman', whenText: 'Thu, 1 Oct · 12 PM – 2 PM', allowedActions: ['edit', 'cancel', 'book', 'unbook', 'record'] });
+    expect(booked.body).toMatchObject({ stage: 'BOOKED', personName: 'Hafiz Rahman', whenText: 'Thu, 1 Oct · 12 PM – 2 PM', allowedActions: ['edit', 'cancel', 'book', 'unbook', 'extend', 'record'] });
     expect(booked.body.activity[0]!.message).toBe('Booked for Hafiz Rahman, Thu, 1 Oct, 12 PM – 2 PM');
 
     const second = await jobId('After stock arrives');

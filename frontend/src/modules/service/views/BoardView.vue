@@ -8,12 +8,13 @@ import PageHeader from '@/components/erp/PageHeader.vue'
 import { useSession } from '@/composables/useSession'
 import { formatDate } from '@/utils/format'
 import { serviceApi, serviceJobsApi } from '../api/service'
-import type { Board, BoardWaiting, JobType, SlotGroup } from '../types'
+import type { Board, BoardWaiting, JobType, Person, SlotGroup } from '../types'
 import { TYPE_BLOCK, TYPE_DOT } from './stages'
 
 /**
- * V02 · Planning Board (SvcBoard.html, kept simple): one day at a time. Pick a job, a slot group, then a free slot on
- * someone who takes that job. Two jobs for one person can never overlap; the server checks again on booking.
+ * V02 · Planning Board (SvcBoard.html, kept simple): one day at a time. Pick a job, a slot group (the job type's default
+ * first), then a free slot on someone who takes that job and goes to its kind of site. Two jobs for one person can never
+ * overlap, an extended job keeps its person busy, and an overdue job is marked; the server checks again on booking.
  */
 const route = useRoute()
 const router = useRouter()
@@ -53,13 +54,15 @@ async function pickFromQuery() {
   pick({
     id: j.id, docNo: j.docNo, jobType: j.jobType, typeLabel: j.typeLabel, customerName: j.customerName, area: j.area, salesOrderNo: j.salesOrderNo,
     preferredDate: j.preferredDate, afterStock: j.afterStock, whenText: j.whenText, version: j.version, asksForThisDay: false, moving: true, bookedPerson: j.booking?.personName ?? null,
+    overdue: j.overdue, overdueSinceText: j.overdueSinceText, siteType: j.siteType, siteTypeLabel: j.siteTypeLabel,
   })
 }
 
 function pick(j: (BoardWaiting & { moving?: boolean; bookedPerson?: string | null }) | null) {
   picked.value = picked.value?.id === j?.id ? null : j
+  // The job type's default slot group first (Slots and Stages), else the first that fits.
   const groups = picked.value ? groupsFor(picked.value.jobType) : []
-  if (!groups.some((g) => g.code === groupCode.value)) groupCode.value = groups[0]?.code ?? ''
+  groupCode.value = (groups.find((g) => g.defaultFor.includes(picked.value!.jobType)) ?? groups[0])?.code ?? ''
 }
 
 function goTo(d: string) {
@@ -89,15 +92,22 @@ const hourLabel = (m: number) => {
   return `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' : 'PM'}`
 }
 
-/** Free slots of the chosen group for a person who takes the picked job: none that overlap their other jobs. */
+/** Why a person cannot take the picked job, or null: the job type they take, then the kind of site they go to. */
+function notSuited(p: Person): string | null {
+  const j = picked.value
+  if (!j) return null
+  if (!p.jobTypes.includes(j.jobType)) return `does not take ${j.typeLabel.toLowerCase()} jobs`
+  if (j.siteType && !p.siteTypes.includes(j.siteType)) return `does not go to ${j.siteTypeLabel?.toLowerCase()} sites`
+  return null
+}
+/** Free slots of the chosen group for a person who suits the picked job: none that overlap their other jobs, extensions included. */
 function freeSlots(personId: string) {
   const p = board.value?.people.find((x) => x.id === personId)
-  if (!p || !picked.value || !group.value || past.value || !p.jobTypes.includes(picked.value.jobType)) return []
+  if (!p || !picked.value || !group.value || past.value || notSuited(p)) return []
   const others = p.jobs.filter((j) => j.id !== picked.value!.id)
-  return group.value.slots.filter((s) => !others.some((o) => s.start < o.end && o.start < s.end))
+  return group.value.slots.filter((s) => !others.some((o) => s.start < o.busyEnd && o.start < s.end))
 }
-const takes = (personJobTypes: JobType[]) => !picked.value || personJobTypes.includes(picked.value.jobType)
-const hidden = computed(() => (picked.value ? (board.value?.people.filter((p) => !p.jobTypes.includes(picked.value!.jobType)) ?? []) : []))
+const hidden = computed(() => (picked.value ? (board.value?.people.filter((p) => notSuited(p)) ?? []) : []))
 
 function bookSlot(personId: string, slot: { start: number; end: number; label: string }) {
   const j = picked.value
@@ -169,8 +179,9 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
           <span class="flex items-center gap-1.5 font-semibold">
             <span class="h-2 w-2 rounded-full" :class="TYPE_DOT[j.jobType]" aria-hidden="true" />{{ j.docNo }} · {{ j.typeLabel }}
             <span v-if="j.asksForThisDay" class="text-attention" title="The customer asks for this day">★</span>
+            <span v-if="j.overdue" class="ml-auto rounded bg-chip-cancelled-bg px-1.5 text-[11px] text-chip-cancelled-text" :title="`Overdue since ${j.overdueSinceText}`">Overdue</span>
           </span>
-          <span class="text-xs">{{ j.customerName }}<template v-if="j.area"> · {{ j.area }}</template></span>
+          <span class="text-xs">{{ j.customerName }}<template v-if="j.area"> · {{ j.area }}</template><template v-if="j.siteTypeLabel"> · {{ j.siteTypeLabel }}</template></span>
           <span class="text-xs text-erp-muted">{{ j.salesOrderNo ? `${j.salesOrderNo} · ` : '' }}{{ j.whenText.toLowerCase() === '—' ? 'no date asked' : j.whenText.replace('Asks', 'asks') }}</span>
         </button>
 
@@ -203,7 +214,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
             v-for="p in board.people"
             :key="p.id"
             class="grid grid-cols-[170px_minmax(0,1fr)] items-stretch rounded-lg border border-erp-border"
-            :class="{ 'opacity-40': !takes(p.jobTypes) }"
+            :class="{ 'opacity-40': Boolean(notSuited(p)) }"
           >
             <div class="flex flex-col justify-center border-r border-erp-border px-3 py-2">
               <span class="text-[13px] font-semibold">{{ p.name }}</span>
@@ -216,14 +227,27 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
                 :key="j.id"
                 :to="`/service/jobs/${j.id}`"
                 class="absolute top-1.5 bottom-1.5 flex flex-col justify-center overflow-hidden rounded-md border text-[11px] leading-tight"
-                :class="[TYPE_BLOCK[j.jobType], picked?.id === j.id ? 'ring-2 ring-mod-primary' : '', j.end - j.start <= 60 ? 'px-1' : 'px-2']"
-                :style="{ left: `${pct(j.start)}%`, width: `${pct(j.end) - pct(j.start)}%` }"
-                :title="`${j.docNo} · ${j.typeLabel} · ${j.customerName} · ${j.slotText} · ${j.stageLabel}`"
+                :class="[TYPE_BLOCK[j.jobType], picked?.id === j.id ? 'ring-2 ring-mod-primary' : j.overdue ? 'ring-2 ring-chip-cancelled-text' : '', j.busyEnd - j.start <= 60 ? 'px-1' : 'px-2']"
+                :style="{ left: `${pct(j.start)}%`, width: `${pct(j.busyEnd) - pct(j.start)}%` }"
+                :title="[`${j.docNo} · ${j.typeLabel} · ${j.customerName} · ${j.slotText} · ${j.stageLabel}`, j.extendedText, j.overdue ? `Overdue since ${j.overdueSinceText}` : null].filter(Boolean).join(' · ')"
               >
-                <span class="truncate font-semibold">{{ j.end - j.start <= 60 ? j.docNo : `${j.docNo} · ${j.typeLabel}` }}</span>
+                <!-- The extension past the slot, shaded so the slot itself still reads -->
+                <span
+                  v-if="j.busyEnd > j.end"
+                  class="absolute top-0 right-0 bottom-0 border-l border-dashed border-current opacity-15 bg-current"
+                  :style="{ width: `${((j.busyEnd - j.end) / (j.busyEnd - j.start)) * 100}%` }"
+                  aria-hidden="true"
+                />
+                <span class="truncate font-semibold">{{ j.busyEnd - j.start <= 60 ? j.docNo : `${j.docNo} · ${j.typeLabel}` }}</span>
                 <span class="truncate">{{ j.customerName }}</span>
-                <span class="truncate opacity-75">{{ j.stageLabel }}</span>
+                <span class="truncate" :class="j.overdue ? 'font-semibold text-chip-cancelled-text' : 'opacity-75'">{{ j.overdue ? 'Overdue' : j.extendedText ?? j.stageLabel }}</span>
               </RouterLink>
+              <span
+                v-if="board.nowMinutes !== null && board.nowMinutes > dayStart && board.nowMinutes < dayEnd"
+                class="pointer-events-none absolute top-0 bottom-0 w-0.5 bg-chip-cancelled-text/60"
+                :style="{ left: `${pct(board.nowMinutes)}%` }"
+                aria-hidden="true"
+              />
               <button
                 v-for="s in freeSlots(p.id)"
                 :key="s.start"
@@ -239,13 +263,15 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
             </div>
           </div>
           <p v-if="hidden.length" class="m-0 text-xs text-erp-muted">
-            Greyed out for {{ picked?.docNo }}: {{ hidden.map((p) => `${p.name} (${p.roleLabel})`).join(', ') }} do not take {{ picked?.typeLabel.toLowerCase() }} jobs.
+            Greyed out for {{ picked?.docNo }}: {{ hidden.map((p) => `${p.name} ${notSuited(p)}`).join('; ') }}.
           </p>
           <div class="flex flex-wrap gap-4 pt-1 text-xs text-erp-muted">
             <span v-for="t in (['INSTALLATION', 'SERVICE', 'WARRANTY', 'REPAIR'] as JobType[])" :key="t" class="flex items-center gap-1.5">
               <span class="h-2.5 w-2.5 rounded-full" :class="TYPE_DOT[t]" aria-hidden="true" />{{ t.charAt(0) + t.slice(1).toLowerCase() }}
             </span>
             <span class="flex items-center gap-1.5"><span class="h-2.5 w-4 rounded-sm border-2 border-dashed border-mod-line bg-mod-light" aria-hidden="true" />Free slot</span>
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-4 rounded-sm ring-2 ring-chip-cancelled-text" aria-hidden="true" />Overdue</span>
+            <span v-if="board.nowMinutes !== null" class="flex items-center gap-1.5"><span class="h-3 w-0.5 bg-chip-cancelled-text/60" aria-hidden="true" />Now</span>
             <span v-if="board.date !== board.today">Showing {{ formatDate(board.date) }}</span>
           </div>
         </template>

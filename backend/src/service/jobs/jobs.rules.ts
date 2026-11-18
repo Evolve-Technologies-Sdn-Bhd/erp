@@ -17,7 +17,7 @@ export const JOB_STAGE_LABEL: Record<JobStage, string> = {
   NOT_BOOKED: 'Not booked', BOOKED: 'Booked', ACCEPTED: 'Accepted', DONE: 'Done', CHECKED: 'Checked', CLOSED: 'Closed', CANCELLED: 'Cancelled',
 };
 
-export type JobAction = 'edit' | 'cancel' | 'book' | 'unbook' | 'record' | 'close' | 'followUp';
+export type JobAction = 'edit' | 'cancel' | 'book' | 'unbook' | 'extend' | 'record' | 'close' | 'followUp';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -31,7 +31,8 @@ export function shortDay(iso: string): string {
  * What the office may do with a job. Stages kept simple (user, 17 Nov 2026): Not booked → Booked → Done → Closed, or
  * Cancelled. Accepted and Checked stay unused until the phone app or an office check is asked for.
  * - Not booked: change, cancel, book.
- * - Booked: change, cancel, move to another slot, take off the board, record the visit (F3 part 3).
+ * - Booked: change, cancel, move to another slot, take off the board, extend the expected completion (F3 part 4),
+ *   record the visit (F3 part 3).
  * - Done: close; a partly done job also offers one follow-up job. Closed and Cancelled are kept as they are.
  */
 export function allowedJobActions(
@@ -43,7 +44,7 @@ export function allowedJobActions(
   if (stage === 'NOT_BOOKED' || stage === 'BOOKED') {
     if (can.edit) out.push('edit', 'cancel');
     if (can.book) out.push('book');
-    if (can.book && stage === 'BOOKED') out.push('unbook');
+    if (can.book && stage === 'BOOKED') out.push('unbook', 'extend');
     if (can.record && stage === 'BOOKED') out.push('record');
   }
   if (stage === 'DONE' && can.book) out.push('close');

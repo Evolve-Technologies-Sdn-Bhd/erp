@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { SITE_TYPES } from '../../board/booking.rules';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
 import { JOB_TYPES } from '../jobs.rules';
 import { PAID_METHODS, PAID_STATUSES, RESULTS, type PaidMethod, type PaidStatus, type VisitResult } from '../visit.rules';
@@ -15,6 +16,11 @@ export class JobListQueryDto extends ListQueryDto {
   @IsString()
   @MaxLength(10)
   branch?: string;
+
+  /** ?overdue=1: only the jobs overdue now (F3 part 4). */
+  @IsOptional()
+  @IsIn(['1'])
+  overdue?: string;
 }
 
 class JobFieldsDto {
@@ -46,6 +52,11 @@ class JobFieldsDto {
   @IsString()
   @MaxLength(2000)
   note?: string;
+
+  /** Landed house, condo / apartment or shop / office; null when not known (F3 part 4). */
+  @IsOptional()
+  @IsIn([...SITE_TYPES], { message: 'Pick landed house, condo / apartment or shop / office.' })
+  siteType?: string | null;
 }
 
 /** A job the office adds by hand: service, warranty or repair at a customer's site (or an installation not from an order). */
@@ -105,6 +116,17 @@ export class BookJobDto extends VersionDto {
   @IsInt()
   @Min(0)
   start!: number;
+}
+
+/** Give a booked job longer (F3 part 4): a later expected completion that day, and why. Checked in timing.rules.ts. */
+export class ExtendJobDto extends VersionDto {
+  @IsString()
+  @MaxLength(5)
+  until!: string;
+
+  @IsString()
+  @MaxLength(300)
+  reason!: string;
 }
 
 /** What happened at the visit (F3 part 3). Photos are uploaded first, to /attachments with entity SVC_JOB. */

@@ -10,7 +10,7 @@ export const SERVICE_PERMISSIONS = {
   VIEW: 'service.view',
   /** Add a job by hand, change its site and note, cancel it. */
   JOB_EDIT: 'service.job.edit',
-  /** Book, move and take jobs off the Planning Board; mark them done and close them. */
+  /** Book, move and take jobs off the Planning Board; extend a booked job; close done jobs. */
   JOB_BOOK: 'service.job.book',
   /** Record what happened at the visit: result, photos, paid or not (F3 part 3). Installers on the phone app later. */
   JOB_RECORD: 'service.job.record',

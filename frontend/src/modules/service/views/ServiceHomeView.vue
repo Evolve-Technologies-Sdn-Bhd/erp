@@ -61,9 +61,17 @@ const bookLink = (j: JobRow) => ({ path: '/service/board', query: { job: j.id, .
     </RouterLink>
   </div>
 
-  <div class="grid grid-cols-4 gap-4">
+  <div class="grid grid-cols-5 gap-4">
     <KpiCard label="Jobs today" :value="data?.today.jobs ?? ''" :sub="`${data?.today.done ?? 0} done · ${toGo} to go`" :loading="loading" to="/service/board" />
     <KpiCard label="Not booked" :value="data?.notBooked.count ?? ''" :sub="oldest" :loading="loading" to="/service/jobs?status=notBooked" :tone="(data?.notBooked.count ?? 0) > 0 ? 'warning' : 'default'" />
+    <KpiCard
+      label="Overdue"
+      :value="data?.overdue ?? ''"
+      :sub="data?.overdue ? 'Past the expected completion, visit not recorded' : 'Every booked job is on time'"
+      :tone="data?.overdue ? 'danger' : 'default'"
+      :loading="loading"
+      to="/service/jobs?overdue=1"
+    />
     <KpiCard label="Service due this month" :value="data?.serviceDue ?? ''" sub="From item service intervals" :loading="loading" to="/service/reminders" />
     <KpiCard label="Done, not closed" :value="s('done')" :sub="data?.doneNotPaid ? `${data.doneNotPaid} not paid on site` : 'Close them when nothing is left to do'" :tone="data?.doneNotPaid ? 'warning' : 'default'" :loading="loading" to="/service/jobs?status=done" />
   </div>

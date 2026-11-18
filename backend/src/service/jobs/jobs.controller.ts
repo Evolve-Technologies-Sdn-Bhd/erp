@@ -5,7 +5,7 @@ import { CurrentContext, RequirePermission } from '../../platform/context/contex
 import type { RequestContext } from '../../platform/context/request-context';
 import { ServiceOnGuard } from '../service-on.guard';
 import { SERVICE_PERMISSIONS as P } from '../service.permissions';
-import { BookJobDto, CancelJobDto, CreateJobDto, JobListQueryDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
+import { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, JobListQueryDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
 import { BoardQuery } from '../board/board.query';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { JobsQuery } from './jobs.query';
@@ -68,6 +68,13 @@ export class ServiceJobsController {
   @RequirePermission(P.JOB_BOOK)
   unbook(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
     return this.service.unbook(ctx, id, dto);
+  }
+
+  /** Give a booked job longer: a later expected completion that day, with the reason (F3 part 4). */
+  @Post(':id/extend')
+  @RequirePermission(P.JOB_BOOK)
+  extend(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: ExtendJobDto) {
+    return this.service.extend(ctx, id, dto);
   }
 
   /** What happened at the visit (F3 part 3). */

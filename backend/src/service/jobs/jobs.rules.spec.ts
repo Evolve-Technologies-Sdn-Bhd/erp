@@ -39,7 +39,7 @@ describe('allowedJobActions', () => {
   const all = { edit: true, book: true, record: true };
   it('follows the simple stages: not booked, booked, done, closed', () => {
     expect(allowedJobActions('NOT_BOOKED', all)).toEqual(['edit', 'cancel', 'book']);
-    expect(allowedJobActions('BOOKED', all)).toEqual(['edit', 'cancel', 'book', 'unbook', 'record']);
+    expect(allowedJobActions('BOOKED', all)).toEqual(['edit', 'cancel', 'book', 'unbook', 'extend', 'record']);
     expect(allowedJobActions('DONE', all)).toEqual(['close']);
     expect(allowedJobActions('DONE', all, { partial: true })).toEqual(['close', 'followUp']);
     expect(allowedJobActions('DONE', all, { partial: true, hasFollowUp: true })).toEqual(['close']);

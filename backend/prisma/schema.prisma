@@ -2916,6 +2916,13 @@ model SvcJob {
   slotEnd        Int?
   slotGroupCode  String?      @db.VarChar(20)
   bookedAt       DateTime?    @db.DateTime(3)
+  // Timing (F3 part 4): the expected completion starts at the slot end and the office can extend it, with a reason.
+  // Once the expected completion has passed with the visit not recorded, the job is overdue, and it stays so until
+  // the visit is recorded, however it is extended, moved or taken off the board.
+  expectedEnd    Int? // minutes from midnight on jobDate
+  extendReason   String?      @db.VarChar(300)
+  overdueSince   DateTime?    @db.DateTime(3)
+  siteType       String?      @db.VarChar(12) // LANDED, CONDO, COMMERCIAL: who suits the site
   doneAt         DateTime?    @db.DateTime(3)
   doneNote       String?      @db.VarChar(500)
   // What the installer recorded (F3 part 3). The office records it for them until the phone app comes.
@@ -2969,12 +2976,14 @@ model SvcJobItem {
 }
 
 /// The people the office books (F3 part 2): installers, technicians and warranty staff. Kept by Service; they need no
-/// ERP sign-in until the phone app comes. The role decides which job types they take.
+/// ERP sign-in until the phone app comes. Each person has their own job types and site types (F3 part 4).
 model SvcPerson {
   id        String   @id @default(uuid()) @db.Char(36)
   tenantId  String   @db.Char(36)
   name      String   @db.VarChar(100)
-  role      String   @db.VarChar(12) // INSTALLER, TECHNICIAN, WARRANTY
+  role      String   @db.VarChar(12) // INSTALLER, TECHNICIAN, WARRANTY: a label; it sets the job types a new person starts with
+  jobTypes  String   @default("") @db.VarChar(60) // INSTALLATION,WARRANTY …: the jobs this person takes (F3 part 4)
+  siteTypes String   @default("LANDED,CONDO,COMMERCIAL") @db.VarChar(60) // the sites this person goes to
   phone     String?  @db.VarChar(40)
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)
@@ -2998,6 +3007,7 @@ model SvcSlotGroup {
   firstStart  Int // minutes from midnight: 600 = 10:00 AM
   lastEnd     Int
   jobTypes    String   @db.VarChar(60) // INSTALLATION,SERVICE …
+  defaultFor  String   @default("") @db.VarChar(60) // the job types the board picks this group for first (F3 part 4)
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   version     Int      @default(1)

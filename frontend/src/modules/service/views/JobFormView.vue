@@ -18,8 +18,8 @@ import { usePageCrumb } from '@/composables/usePageCrumb'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatDateTime, formatQty } from '@/utils/format'
 import { serviceApi, serviceJobsApi } from '../api/service'
-import type { JobDetail, JobStage, JobType, PaidMethod, PaidStatus, ServiceCustomerOption, VisitResult } from '../types'
-import { JOB_TYPE_OPTIONS, STAGE_GROUP } from './stages'
+import type { JobDetail, JobStage, JobType, PaidMethod, PaidStatus, ServiceCustomerOption, SiteType, VisitResult } from '../types'
+import { JOB_TYPE_OPTIONS, SITE_TYPE_OPTIONS, STAGE_GROUP } from './stages'
 
 /** V04 · Job (SvcJob.html), and a job the office adds by hand. Booking and the installer's part come in F3 parts 2 and 3. */
 const route = useRoute()
@@ -44,6 +44,7 @@ const form = reactive({
   area: '',
   preferredDate: '',
   note: '',
+  siteType: '' as SiteType | '',
 })
 const pad = (n: number) => String(n).padStart(2, '0')
 const isoToDate = (iso: string) => (iso ? new Date(`${iso}T00:00:00`) : null)
@@ -63,6 +64,7 @@ function fill(j: JobDetail | null) {
   form.area = j?.area ?? ''
   form.preferredDate = j?.preferredDate ?? ''
   form.note = j?.note ?? ''
+  form.siteType = j?.siteType ?? ''
   saved.value = snapshot()
   errors.value = {}
 }
@@ -105,7 +107,7 @@ async function save() {
   try {
     const body = {
       contactName: form.contactName, phone: form.phone, siteAddress: form.siteAddress, area: form.area,
-      preferredDate: form.preferredDate || null, note: form.note,
+      preferredDate: form.preferredDate || null, note: form.note, siteType: form.siteType || null,
     }
     const result = isNew.value
       ? await serviceJobsApi.create({ ...body, jobType: form.jobType, customerCode: form.customer!.code })
@@ -164,6 +166,37 @@ async function addFollowUp() {
     const next = await serviceJobsApi.followUp(job.value!.id)
     toast.add({ severity: 'success', summary: `${next.docNo} added`, detail: `Follow-up of ${job.value!.docNo}, waiting to be booked.`, life: 3500 })
     await router.push(`/service/jobs/${next.id}`)
+  } finally {
+    saving.value = false
+  }
+}
+
+// ── Extend: a later expected completion that day, with the reason (F3 part 4) ──
+const extendOpen = ref(false)
+const extendForm = reactive({ until: '', reason: '' })
+const extendErrors = ref<Record<string, string>>({})
+const asTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+function openExtend() {
+  const end = job.value?.booking?.expectedEnd ?? 0
+  extendForm.until = asTime(Math.min(end + 60, 23 * 60 + 30))
+  extendForm.reason = ''
+  extendErrors.value = {}
+  extendOpen.value = true
+}
+async function saveExtend() {
+  const j = job.value!
+  saving.value = true
+  try {
+    const result = await serviceJobsApi.extend(j.id, { version: j.version, until: extendForm.until, reason: extendForm.reason })
+    show(result)
+    extendOpen.value = false
+    const late = result.booking?.runsInto ?? []
+    toast.add({
+      severity: late.length ? 'warn' : 'success', summary: `${j.docNo} now expected by ${result.booking?.expectedText}`,
+      detail: late.length ? `It runs into ${late.join(', ')}: tell the customer of the later job.` : undefined, life: late.length ? 6000 : 3000,
+    })
+  } catch (error) {
+    if (error instanceof ApiError) extendErrors.value = error.fieldErrors
   } finally {
     saving.value = false
   }
@@ -273,6 +306,10 @@ const asksFor = computed(() => {
     <NoticeBanner v-else-if="job" kind="error">
       Cancelled {{ job.cancelledAt ? formatDateTime(job.cancelledAt) : '' }}<template v-if="job.cancelReason">: “{{ job.cancelReason }}”</template>.
     </NoticeBanner>
+    <NoticeBanner v-if="job?.overdue" kind="error">
+      Overdue since {{ job.overdueSinceText }}: the visit has not been recorded.
+      {{ job.stage === 'NOT_BOOKED' ? 'It was taken off the board, and it' : 'It' }} stays overdue until the visit is recorded, even when it is extended or moved.
+    </NoticeBanner>
     <NoticeBanner v-if="job?.postponed && job.stage === 'NOT_BOOKED'" kind="warning">
       Postponed{{ job.postponed.count > 1 ? ` ${job.postponed.count} times` : '' }}<template v-if="job.postponed.reason">: “{{ job.postponed.reason }}”</template>. It waits to be booked again on the Planning Board.
     </NoticeBanner>
@@ -317,6 +354,13 @@ const asksFor = computed(() => {
           <FormField label="Area" for="job-area">
             <input v-if="editable" id="job-area" v-model="form.area" class="erp-input" maxlength="60" />
             <div v-else class="erp-input-ro">{{ form.area || '—' }}</div>
+          </FormField>
+          <FormField label="Site type" :error="errors.siteType" for="job-site-type">
+            <select v-if="editable" id="job-site-type" v-model="form.siteType" class="erp-input">
+              <option value="">Not set: anyone can go</option>
+              <option v-for="s in SITE_TYPE_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
+            </select>
+            <div v-else class="erp-input-ro">{{ SITE_TYPE_OPTIONS.find((s) => s.value === form.siteType)?.label ?? 'Not set' }}</div>
           </FormField>
           <FormField label="Customer asks for" :error="errors.preferredDate" for="job-date">
             <DatePicker
@@ -388,15 +432,23 @@ const asksFor = computed(() => {
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Type</span><span>{{ job?.typeLabel ?? JOB_TYPE_OPTIONS.find((t) => t.value === form.jobType)?.label }}</span></div>
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Person</span><span>{{ job?.booking?.personName ?? 'Not booked' }}</span></div>
             <div v-if="job?.booking" class="flex justify-between gap-3"><span class="text-erp-muted">Date and slot</span><span class="text-right">{{ job.booking.text }}</span></div>
+            <div v-if="job?.booking" class="flex justify-between gap-3">
+              <span class="text-erp-muted">Expected done by</span>
+              <span class="text-right" :class="job.overdue ? 'font-semibold text-chip-cancelled-text' : ''">{{ job.booking.expectedText }}<template v-if="job.booking.extended"> · extended</template></span>
+            </div>
+            <p v-if="job?.booking?.extendReason" class="m-0 text-xs text-erp-muted">Extended: “{{ job.booking.extendReason }}”</p>
+            <p v-if="job?.booking?.runsInto.length" class="m-0 text-xs text-attention">Runs into {{ job.booking.runsInto.join(', ') }}: that job will start late.</p>
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Customer asks for</span><span>{{ job ? asksFor : form.preferredDate ? formatDate(form.preferredDate) : '—' }}</span></div>
             <div v-if="job" class="flex justify-between gap-3"><span class="text-erp-muted">Branch</span><span>{{ job.branch.name }}</span></div>
           </div>
           <p v-if="!job?.booking" class="m-0 text-xs text-erp-muted">The office books the person, the day and the slot on the Planning Board.</p>
+          <button v-if="job?.allowedActions.includes('extend')" type="button" class="erp-btn erp-btn-secondary mt-1 justify-center" :disabled="saving" @click="openExtend">Extend the time</button>
         </SideCard>
         <SideCard v-if="job?.doneAt" title="Done">
           <div class="flex flex-col gap-1.5 text-[13px]">
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Done</span><span>{{ formatDateTime(job.doneAt) }}</span></div>
             <div v-if="job.closedAt" class="flex justify-between gap-3"><span class="text-erp-muted">Closed</span><span>{{ formatDateTime(job.closedAt) }}</span></div>
+            <div v-if="job.overdueSinceText" class="flex justify-between gap-3"><span class="text-erp-muted">Late</span><span class="text-right text-chip-cancelled-text">Overdue since {{ job.overdueSinceText }}</span></div>
           </div>
         </SideCard>
         <SideCard v-if="job && (job.salesOrderNo || job.followUpOf || job.followUpJob)" title="Linked documents">
@@ -423,6 +475,23 @@ const asksFor = computed(() => {
       <template #footer>
         <button type="button" class="erp-btn erp-btn-secondary" @click="cancelOpen = false">Keep the job</button>
         <button type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelJob">Cancel job</button>
+      </template>
+    </Dialog>
+
+    <Dialog v-model:visible="extendOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="`Extend the time · ${job?.docNo}`">
+      <div class="flex flex-col gap-3 text-[13px]">
+        <p v-if="job?.booking" class="m-0 text-erp-muted">{{ job.booking.personName }} · {{ job.booking.text }} · expected by {{ job.booking.expectedText }} now</p>
+        <FormField label="Now expected to finish by" :error="extendErrors.until" for="extend-until">
+          <input id="extend-until" v-model="extendForm.until" type="time" step="900" class="erp-input" :aria-invalid="Boolean(extendErrors.until)" />
+        </FormField>
+        <FormField label="Why does it need longer?" :error="extendErrors.reason" for="extend-reason">
+          <input id="extend-reason" v-model="extendForm.reason" class="erp-input" maxlength="300" :aria-invalid="Boolean(extendErrors.reason)" />
+        </FormField>
+        <p class="m-0 text-xs text-erp-muted">{{ job?.booking?.personName }} stays busy until then, so nothing new is booked over it. A job already overdue stays overdue.</p>
+      </div>
+      <template #footer>
+        <button type="button" class="erp-btn erp-btn-secondary" @click="extendOpen = false">Cancel</button>
+        <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="saveExtend">Extend</button>
       </template>
     </Dialog>
 

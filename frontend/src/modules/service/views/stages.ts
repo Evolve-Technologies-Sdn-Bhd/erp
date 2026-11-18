@@ -20,6 +20,13 @@ export const JOB_TYPE_OPTIONS = [
   { value: 'REPAIR', label: 'Repair' },
 ] as const
 
+/** Who suits the site (F3 part 4). */
+export const SITE_TYPE_OPTIONS = [
+  { value: 'LANDED', label: 'Landed house' },
+  { value: 'CONDO', label: 'Condo / apartment' },
+  { value: 'COMMERCIAL', label: 'Shop / office' },
+] as const
+
 /** Job-type colours on the Planning Board (SvcBoard.html legend): installation blue, service green, warranty purple, repair amber. */
 export const TYPE_BLOCK: Record<string, string> = {
   INSTALLATION: 'bg-chip-released-bg text-chip-released-text border-chip-released-text/30',

@@ -2,9 +2,20 @@
 
 export type JobType = 'INSTALLATION' | 'SERVICE' | 'WARRANTY' | 'REPAIR'
 export type JobStage = 'NOT_BOOKED' | 'BOOKED' | 'ACCEPTED' | 'DONE' | 'CHECKED' | 'CLOSED' | 'CANCELLED'
-export type JobAction = 'edit' | 'cancel' | 'book' | 'unbook' | 'record' | 'close' | 'followUp'
+export type JobAction = 'edit' | 'cancel' | 'book' | 'unbook' | 'extend' | 'record' | 'close' | 'followUp'
+/** Who suits the site (F3 part 4). */
+export type SiteType = 'LANDED' | 'CONDO' | 'COMMERCIAL'
 
-export interface JobRow {
+/** A job's timing and site, on every row: overdue since when (F3 part 4). */
+export interface JobTimingView {
+  overdue: boolean
+  /** "Thu, 1 Oct, 2 PM" while overdue, or when a done job was late. */
+  overdueSinceText: string | null
+  siteType: SiteType | null
+  siteTypeLabel: string | null
+}
+
+export interface JobRow extends JobTimingView {
   id: string
   docNo: string
   jobType: JobType
@@ -64,7 +75,22 @@ export interface JobDetail extends JobRow {
   cancelledAt: string | null
   items: { lineNo: number; itemCode: string; itemName: string; qty: string; uomCode: string; serialNo: string | null }[]
   activity: { id: string; action: string; message: string; comment: string | null; userName: string; at: string }[]
-  booking: { personId: string | null; personName: string | null; date: string; start: number; end: number; slotGroupCode: string | null; text: string } | null
+  booking: {
+    personId: string | null
+    personName: string | null
+    date: string
+    start: number
+    end: number
+    slotGroupCode: string | null
+    text: string
+    /** When it should be finished: the slot end, or later when extended (F3 part 4). */
+    expectedEnd: number
+    expectedText: string
+    extended: boolean
+    extendReason: string | null
+    /** "JB-0014 at 2 PM – 4 PM": later jobs that day this one now runs into. */
+    runsInto: string[]
+  } | null
   doneAt: string | null
   doneNote: string | null
   closedAt: string | null
@@ -98,6 +124,7 @@ export interface JobInput {
   area?: string
   preferredDate?: string | null
   note?: string
+  siteType?: SiteType | null
 }
 
 export interface ServiceHome {
@@ -105,6 +132,8 @@ export interface ServiceHome {
   today: { jobs: number; done: number }
   notBooked: { count: number; oldestDays: number | null }
   doneNotPaid: number
+  /** Jobs past their expected completion with the visit not recorded (F3 part 4). */
+  overdue: number
   /** Service reminders due this month (F6). */
   serviceDue: number
   stages: Record<string, number>
@@ -122,6 +151,11 @@ export interface Person {
   phone: string | null
   isActive: boolean
   version: number
+  /** The jobs this person takes and the sites they go to (F3 part 4). */
+  jobTypes: JobType[]
+  siteTypes: SiteType[]
+  takesText: string
+  goesToText: string
 }
 
 export interface SlotGroup {
@@ -132,6 +166,8 @@ export interface SlotGroup {
   firstStart: number
   lastEnd: number
   jobTypes: JobType[]
+  /** The job types the board picks this group for first. */
+  defaultFor: JobType[]
   isActive: boolean
   version: number
   slots: { start: number; end: number; label: string }[]
@@ -141,11 +177,14 @@ export interface SlotGroup {
 export interface ServiceSettings {
   people: Person[]
   slotGroups: SlotGroup[]
-  roles: { role: PersonRole; label: string; jobTypes: JobType[]; people: string[] }[]
+  /** The roles, and the jobs a new person with that role starts with. */
+  roles: { role: PersonRole; label: string; jobTypes: JobType[] }[]
+  jobTypes: { value: JobType; label: string }[]
+  siteTypes: { value: SiteType; label: string }[]
   stages: string[]
 }
 
-export interface BoardJob {
+export interface BoardJob extends JobTimingView {
   id: string
   docNo: string
   jobType: JobType
@@ -157,9 +196,12 @@ export interface BoardJob {
   slotText: string
   stage: JobStage
   stageLabel: string
+  /** Until when the person is busy: past the slot end when the job was extended. */
+  busyEnd: number
+  extendedText: string | null
 }
 
-export interface BoardWaiting {
+export interface BoardWaiting extends JobTimingView {
   id: string
   docNo: string
   jobType: JobType
@@ -178,7 +220,9 @@ export interface Board {
   date: string
   dateText: string
   today: string
-  people: (Person & { jobTypes: JobType[]; jobs: BoardJob[] })[]
+  /** Where the clock is, when the board shows today. */
+  nowMinutes: number | null
+  people: (Person & { jobs: BoardJob[] })[]
   slotGroups: SlotGroup[]
   notBooked: BoardWaiting[]
 }
