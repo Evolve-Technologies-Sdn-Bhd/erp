@@ -9,7 +9,7 @@ defineEmits<{ select: [key: string] }>()
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-6 border-b border-erp-border" role="tablist">
+  <div data-tour="status-tabs" class="flex flex-wrap gap-6 border-b border-erp-border" role="tablist">
     <template v-for="tab in tabs" :key="tab.key">
       <button
         v-if="!tab.hideWhenEmpty || (counts?.[tab.key] ?? 0) > 0"

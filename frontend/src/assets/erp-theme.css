@@ -72,6 +72,13 @@
   --tile-config: #5b6170;
   --tile-service: #c2410c; /* orange, as the Service mockups (SvcHome.html) */
 
+  /* Guided tours (Help): the dimmed page around the highlight, and the tour colour: the module's, or the launcher's */
+  --tour-scrim: rgb(20 26 60 / 0.46);
+  --tour-shadow: rgb(20 26 60 / 0.35);
+  --tour-shadow-soft: rgb(20 26 60 / 0.08);
+  --tour-accent: var(--mod-primary);
+  --tour-accent-soft: var(--mod-light);
+
   /* Module colours default to Purchase until a layout sets data-module */
   --mod-side: #15803d;
   --mod-hover: #17733a;
@@ -190,4 +197,10 @@
   --mod-tile-3: #5b6170;
   --mod-chip-bg: #e7e9ee;
   --mod-chip-text: #3d4352;
+}
+
+/* On the launcher no module is open, so the tours take the launcher's navy. */
+:root:not([data-module]) {
+  --tour-accent: var(--launcher-bar);
+  --tour-accent-soft: #eef0fb;
 }

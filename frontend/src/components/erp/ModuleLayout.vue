@@ -11,6 +11,7 @@ import type { MenuGroup } from '@/modules/purchase/menu'
 import { formatTime, formatTopBarDate } from '@/utils/format'
 import AccountMenu from './AccountMenu.vue'
 import BranchSwitch from './BranchSwitch.vue'
+import HelpButton from '@/tours/HelpButton.vue'
 import ModuleSwitcher from './ModuleSwitcher.vue'
 import PageSearch from './PageSearch.vue'
 import PrintStamp from './PrintStamp.vue'
@@ -109,11 +110,13 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
   <div :data-module="module.key" class="min-h-screen bg-erp-bg">
     <!-- Floating icon rail: one icon per menu group -->
     <nav
+      data-tour="rail"
       :aria-label="`${module.label} menu`"
       class="fixed top-3 bottom-3 left-3 z-40 flex w-14 flex-col overflow-hidden rounded-2xl border border-erp-on-dark/5 bg-mod-side text-erp-on-dark shadow-2xl"
     >
       <div class="flex justify-center py-3">
         <ModuleSwitcher
+          data-tour="rail:switcher"
           :module="module"
           variant="rail"
           :trigger-class="[railButton, railIdle]"
@@ -126,10 +129,11 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
 
       <div class="mx-3 border-t border-erp-on-dark/10" />
 
-      <ul class="m-0 flex flex-1 list-none flex-col gap-1 overflow-y-auto p-0 py-2">
+      <ul data-tour="rail:groups" class="m-0 flex flex-1 list-none flex-col gap-1 overflow-y-auto p-0 py-2">
         <li v-for="g in module.menu" :key="g.key">
           <button
             type="button"
+            :data-tour="`rail:${g.key}`"
             :aria-label="g.title"
             :aria-expanded="openGroupKey === g.key"
             :class="[railButton, 'border-0', openGroupKey === g.key || (!openGroupKey && group.key === g.key) ? railActive : `bg-transparent ${railIdle}`]"
@@ -146,7 +150,7 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
 
       <div class="mx-3 border-t border-erp-on-dark/10" />
 
-      <div class="flex flex-col gap-1 py-3">
+      <div data-tour="rail:footer" class="flex flex-col gap-1 py-3">
         <RouterLink
           :to="module.home"
           :aria-label="`${module.label} home`"
@@ -174,10 +178,11 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
       </div>
     </nav>
 
+    <!-- z 950: above a guided tour's dimmed page, so "Point at an icon to see its name" can be read -->
     <Teleport to="body">
       <div
         v-if="tip"
-        class="pointer-events-none fixed left-[76px] z-[60] -translate-y-1/2 rounded-md border border-erp-on-dark/10 bg-brand-dark px-2.5 py-1.5 text-xs whitespace-nowrap text-erp-on-dark shadow-lg"
+        class="pointer-events-none fixed left-[76px] z-[950] -translate-y-1/2 rounded-md border border-erp-on-dark/10 bg-brand-dark px-2.5 py-1.5 text-xs whitespace-nowrap text-erp-on-dark shadow-lg"
         :style="{ top: `${tip.top}px` }"
       >
         {{ tip.label }}
@@ -186,6 +191,7 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
 
     <!-- Floating panel: pages of the open group -->
     <aside
+      data-tour="menu-panel"
       class="erp-no-print fixed top-3 bottom-3 left-[76px] z-30 flex w-[210px] flex-col overflow-hidden rounded-2xl border border-erp-border bg-erp-card shadow-sm transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
       :class="openGroup ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-4 opacity-0'"
       :aria-hidden="!openGroup"
@@ -200,6 +206,7 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
             <li v-for="item in openGroup.items" :key="item.key">
               <RouterLink
                 :to="item.to"
+                :data-tour="`menu:${item.key}`"
                 class="group flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors duration-150"
                 :class="
                   activeItemKey === item.key
@@ -229,10 +236,11 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
       <div class="erp-no-print sticky top-0 z-20 px-4 pt-3 pb-2 backdrop-blur-sm md:px-6">
         <header class="flex h-12 items-center gap-4 rounded-2xl border border-erp-border bg-erp-card/95 px-5 shadow-sm">
           <div class="w-[180px] shrink-0 truncate text-xs font-medium text-erp-muted">{{ today ? formatTopBarDate(today) : '' }}</div>
-          <div class="flex min-w-0 grow justify-center"><PageSearch :module="module" /></div>
+          <div class="flex min-w-0 grow justify-center"><PageSearch data-tour="search" :module="module" /></div>
           <div class="flex shrink-0 items-center gap-4">
             <RouterLink
               v-if="module.approvalsTo"
+              data-tour="approvals"
               :to="module.approvalsTo"
               :aria-label="`Approvals, ${approvals ?? 0} waiting`"
               class="flex items-center gap-1.5 text-[13px] font-semibold text-mod-chip-text"
@@ -240,17 +248,18 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
               <Bell :size="16" aria-hidden="true" />Approvals
               <span v-if="approvals" class="rounded-[10px] bg-mod-side px-[7px] py-px text-[11px] font-bold text-erp-on-dark">{{ approvals }}</span>
             </RouterLink>
-            <BranchSwitch />
+            <BranchSwitch data-tour="branch" />
             <div class="erp-num text-xs text-erp-muted">{{ clock }}</div>
             <div class="h-4 w-px bg-erp-border" aria-hidden="true" />
-            <AccountMenu variant="module" />
+            <HelpButton />
+            <AccountMenu data-tour="account" variant="module" />
           </div>
         </header>
       </div>
 
       <main class="flex min-h-0 grow flex-col gap-3.5 px-4 pt-2 pb-6 md:px-6">
         <PrintStamp :module="module.label" />
-        <div class="erp-no-print flex gap-1.5 text-xs text-erp-muted" aria-label="Breadcrumb">
+        <div data-tour="crumbs" class="erp-no-print flex gap-1.5 text-xs text-erp-muted" aria-label="Breadcrumb">
           <template v-for="(crumb, i) in crumbs" :key="i">
             <span v-if="i > 0" aria-hidden="true">›</span>
             <RouterLink v-if="crumb.to" :to="crumb.to" class="erp-link">{{ crumb.label }}</RouterLink>

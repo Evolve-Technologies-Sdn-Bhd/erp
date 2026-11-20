@@ -4,7 +4,7 @@ withDefaults(defineProps<{ columns?: number }>(), { columns: 4 })
 </script>
 
 <template>
-  <div class="grid gap-3" :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }">
+  <div data-tour="filters" class="grid gap-3" :style="{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }">
     <slot />
   </div>
 </template>

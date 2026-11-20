@@ -8,6 +8,8 @@ import AccountMenu from '@/components/erp/AccountMenu.vue'
 import NoticeBanner from '@/components/erp/NoticeBanner.vue'
 import { useSession } from '@/composables/useSession'
 import { MODULES } from '@/modules/registry'
+import HelpButton from '@/tours/HelpButton.vue'
+import WelcomeCard from '@/tours/WelcomeCard.vue'
 import { isBuilt, TILE_STYLE } from '@/modules/tiles'
 import { formatLongDate, greeting } from '@/utils/format'
 
@@ -113,7 +115,10 @@ const year = computed(() => today.value.slice(0, 4))
             {{ state.tenantName }}
           </span>
         </div>
-        <AccountMenu variant="launcher" />
+        <div class="flex shrink-0 items-center gap-3">
+          <HelpButton />
+          <AccountMenu data-tour="account" variant="launcher" />
+        </div>
       </header>
     </div>
 
@@ -124,11 +129,13 @@ const year = computed(() => today.value.slice(0, 4))
         <p class="m-0 text-sm text-erp-subtle">Choose a module to start working.</p>
       </div>
 
+      <WelcomeCard />
+
       <NoticeBanner v-if="passwordDue" kind="warning">
         It is time to change your password. <RouterLink to="/account" class="erp-link font-semibold">Change it in My account</RouterLink>
       </NoticeBanner>
 
-      <ul class="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-3">
+      <ul data-tour="launcher:tiles" class="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-3">
         <li v-for="tile in sortedTiles" :key="tile.code" :style="{ '--tile-color': TILE_STYLE[tile.code].color }">
           <!-- Built module: the whole card is the link (stretched over it); the star sits above it -->
           <div

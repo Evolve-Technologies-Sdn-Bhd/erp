@@ -71,6 +71,17 @@ Make one `StatusChip` component that maps a document status to these groups. Nev
 | Warning | `#FFFBEB` | `#FCD34D` | `#78350F` | “Inventory is not connected yet…”, soft warnings |
 | Error | `#FEF2F2` | `#FECACA` | `#7F1D1D` | Blocked actions, failed checks |
 
+## Guided tours (Help)
+
+| Token | Value | Use |
+|---|---|---|
+| `--tour-accent` | `--mod-primary`; on the launcher `--launcher-bar` | Highlight ring, progress bar, tour buttons, the Help dot |
+| `--tour-accent-soft` | `--mod-light`; on the launcher `#EEF0FB` | Soft tour backgrounds |
+| `--tour-scrim` | `rgb(20 26 60 / 0.46)` | The dimmed page around the highlight, the Help panel backdrop (half strength) |
+| `--tour-shadow`, `--tour-shadow-soft` | `rgb(20 26 60 / 0.35)`, `/ 0.08` | Tour box, pill and Help panel shadows |
+
+The tour box is an `erp-card`-like card (16px radius) with the ERP's own buttons. Motion follows the module layout: 300 ms, `cubic-bezier(0.16, 1, 0.3, 1)`, none with *reduce motion*. Under 640px the box docks at the bottom with a 16px gutter.
+
 ## Numbers and dates
 
 - Money: `RM 4,400.00` in totals and KPIs; `4,400.00` inside tables with the currency in the column header. Always 2 decimals, right-aligned, `font-variant-numeric: tabular-nums`.

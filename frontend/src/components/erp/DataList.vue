@@ -18,6 +18,7 @@ const selection = defineModel<T[]>('selection', { default: () => [] })
 <template>
   <DataTable
     v-model:selection="selection"
+    data-tour="list"
     :value="rows"
     data-key="id"
     :loading="loading"

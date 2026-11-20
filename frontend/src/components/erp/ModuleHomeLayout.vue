@@ -10,6 +10,7 @@ import { moduleDef } from '@/modules/registry'
 import { formatLongDate } from '@/utils/format'
 import AccountMenu from './AccountMenu.vue'
 import BranchSwitch from './BranchSwitch.vue'
+import HelpButton from '@/tours/HelpButton.vue'
 import ModuleSwitcher from './ModuleSwitcher.vue'
 import PrintStamp from './PrintStamp.vue'
 
@@ -41,11 +42,12 @@ const year = computed(() => (today.value ? today.value.slice(0, 4) : ''))
             <BrandMark :size="38" />
             <div class="text-lg font-bold">Zora <span class="text-erp-link">Pro</span> ERP</div>
           </RouterLink>
-          <ModuleSwitcher :module="module" variant="chip" />
+          <ModuleSwitcher data-tour="home:switcher" :module="module" variant="chip" />
         </div>
         <div class="flex items-center gap-5">
           <RouterLink
             v-if="module.approvalsTo"
+            data-tour="approvals"
             :to="module.approvalsTo"
             :aria-label="`Approvals, ${approvals ?? 0} waiting`"
             class="flex items-center gap-1.5 text-[13px] font-semibold text-mod-chip-text"
@@ -53,8 +55,9 @@ const year = computed(() => (today.value ? today.value.slice(0, 4) : ''))
             <Bell :size="18" aria-hidden="true" />Approvals
             <span v-if="approvals" class="rounded-[10px] bg-mod-side px-[7px] py-px text-[11px] font-bold text-erp-on-dark">{{ approvals }}</span>
           </RouterLink>
-          <BranchSwitch />
-          <AccountMenu variant="home" :subtitle="today ? formatLongDate(today) : ''" />
+          <BranchSwitch data-tour="branch" />
+          <HelpButton />
+          <AccountMenu data-tour="account" variant="home" :subtitle="today ? formatLongDate(today) : ''" />
           <button
             type="button"
             aria-label="Sign out"
@@ -68,7 +71,7 @@ const year = computed(() => (today.value ? today.value.slice(0, 4) : ''))
       </header>
     </div>
 
-    <main class="flex grow flex-col gap-5 px-4 pt-3 pb-6 md:px-6">
+    <main data-tour="home:main" class="flex grow flex-col gap-5 px-4 pt-3 pb-6 md:px-6">
       <PrintStamp :module="module.label" />
       <slot />
     </main>

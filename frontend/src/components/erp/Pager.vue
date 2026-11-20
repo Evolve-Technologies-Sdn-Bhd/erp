@@ -17,7 +17,7 @@ function go(page: number) {
 </script>
 
 <template>
-  <nav class="flex items-center gap-1.5" aria-label="Pages">
+  <nav data-tour="pager" class="flex items-center gap-1.5" aria-label="Pages">
     <button type="button" class="erp-page" :disabled="page <= 1" aria-label="Previous page" @click="go(page - 1)">‹</button>
     <button
       v-for="n in visible"

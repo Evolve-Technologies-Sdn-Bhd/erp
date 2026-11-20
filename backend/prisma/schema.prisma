@@ -473,6 +473,23 @@ model SysUserDashboard {
   @@map("sys_user_dashboard")
 }
 
+/// A person's guided tours (Help): Tutorial mode, whether the welcome was seen, the tours finished and a tour left
+/// mid-way. A personal preference, like the dashboard layout: no activity line and no event.
+model SysUserTutorial {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  userId      String   @db.Char(36)
+  mode        Boolean  @default(true) // on: tours are offered; off: only from Help
+  welcomeSeen Boolean  @default(false)
+  done        Json // ["welcome", …] tours finished
+  active      Json? // { tourId, step, path, paused }: a tour left mid-way
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+  updatedAt   DateTime @updatedAt @db.DateTime(3)
+
+  @@unique([tenantId, userId])
+  @@map("sys_user_tutorial")
+}
+
 /// Platform settings, one row per key (sign-in settings: sign_in.lockout_attempts …).
 model SysSetting {
   id        String   @id @default(uuid()) @db.Char(36)

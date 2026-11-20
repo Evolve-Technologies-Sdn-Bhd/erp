@@ -16,11 +16,13 @@ import { OutboxConsumers } from './outbox/outbox.consumers';
 import { OutboxDispatcher } from './outbox/outbox.dispatcher';
 import { OutboxWriter } from './outbox/outbox.writer';
 import { PrismaModule } from './prisma/prisma.module';
+import { TutorialController } from './tutorial/tutorial.controller';
+import { TutorialService } from './tutorial/tutorial.service';
 import { RecordUsageRegistry } from './usage/record-usage.registry';
 
 /**
  * Shared building blocks with no business rules: database, clock, current user, numbering, activity,
- * approvals, outbox, attachments, the record-usage registry, customer onboarding and the home-dashboard indicators. Global, so business modules just inject the services.
+ * approvals, outbox, attachments, the record-usage registry, customer onboarding, the home-dashboard indicators and each person's guided tours. Global, so business modules just inject the services.
  */
 @Global()
 @Module({
@@ -35,7 +37,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
       }),
     }),
   ],
-  controllers: [AttachmentsController],
+  controllers: [AttachmentsController, TutorialController],
   providers: [
     NumberingService,
     ActivityService,
@@ -48,6 +50,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
     CustomerOnboarding,
     IndicatorRegistry,
     DashboardBoardsService,
+    TutorialService,
   ],
   exports: [
     PrismaModule,

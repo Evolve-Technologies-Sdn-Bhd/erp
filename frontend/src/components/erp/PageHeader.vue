@@ -21,7 +21,7 @@ const view = useViewBranch()
 </script>
 
 <template>
-  <div class="flex items-end justify-between gap-4">
+  <div data-tour="page-header" class="flex items-end justify-between gap-4">
     <div class="min-w-0">
       <div class="flex flex-wrap items-center gap-2.5">
         <h1 class="m-0 font-bold" :class="document ? 'text-xl' : 'text-lg'">{{ title }}</h1>
@@ -38,7 +38,7 @@ const view = useViewBranch()
         <slot name="subtitle">{{ subtitle }}</slot>
       </p>
     </div>
-    <div v-if="$slots.actions" class="flex shrink-0 flex-wrap gap-2">
+    <div v-if="$slots.actions" data-tour="page-actions" class="flex shrink-0 flex-wrap gap-2">
       <slot name="actions" />
     </div>
   </div>

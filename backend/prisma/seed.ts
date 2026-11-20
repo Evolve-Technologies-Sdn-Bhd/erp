@@ -56,6 +56,8 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.sysAuthToken.deleteMany({ where }),
     // Home dashboards: everyone starts from the module defaults.
     prisma.sysUserDashboard.deleteMany({ where }),
+    // Guided tours: everyone is a first-time user again, so the welcome card shows.
+    prisma.sysUserTutorial.deleteMany({ where }),
 
     // Service (phase 5): the demo has no jobs, and job numbers start again at JB-0001.
     prisma.svcReminder.deleteMany({ where }),

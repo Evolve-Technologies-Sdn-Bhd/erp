@@ -10,6 +10,7 @@ import ModuleLayout from '@/components/erp/ModuleLayout.vue'
 import { useSession } from '@/composables/useSession'
 import { requiredPermission } from '@/modules/common/access'
 import NoAccessView from '@/modules/common/NoAccessView.vue'
+import TourLayer from '@/tours/TourLayer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +62,8 @@ const pageKey = computed(() => `${session.state.version}:${route.path}`)
 <template>
   <Toast position="top-right" />
   <ConfirmDialog class="erp-dialog" :style="{ width: '460px' }" />
+  <!-- Guided tours and Help, over every page -->
+  <TourLayer v-if="session.state.ready" />
 
   <div v-if="session.state.error" class="flex min-h-screen items-center justify-center bg-erp-bg p-8">
     <div class="erp-card flex max-w-md flex-col items-center gap-3 px-8 py-10 text-center">
