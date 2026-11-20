@@ -75,7 +75,7 @@ function add() {
 </script>
 
 <template>
-  <Dialog v-model:visible="visible" modal :draggable="false" class="erp-dialog" :style="{ width: '960px' }">
+  <Dialog v-model:visible="visible" data-tour="package-picker" modal :draggable="false" class="erp-dialog" :style="{ width: '960px' }">
     <template #header>
       <div>
         <h2 class="m-0 text-xl font-bold">Add package</h2>

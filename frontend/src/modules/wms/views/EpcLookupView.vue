@@ -51,7 +51,7 @@ const QUALITY: Record<string, string> = { GOOD: 'Good', DAMAGE: 'Damaged', QUARA
 
 <template>
   <WmsPage title="EPC Lookup" subtitle="Scan or type one RFID tag to see where it is and what happened to it." :source="tag?.source" :failed="failed">
-    <form class="flex flex-col gap-1.5 text-xs font-medium text-erp-muted" @submit.prevent="lookUp">
+    <form data-tour="wms:epc" class="flex flex-col gap-1.5 text-xs font-medium text-erp-muted" @submit.prevent="lookUp">
       <label for="epc-code">EPC or serial number</label>
       <span class="flex gap-2">
         <input id="epc-code" v-model="text" class="erp-input grow font-mono" autofocus autocomplete="off" />
@@ -60,7 +60,7 @@ const QUALITY: Record<string, string> = { GOOD: 'Good', DAMAGE: 'Damaged', QUARA
     </form>
     <span v-if="notFound" class="text-[13px] text-note-error-text" role="alert">{{ notFound }}</span>
 
-    <div v-if="tag" class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-start gap-4">
+    <div v-if="tag" data-tour="wms:tag" class="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] items-start gap-4">
       <div class="rounded-xl border border-erp-border p-4">
         <div class="mb-3 flex items-center justify-between">
           <h2 class="m-0 text-[15px] font-bold">This tag</h2>

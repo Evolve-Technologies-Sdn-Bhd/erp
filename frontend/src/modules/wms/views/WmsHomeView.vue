@@ -47,7 +47,7 @@ const updated = computed(() => (data.value?.source.stale ? 'These are the last f
 <template>
   <!-- A tile per screen -->
   <div class="flex items-start justify-between gap-4">
-    <div class="flex flex-wrap gap-4">
+    <div data-tour="home:tiles" class="flex flex-wrap gap-4">
       <RouterLink
         v-for="(item, i) in TILES"
         :key="item.key"
@@ -61,11 +61,11 @@ const updated = computed(() => (data.value?.source.stale ? 'These are the last f
         {{ item.label }}
       </RouterLink>
     </div>
-    <a v-if="data?.source.webUrl" :href="data.source.webUrl" target="_blank" rel="noopener" class="erp-btn erp-btn-secondary shrink-0"><ExternalLink :size="14" aria-hidden="true" />Open in WMS</a>
+    <a v-if="data?.source.webUrl" :href="data.source.webUrl" target="_blank" rel="noopener" data-tour="wms:open" class="erp-btn erp-btn-secondary shrink-0"><ExternalLink :size="14" aria-hidden="true" />Open in WMS</a>
   </div>
 
   <NoticeBanner v-if="failed || data?.source.stale" kind="warning">The WMS cannot be reached right now. {{ updated }}</NoticeBanner>
-  <NoticeBanner v-else kind="info"><strong>Read only.</strong> This comes from the WMS. Changes are made there, by scan or on its website.</NoticeBanner>
+  <NoticeBanner v-else data-tour="wms:read-only" kind="info"><strong>Read only.</strong> This comes from the WMS. Changes are made there, by scan or on its website.</NoticeBanner>
 
   <DashboardBoard path="/wms/dashboard/board">
     <template #kpis>
@@ -73,7 +73,7 @@ const updated = computed(() => (data.value?.source.stale ? 'These are the last f
         <span>The cards could not be loaded.</span>
         <button type="button" class="erp-btn erp-btn-secondary" @click="load">Try again</button>
       </div>
-      <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+      <div data-tour="home:kpis" class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
         <KpiCard label="Units on hand" :value="data?.kpis.units.count ?? ''" :sub="subs?.units" to="/wms/inventory" :loading="loading" />
         <KpiCard label="Below reorder level" :value="data?.kpis.reorder.count ?? ''" :sub="subs?.reorder" to="/wms/inventory" tone="warning" :loading="loading" />
         <KpiCard label="Receiving to scan in" :value="data?.kpis.toScan.count ?? ''" :sub="subs?.scan" to="/wms/receiving" :loading="loading" />

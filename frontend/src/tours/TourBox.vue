@@ -116,7 +116,8 @@ watch(
     <p v-if="waiting" class="tour-waiting"><span class="tour-dot" aria-hidden="true" />{{ waitingText }}</p>
     <p v-if="finding" class="tour-waiting"><span class="tour-dot" aria-hidden="true" />Waiting for the page…</p>
     <p v-if="missing" class="tour-note">
-      <Info :size="14" class="shrink-0" aria-hidden="true" />This part is not on your screen. Your role may not show it, or the page has not loaded yet.
+      <Info :size="14" class="shrink-0" aria-hidden="true" />
+      {{ run.offPage ? 'This step is on a page you have not opened. Open it to carry on, or skip this step.' : 'This part is not on your screen. Your role may not show it, or the page has not loaded yet.' }}
     </p>
     <p v-if="run.nudgeText" :key="run.nudge" class="tour-nudge" role="alert">{{ run.nudgeText }}</p>
 

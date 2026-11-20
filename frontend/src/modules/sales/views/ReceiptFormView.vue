@@ -128,7 +128,7 @@ function saved(x: ReceiptDetail) {
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-4">
-        <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section data-tour="rc:payment" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <h2 class="m-0 text-[15px] font-bold">Payment</h2>
           <div class="grid grid-cols-[160px_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
             <span class="text-erp-muted">Amount</span><span class="text-[15px] font-bold">RM {{ formatMoney(r.amount) }}</span>
@@ -144,7 +144,7 @@ function saved(x: ReceiptDetail) {
           </div>
         </section>
 
-        <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section data-tour="rc:proof" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <h2 class="m-0 text-[15px] font-bold">Proof</h2>
           <FileTiles :files="r.proofs" />
           <p class="m-0 text-xs text-erp-muted">Each receipt must match a bank transaction or a card settlement slip.</p>

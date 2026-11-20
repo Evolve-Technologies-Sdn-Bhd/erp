@@ -47,8 +47,10 @@ async function onChange(event: Event) {
       <FileText v-else :size="20" aria-hidden="true" />
       <span class="max-w-full truncate">{{ f.fileName }}</span>
     </button>
+    <!-- data-tour-sensitive: uploading attaches a file to the record, so a guided tour never does it -->
     <label
       v-if="editable && upload"
+      data-tour-sensitive
       class="flex h-[96px] w-[150px] cursor-pointer items-center justify-center rounded-lg border border-dashed border-erp-input text-xs text-erp-muted hover:text-erp-text"
     >
       {{ uploading ? 'Uploading…' : addLabel }}

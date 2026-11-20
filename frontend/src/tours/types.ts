@@ -60,6 +60,11 @@ export interface Tour {
   pages: string[] | 'any'
   /** Only offered to people holding this permission */
   permission?: string
+  /**
+   * Only offered where these are switched on (tour.rules → REQUIREMENTS): the Service module, a connected WMS, or a
+   * Sales Flow switch. A company that does not use a feature never sees its tour.
+   */
+  requires?: string[]
   minutes: number
   /** Where it starts; starting it from another page goes there first */
   startAt?: string

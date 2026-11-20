@@ -46,7 +46,7 @@ const bookLink = (j: JobRow) => ({ path: '/service/board', query: { job: j.id, .
     </div>
   </div>
 
-  <div class="flex gap-4">
+  <div data-tour="home:tiles" class="flex gap-4">
     <RouterLink
       v-for="t in TILES"
       :key="t.to"
@@ -61,7 +61,7 @@ const bookLink = (j: JobRow) => ({ path: '/service/board', query: { job: j.id, .
     </RouterLink>
   </div>
 
-  <div class="grid grid-cols-5 gap-4">
+  <div data-tour="home:kpis" class="grid grid-cols-5 gap-4">
     <KpiCard label="Jobs today" :value="data?.today.jobs ?? ''" :sub="`${data?.today.done ?? 0} done · ${toGo} to go`" :loading="loading" to="/service/board" />
     <KpiCard label="Not booked" :value="data?.notBooked.count ?? ''" :sub="oldest" :loading="loading" to="/service/jobs?status=notBooked" :tone="(data?.notBooked.count ?? 0) > 0 ? 'warning' : 'default'" />
     <KpiCard
@@ -77,7 +77,7 @@ const bookLink = (j: JobRow) => ({ path: '/service/board', query: { job: j.id, .
   </div>
 
   <div class="grid items-start gap-4 grid-cols-[minmax(0,1fr)_340px]">
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="svc:waiting" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-baseline justify-between gap-4">
         <h2 class="m-0 text-[15px] font-bold">Waiting to be booked</h2>
         <span class="text-xs text-erp-muted">Oldest first. A released sales order with installation adds one here.</span>
@@ -100,7 +100,7 @@ const bookLink = (j: JobRow) => ({ path: '/service/board', query: { job: j.id, .
       </table>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="svc:by-person" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Today by person</h2>
       <p v-if="data && !data.byPerson.length" class="m-0 text-[13px] text-erp-muted">Nobody yet. Add people in <RouterLink to="/service/settings" class="erp-link">Slots and Stages</RouterLink>.</p>
       <ul v-else-if="data" class="m-0 flex list-none flex-col p-0">

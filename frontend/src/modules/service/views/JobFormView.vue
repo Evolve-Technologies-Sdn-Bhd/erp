@@ -285,7 +285,7 @@ const asksFor = computed(() => {
         <button v-if="job?.allowedActions.includes('unbook')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="run('unbook')">Take off the board</button>
         <RouterLink v-if="job?.allowedActions.includes('book')" :to="boardLink" class="erp-btn erp-btn-secondary">{{ job.stage === 'BOOKED' ? 'Move' : 'Book on the board' }}</RouterLink>
         <button v-if="editable" type="button" class="erp-btn" :class="job?.allowedActions.includes('record') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="saving || (!isNew && !dirty)" @click="save">{{ isNew ? 'Add job' : 'Save' }}</button>
-        <button v-if="job?.allowedActions.includes('record')" type="button" class="erp-btn erp-btn-primary" :disabled="saving || dirty" @click="openRecord">Record the visit</button>
+        <button v-if="job?.allowedActions.includes('record')" type="button" data-tour="action:record-visit" class="erp-btn erp-btn-primary" :disabled="saving || dirty" @click="openRecord">Record the visit</button>
         <button v-if="job?.allowedActions.includes('followUp')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="addFollowUp">Add follow-up job</button>
         <button v-if="job?.allowedActions.includes('close')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="run('close')">Close job</button>
       </template>
@@ -355,7 +355,7 @@ const asksFor = computed(() => {
             <input v-if="editable" id="job-area" v-model="form.area" class="erp-input" maxlength="60" />
             <div v-else class="erp-input-ro">{{ form.area || '—' }}</div>
           </FormField>
-          <FormField label="Site type" :error="errors.siteType" for="job-site-type">
+          <FormField data-tour="svc:site-type" label="Site type" :error="errors.siteType" for="job-site-type">
             <select v-if="editable" id="job-site-type" v-model="form.siteType" class="erp-input">
               <option value="">Not set: anyone can go</option>
               <option v-for="s in SITE_TYPE_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -417,7 +417,7 @@ const asksFor = computed(() => {
           <p class="m-0 text-xs text-erp-muted">Payments are not kept in this system yet. “Paid on site” is the installer's note for the office to check against the bank.</p>
         </section>
 
-        <section v-if="job && (job.photos.length || job.allowedActions.includes('record'))" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section v-if="job && (job.photos.length || job.allowedActions.includes('record'))" data-tour="svc:photos" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <h2 class="m-0 text-[15px] font-bold">Photos</h2>
           <FileTiles :files="job.photos" :editable="job.allowedActions.includes('record')" add-label="+ Add photo" accept="image/*" :upload="uploadPhoto" />
           <p v-if="job.allowedActions.includes('record')" class="m-0 text-xs text-erp-muted">At least one photo of the work is needed to record a complete or partly done visit.</p>
@@ -427,7 +427,7 @@ const asksFor = computed(() => {
       </div>
 
       <aside class="flex flex-col gap-4">
-        <SideCard title="Booking">
+        <SideCard data-tour="svc:booking" title="Booking">
           <div class="flex flex-col gap-1.5 text-[13px]">
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Type</span><span>{{ job?.typeLabel ?? JOB_TYPE_OPTIONS.find((t) => t.value === form.jobType)?.label }}</span></div>
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Person</span><span>{{ job?.booking?.personName ?? 'Not booked' }}</span></div>

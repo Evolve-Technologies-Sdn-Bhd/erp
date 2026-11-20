@@ -64,6 +64,12 @@ describe('the tour never presses a real action', () => {
       'Transfer to sales order',
       'Convert to PO',
       'Import',
+      'Book',
+      'Extend',
+      'Dismiss',
+      'Close job',
+      'Make jobs now',
+      'Take off the board',
     ]) {
       expect(isSensitiveLabel(label), label).toBe(true)
     }
@@ -73,6 +79,12 @@ describe('the tour never presses a real action', () => {
     for (const label of ['Approvals', 'Released', 'Payments', 'Confirmed', 'Blocked', 'Download', 'Cancel', 'Close', 'Not now', 'Next', 'Saved', 'Add line', 'Add item', 'Search items', 'Open', 'Search pages', '']) {
       expect(isSensitiveLabel(label), label).toBe(false)
     }
+  })
+
+  it('reads words only on short action labels, so a customer named Post Office never blocks a job card', () => {
+    expect(isSensitiveLabel('JB-0007 · Installation · Post Office Kampung Baru · asks for 21 Nov')).toBe(false)
+    expect(isSensitiveLabel('Booking')).toBe(false)
+    expect(isSensitiveLabel('Approve RM 46,200.00')).toBe(true)
   })
 
   it('reads action ids the same way; menu and other ids are places', () => {
@@ -154,6 +166,14 @@ describe('pages', () => {
     const can = (p: string) => p !== 'purchase.order.edit'
     expect(toursFor([welcome, order, po], here, can)).toEqual({ onThisPage: [welcome, order], more: [] })
     expect(toursFor([welcome, order, po], { path: '/' }, () => true)).toEqual({ onThisPage: [welcome], more: [order, po] })
+  })
+
+  it('offers a tour that needs a feature only where it is switched on', () => {
+    const board = tour({ id: 'service.board', module: 'service', pages: ['V02'], requires: ['service'] })
+    const on = (t: Tour) => (t.requires ?? []).every((r) => r === 'service')
+    expect(toursFor([board], { path: '/service/board', code: 'V02' }, () => true, on).onThisPage).toEqual([board])
+    expect(toursFor([board], { path: '/service/board', code: 'V02' }, () => true, () => false).onThisPage).toEqual([])
+    expect(tourProblems(tour({ requires: ['service', 'mes'] }))).toEqual(['sales.order.create: needs "mes", which no feature check knows'])
   })
 })
 

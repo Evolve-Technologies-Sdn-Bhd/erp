@@ -14,16 +14,26 @@ import type { Here, PageMatch, StepWait, Tour, TourStep } from './types'
  * changes nothing (a "Cancel balance" link only opens a draft form, whose own buttons are guarded).
  */
 const SENSITIVE =
-  /\b(approve|reject|release|post|posting|delete|remove|pay|payment|verify|confirm|void|submit|send|e-?mail|award|cancellation|deactivate|block|discontinue|revoke|unlock|reset|load|save|create|transfer|convert|duplicate|import|mark as (complete|done)|record (a |the )?(payment|visit))\b|\bcancel\s+\w/i
+  /\b(approve|reject|release|post|posting|delete|remove|pay|payment|verify|confirm|void|submit|send|e-?mail|award|cancellation|deactivate|block|discontinue|revoke|unlock|reset|load|save|create|transfer|convert|duplicate|import|book|extend|dismiss|close job|make jobs|take off|mark as (complete|done)|record (a |the )?(payment|visit))\b|\bcancel\s+\w/i
 
 /** Plain dialog buttons that only close what they opened. */
 const HARMLESS = new Set(['cancel', 'close', 'back', 'not now', 'no', 'ok'])
 
+/**
+ * An action button says what it does in a few words ("Take payment and release"). Longer text is content: a job card
+ * or a request card, whose customer name could read "Post Office". Those are judged by their style and markers only.
+ */
+export const ACTION_LABEL_MAX = 40
+
 export function isSensitiveLabel(label: string): boolean {
   const text = label.replace(/\s+/g, ' ').trim().toLowerCase()
-  if (!text || HARMLESS.has(text)) return false
+  if (!text || HARMLESS.has(text) || text.length > ACTION_LABEL_MAX) return false
   return SENSITIVE.test(text)
 }
+
+/** What a tour may need switched on; tours.spec checks every tour names only these. */
+export const REQUIREMENTS = ['service', 'wms', 'sales:askInstallation', 'sales:agentsAddCustomers', 'sales:priceRange', 'sales:useReceipts'] as const
+export type Requirement = (typeof REQUIREMENTS)[number]
 
 /**
  * "action:release", "action:send-for-approval": a target id naming a sensitive action. Only action: ids name what a
@@ -71,6 +81,7 @@ export function tourProblems(tour: Tour): string[] {
   if (Array.isArray(tour.pages) && !tour.pages.length) problems.push(`${tour.id}: pages is empty; use 'any'`)
   if (!tour.steps.length) problems.push(`${tour.id}: has no steps`)
   if (tour.steps.length > MAX_STEPS) problems.push(`${tour.id}: more than ${MAX_STEPS} steps`)
+  for (const r of tour.requires ?? []) if (!(REQUIREMENTS as readonly string[]).includes(r)) problems.push(`${tour.id}: needs "${r}", which no feature check knows`)
   tour.steps.forEach((step, i) => {
     const where = `${tour.id} step ${i + 1}`
     if (!step.title.trim() || !step.text.trim()) problems.push(`${where}: needs a title and a text`)
@@ -98,8 +109,13 @@ export function pageMatches(match: PageMatch, here: Here): boolean {
 }
 
 /** The tours Help lists: those for this page first, then the rest the person may take. */
-export function toursFor(tours: Tour[], here: Here, can: (permission: string) => boolean): { onThisPage: Tour[]; more: Tour[] } {
-  const allowed = tours.filter((t) => !t.permission || can(t.permission))
+export function toursFor(
+  tours: Tour[],
+  here: Here,
+  can: (permission: string) => boolean,
+  available: (tour: Tour) => boolean = () => true,
+): { onThisPage: Tour[]; more: Tour[] } {
+  const allowed = tours.filter((t) => (!t.permission || can(t.permission)) && available(t))
   const isHere = (t: Tour) => t.pages === 'any' || (!!here.code && t.pages.includes(here.code))
   return { onThisPage: allowed.filter(isHere), more: allowed.filter((t) => !isHere(t)) }
 }

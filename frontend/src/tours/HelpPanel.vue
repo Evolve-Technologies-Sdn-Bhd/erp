@@ -7,6 +7,7 @@ import SwitchToggle from '@/components/erp/SwitchToggle.vue'
 import { useSession } from '@/composables/useSession'
 import { MODULES, type ModuleKey } from '@/modules/registry'
 import { dropRun, exitTour, help, resume, run, startTour } from './engine'
+import { available } from './features'
 import { progress, resetProgress, updateProgress } from './progress'
 import { TOURS } from './registry'
 import { toursFor } from './tour.rules'
@@ -21,7 +22,7 @@ const toast = useToast()
 const session = useSession()
 
 const lists = computed(() =>
-  toursFor(TOURS, { path: route.path, layout: route.meta.layout, module: route.meta.module, code: route.meta.code }, (p) => session.can(p)),
+  toursFor(TOURS, { path: route.path, layout: route.meta.layout, module: route.meta.module, code: route.meta.code }, (p) => session.can(p), available),
 )
 /** This page's tours first, then the others by module, the module open now first. */
 const groups = computed(() => {

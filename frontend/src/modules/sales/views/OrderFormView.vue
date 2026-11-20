@@ -702,7 +702,7 @@ const viewRows = computed<ViewRow[]>(() => {
               @picked="onCustomerPicked"
             />
             <div v-else class="erp-input-ro">{{ form.customer?.name }}</div>
-            <button v-if="canAddCustomer" type="button" class="erp-link self-start cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-erp-link" @click="newCustomerOpen = true">+ New customer</button>
+            <button v-if="canAddCustomer" type="button" data-tour="so:new-customer" class="erp-link self-start cursor-pointer border-0 bg-transparent p-0 text-xs font-semibold text-erp-link" @click="newCustomerOpen = true">+ New customer</button>
           </FormField>
           <FormField label="Contact" for="so-contact">
             <input v-if="editable" id="so-contact" v-model="form.contactName" class="erp-input" maxlength="100" />
@@ -747,7 +747,7 @@ const viewRows = computed<ViewRow[]>(() => {
           </FormField>
 
           <template v-if="askInstallation">
-            <FormField label="Installation" for="so-install">
+            <FormField data-tour="so:installation" label="Installation" for="so-install">
               <select v-if="editable" id="so-install" v-model="form.installOption" class="erp-input">
                 <option v-for="o in INSTALL_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
               </select>
@@ -999,8 +999,8 @@ const viewRows = computed<ViewRow[]>(() => {
           </div>
           <div v-if="editable" class="flex gap-2">
             <button type="button" data-tour="action:add-item" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add item</button>
-            <button type="button" class="erp-btn erp-btn-secondary" @click="packagePickerOpen = true"><Gift :size="14" aria-hidden="true" />Add package</button>
-            <button type="button" class="erp-btn erp-btn-secondary" :disabled="!form.lines.length" @click="addVoucher"><Ticket :size="14" aria-hidden="true" />Add voucher</button>
+            <button type="button" data-tour="action:add-package" class="erp-btn erp-btn-secondary" @click="packagePickerOpen = true"><Gift :size="14" aria-hidden="true" />Add package</button>
+            <button type="button" data-tour="action:add-voucher" class="erp-btn erp-btn-secondary" :disabled="!form.lines.length" @click="addVoucher"><Ticket :size="14" aria-hidden="true" />Add voucher</button>
           </div>
           <NoticeBanner v-if="order?.stock.releaseNote" kind="warning">
             {{ order.stock.releaseNote }}
@@ -1120,7 +1120,7 @@ const viewRows = computed<ViewRow[]>(() => {
           </p>
         </SideCard>
 
-        <SideCard v-if="order?.payments && order.payments.released" title="Payments">
+        <SideCard v-if="order?.payments && order.payments.released" data-tour="so:payments" title="Payments">
           <template #chip><StatusChip :status="order.payments.status" :label="order.payments.label" :group="PAYMENT_GROUP[order.payments.status]" /></template>
           <div class="flex flex-col text-[13px] erp-num">
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Verified</span><span>{{ formatRm(order.payments.verified) }}</span></div>
@@ -1133,7 +1133,7 @@ const viewRows = computed<ViewRow[]>(() => {
               <StatusChip :status="p.status" :label="p.statusLabel" :group="RECEIPT_GROUP[p.status]" />
             </li>
           </ul>
-          <button v-if="order.payments.canRecord" type="button" class="erp-btn erp-btn-secondary justify-center" @click="receiptOpen = true"><Plus :size="14" aria-hidden="true" />Record payment</button>
+          <button v-if="order.payments.canRecord" type="button" data-tour="action:record-payment" class="erp-btn erp-btn-secondary justify-center" @click="receiptOpen = true"><Plus :size="14" aria-hidden="true" />Record payment</button>
           <p class="m-0 text-xs text-erp-muted">Only receipts Account has verified against the bank count as paid.</p>
         </SideCard>
 

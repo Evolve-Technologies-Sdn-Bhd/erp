@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { CircleQuestionMark } from '@lucide/vue'
 import { useSession } from '@/composables/useSession'
 import { help, run } from './engine'
+import { available } from './features'
 import { progress } from './progress'
 import { TOURS } from './registry'
 import { toursFor } from './tour.rules'
@@ -18,7 +19,7 @@ const session = useSession()
 
 const pageTour = computed(() => {
   const here = { path: route.path, layout: route.meta.layout, module: route.meta.module, code: route.meta.code }
-  return toursFor(TOURS, here, (p) => session.can(p)).onThisPage.some((t) => t.pages !== 'any' && !progress.state.done.includes(t.id))
+  return toursFor(TOURS, here, (p) => session.can(p), available).onThisPage.some((t) => t.pages !== 'any' && !progress.state.done.includes(t.id))
 })
 const paused = computed(() => run.status === 'paused' || run.status === 'left')
 const hint = computed(() => progress.loaded && (paused.value || (progress.state.mode && (!progress.state.welcomeSeen || pageTour.value))))

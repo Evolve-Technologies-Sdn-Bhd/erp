@@ -146,7 +146,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
       </template>
     </PageHeader>
 
-    <div v-if="board" class="flex items-center gap-2">
+    <div v-if="board" data-tour="svc:day" class="flex items-center gap-2">
       <button type="button" class="erp-btn erp-btn-secondary h-9 w-9 justify-center px-0" aria-label="Day before" @click="shift(-1)"><ChevronLeft :size="16" /></button>
       <span class="min-w-[170px] text-center text-[15px] font-bold">{{ board.dateText }} {{ board.date.slice(0, 4) }}</span>
       <button type="button" class="erp-btn erp-btn-secondary h-9 w-9 justify-center px-0" aria-label="Next day" @click="shift(1)"><ChevronRight :size="16" /></button>
@@ -158,7 +158,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
 
     <div v-else-if="board" class="grid items-start gap-4 grid-cols-[290px_minmax(0,1fr)]">
       <!-- Waiting to be booked -->
-      <aside class="flex flex-col gap-2">
+      <aside data-tour="svc:not-booked" class="flex flex-col gap-2">
         <h2 class="m-0 text-[13px] font-bold">Not booked ({{ board.notBooked.length }})</h2>
         <p v-if="!board.notBooked.length && !picked?.moving" class="m-0 text-xs text-erp-muted">Everything is booked.</p>
         <div
@@ -185,7 +185,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
           <span class="text-xs text-erp-muted">{{ j.salesOrderNo ? `${j.salesOrderNo} · ` : '' }}{{ j.whenText.toLowerCase() === '—' ? 'no date asked' : j.whenText.replace('Asks', 'asks') }}</span>
         </button>
 
-        <div v-if="picked" class="mt-2 flex flex-col gap-2 rounded-lg border border-erp-border bg-erp-head px-3 py-3 text-[13px]">
+        <div v-if="picked" data-tour="svc:pick" class="mt-2 flex flex-col gap-2 rounded-lg border border-erp-border bg-erp-head px-3 py-3 text-[13px]">
           <label class="flex flex-col gap-1 font-semibold">
             Slot group
             <select v-model="groupCode" class="erp-input">
@@ -199,7 +199,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
       </aside>
 
       <!-- The day -->
-      <div class="flex min-w-0 flex-col gap-2">
+      <div data-tour="svc:people" class="flex min-w-0 flex-col gap-2">
         <p v-if="!board.people.length" class="m-0 rounded-lg border border-dashed border-erp-border px-4 py-6 text-center text-[13px] text-erp-muted">
           Nobody to book yet. Add your installers and technicians in <RouterLink to="/service/settings" class="erp-link">Slots and Stages</RouterLink>.
         </p>

@@ -5,6 +5,7 @@ import { useToast } from 'primevue/usetoast'
 import { Compass, Play, X } from '@lucide/vue'
 import { useSession } from '@/composables/useSession'
 import { dropRun, exitTour, installTourEngine, onRouteChange, restoreRun, resume, run, stepPosition } from './engine'
+import { loadFeatures } from './features'
 import HelpPanel from './HelpPanel.vue'
 import { boxRect, cornerFor, NARROW, overlapArea, placeBox } from './placement.rules'
 import { clearProgress, loadProgress, progress, setOwnerSource } from './progress'
@@ -35,6 +36,7 @@ watch(
   owner,
   async (code) => {
     dropRun()
+    void loadFeatures(code)
     if (!code) return clearProgress()
     await loadProgress(code)
     if (progress.owner === code) restoreRun(progress.state)

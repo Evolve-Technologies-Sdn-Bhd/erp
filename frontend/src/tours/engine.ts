@@ -41,6 +41,8 @@ export const run = reactive({
   hole: null as Rect | null,
   /** Still looking for the step's element after a moment (a slow page): the box says so */
   slow: false,
+  /** The step is on a page the person never reached (they skipped the step that opens it) */
+  offPage: false,
   /** The person may use the highlighted element (click, fill, open, go to a page) */
   interactive: false,
   /** The highlighted element itself does something real: the tour only shows it */
@@ -73,6 +75,8 @@ let startedAt = 0
 let raf = 0
 let stepCleanup: (() => void)[] = []
 let shownPath = ''
+/** The person skipped a step that opens a page: steps on that page cannot show, so they do not wait for it. */
+let navSkipped = false
 
 const isRunning = () => run.status === 'finding' || run.status === 'showing' || run.status === 'missing'
 const current = (): TourStep | null => run.tour?.steps[run.index] ?? null
@@ -154,6 +158,7 @@ function stopStep(keepHole = false): void {
   run.dropdownOpen = false
   run.dialog = null
   run.slow = false
+  run.offPage = false
 }
 
 function loop(): void {
@@ -178,11 +183,23 @@ function frame(): void {
   if (!step) return
   const now = performance.now()
   const where = here()
-  if (run.status === 'finding' && !run.slow && now - startedAt > SLOW_MS) run.slow = true
+  // A slow page says so; an optional step that may simply not be there is left out quietly instead.
+  if (run.status === 'finding' && !run.slow && !step.optional && now - startedAt > SLOW_MS) run.slow = true
 
-  // Not on the step's page (yet): a page still loading gets a moment; then the tour pauses with Go back.
+  // Not on the step's page. Left it: the tour pauses with Go back. Not there yet: a loading page gets a moment. Never
+  // reached, because the step that opens it was skipped: an optional step is left out, any other says so.
   if (step.page && !pageMatches(step.page, where)) {
-    if (run.status === 'showing' || now - startedAt > FIND_MS) return leave()
+    if (run.status === 'showing') return leave()
+    if (run.status === 'finding' && (navSkipped || now - startedAt > FIND_MS)) {
+      if (step.optional || !navSkipped) {
+        if (!step.optional) return leave()
+        if (!run.skipped.includes(run.index)) run.skipped.push(run.index)
+        return goTo(run.index + 1)
+      }
+      run.status = 'missing'
+      run.offPage = true
+      run.hole = null
+    }
     return loop()
   }
 
@@ -237,6 +254,8 @@ function frame(): void {
 function arm(step: TourStep): void {
   run.status = 'showing'
   run.slow = false
+  run.offPage = false
+  navSkipped = false
   shownPath = here().fullPath
   if (!el) run.hole = null
   run.backHere = run.history.length ? null : previousHere()
@@ -337,6 +356,7 @@ function finish(): void {
 }
 
 function resetRun(): void {
+  navSkipped = false
   run.tour = null
   run.index = 0
   run.history = []
@@ -369,7 +389,11 @@ export function next(): void {
 }
 
 /** Skip this step: the same as Next, for a step that waits for the person. */
-export const skipStep = next
+export function skipStep(): void {
+  const step = current()
+  if (step && waitOf(step).kind === 'page') navSkipped = true
+  next()
+}
 
 export function back(): void {
   if (!run.tour || !deps) return
