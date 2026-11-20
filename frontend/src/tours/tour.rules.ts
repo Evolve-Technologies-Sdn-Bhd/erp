@@ -32,7 +32,7 @@ export function isSensitiveLabel(label: string): boolean {
 }
 
 /** What a tour may need switched on; tours.spec checks every tour names only these. */
-export const REQUIREMENTS = ['service', 'wms', 'sales:askInstallation', 'sales:agentsAddCustomers', 'sales:priceRange', 'sales:useReceipts'] as const
+export const REQUIREMENTS = ['dev', 'service', 'wms', 'sales:askInstallation', 'sales:agentsAddCustomers', 'sales:priceRange', 'sales:useReceipts'] as const
 export type Requirement = (typeof REQUIREMENTS)[number]
 
 /**
@@ -51,8 +51,11 @@ export function waitOf(step: TourStep): StepWait {
 
 export function isInteractive(step: TourStep): boolean {
   const kind = waitOf(step).kind
-  return kind === 'click' || kind === 'fill' || kind === 'page' || kind === 'appear'
+  return kind === 'click' || kind === 'fill' || kind === 'page' || kind === 'appear' || kind === 'user'
 }
+
+/** A hand-over waits for what the person's own action leads to. */
+const OUTCOMES = ['page', 'appear', 'gone']
 
 /* ── Checking a tour before it ships (also run over every registered tour in tours.spec.ts) ─────────────────────────── */
 
@@ -82,20 +85,58 @@ export function tourProblems(tour: Tour): string[] {
   if (!tour.steps.length) problems.push(`${tour.id}: has no steps`)
   if (tour.steps.length > MAX_STEPS) problems.push(`${tour.id}: more than ${MAX_STEPS} steps`)
   for (const r of tour.requires ?? []) if (!(REQUIREMENTS as readonly string[]).includes(r)) problems.push(`${tour.id}: needs "${r}", which no feature check knows`)
+  if (tour.journey && !tour.requires?.includes('dev')) problems.push(`${tour.id}: a journey switches person, so it needs 'dev'`)
+  const remembered = new Set<string>()
   tour.steps.forEach((step, i) => {
     const where = `${tour.id} step ${i + 1}`
     if (!step.title.trim() || !step.text.trim()) problems.push(`${where}: needs a title and a text`)
     const wait = waitOf(step)
     if (wait.kind !== 'next' && wait.kind !== 'page' && !step.target) problems.push(`${where}: a ${wait.kind} step needs a target`)
-    if (wait.kind === 'appear' && !wait.selector.trim()) problems.push(`${where}: appear needs a selector`)
+    if ((wait.kind === 'appear' || wait.kind === 'gone') && !wait.selector.trim()) problems.push(`${where}: ${wait.kind} needs a selector`)
     if (wait.kind === 'page') problems.push(...pageProblems(wait.to, where))
+    if (wait.kind === 'user' && !tour.journey) problems.push(`${where}: only a journey switches person`)
+    if (wait.kind === 'user' && wait.sameBranchAs && !remembered.has(wait.sameBranchAs)) problems.push(`${where}: "${wait.sameBranchAs}" is not remembered before this step`)
     problems.push(...pageProblems(step.page, where))
-    if (isInteractive(step) && step.target && isSensitiveTargetId(step.target)) {
-      problems.push(`${where}: "${step.target}" changes records; a tour may only explain it, never wait for it to be pressed`)
+    if (step.handover && !OUTCOMES.includes(wait.kind)) problems.push(`${where}: a hand-over waits for an outcome (page, appear or gone)`)
+    if (!step.handover && isInteractive(step) && step.target && isSensitiveTargetId(step.target)) {
+      problems.push(`${where}: "${step.target}" changes records; a tour may only explain it or hand it over, never wait for it to be pressed`)
     }
     if (step.optional && !step.target) problems.push(`${where}: optional only makes sense with a target`)
+    if (step.go?.startsWith('@') && !remembered.has(step.go.slice(1))) problems.push(`${where}: "${step.go}" is not remembered before this step`)
+    if (step.go && !step.go.startsWith('@') && !step.go.startsWith('/')) problems.push(`${where}: go is a path or @remembered`)
+    if (step.remember) remembered.add(step.remember)
   })
   return problems
+}
+
+/* ── Journeys: words filled in on the way, and who may play a part ────────────────────────────────────────────────── */
+
+/** "Order {order}" with what the journey knows; an unknown name reads as nothing rather than "{order}". */
+export function fillText(text: string, values: Record<string, string>): string {
+  return text.replace(/\{(\w+)\}/g, (_, name: string) => values[name] ?? '').replace(/\s{2,}/g, ' ')
+}
+
+/** The document number in a page title: "Sales order SO-0012" → "SO-0012"; "Official receipt OR-2611-0003". */
+export function docNoIn(title: string): string {
+  return title.match(/\b[A-Z]{1,5}(?:-[A-Z0-9]+)*-\d+\b/)?.[0] ?? title.trim()
+}
+
+export interface Person {
+  code: string
+  name: string
+  roles: readonly string[]
+  branchCodes: readonly string[]
+}
+
+export function fitsPart(person: Pick<Person, 'roles' | 'branchCodes'> | null | undefined, role: string, branch?: string): boolean {
+  return !!person && person.roles.includes(role) && (!branch || person.branchCodes.includes(branch))
+}
+
+/** "Demo Sales Manager or Lim Wei Jie": who to switch to for a part. */
+export function peopleFor(people: readonly Person[], role: string, branch?: string): string {
+  const names = people.filter((p) => fitsPart(p, role, branch)).map((p) => p.name)
+  if (!names.length) return 'someone with that role'
+  return names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`
 }
 
 /* ── Pages ───────────────────────────────────────────────────────────────────────────────────────────────────────── */

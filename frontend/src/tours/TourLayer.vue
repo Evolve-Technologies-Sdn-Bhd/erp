@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { Compass, Play, X } from '@lucide/vue'
 import { useSession } from '@/composables/useSession'
-import { dropRun, exitTour, installTourEngine, onRouteChange, restoreRun, resume, run, stepPosition } from './engine'
+import { dropRun, exitTour, installTourEngine, onRouteChange, onUserChange, restoreJourney, restoreRun, resume, run, stepPosition } from './engine'
 import { loadFeatures } from './features'
 import HelpPanel from './HelpPanel.vue'
 import { boxRect, cornerFor, NARROW, overlapArea, placeBox } from './placement.rules'
@@ -16,7 +16,8 @@ import './tours.css'
 /**
  * Mounted once, beside the pages (App.vue): the dimmed page with its highlight, the tour box, the paused pill and the
  * Help panel. Keeps each person's progress: a switch of person (dev mode) or a sign-out stops the tour at once and
- * loads the next person's own.
+ * loads the next person's own. A journey is the exception: it goes on through the switch, since switching person is
+ * part of it, and its place is kept on this device.
  */
 const router = useRouter()
 const route = useRoute()
@@ -35,11 +36,14 @@ setOwnerSource(() => (session.state.mode === 'dev' ? session.state.userCode : ow
 watch(
   owner,
   async (code) => {
-    dropRun()
-    void loadFeatures(code)
-    if (!code) return clearProgress()
+    const journey = !!run.tour?.journey
+    if (!journey) dropRun()
+    void loadFeatures(code, session.state.mode)
+    if (!code) return journey ? undefined : clearProgress()
+    if (journey) onUserChange()
     await loadProgress(code)
-    if (progress.owner === code) restoreRun(progress.state)
+    if (journey || run.tour?.journey || progress.owner !== code) return
+    if (!restoreJourney()) restoreRun(progress.state)
   },
   { immediate: true },
 )
@@ -51,6 +55,11 @@ onMounted(() => {
   uninstall = installTourEngine({
     router,
     can: (permission) => session.can(permission),
+    me: () => {
+      const me = session.state.me
+      return me ? { code: me.user.code, name: me.user.name, roles: me.user.roles, branchCodes: me.user.branchCodes, branchCode: me.branchCode } : null
+    },
+    people: () => session.state.users,
     onFinish: (tour) =>
       toast.add({ severity: 'success', summary: `${tour.title}: done`, detail: 'More tours, Tutorial mode and starting again are under Help in the top bar.', life: 5000 }),
   })
@@ -79,40 +88,53 @@ let sizeWatcher: ResizeObserver | null = null
 let watchedBox: Element | null = null
 /** The box changes size with its text; it is measured each time it appears or changes step. */
 function observeBox() {
-  const box = boxHost.value?.querySelector('.tour-box') ?? null
+  // The box that is coming in, not one fading out: a box being removed measures 0 and would push the next one off screen.
+  const box = boxHost.value?.querySelector('.tour-box:not(.tour-fade-leave-active)') ?? null
   if (box === watchedBox) return
   sizeWatcher?.disconnect()
   watchedBox = box
   if (!box) return
   sizeWatcher = new ResizeObserver(() => {
+    const width = (box as HTMLElement).offsetWidth
+    const height = (box as HTMLElement).offsetHeight
+    if (!width || !height || !box.isConnected) return
     const size = box.classList.contains('tour-box-compact') ? chipSize : boxSize
-    size.width = (box as HTMLElement).offsetWidth
-    size.height = (box as HTMLElement).offsetHeight
+    size.width = width
+    size.height = height
   })
   sizeWatcher.observe(box)
 }
 
 const step = computed(() => run.tour?.steps[run.index] ?? null)
 const boxShown = computed(() => run.status === 'showing' || run.status === 'missing' || (run.status === 'finding' && run.slow))
-const dimmed = computed(() => run.status === 'showing' || run.status === 'missing' || run.status === 'finding')
+// During a hand-over the page is the person's: no dimming, only the "Your turn" strip.
+const dimmed = computed(() => !run.handover && (run.status === 'showing' || run.status === 'missing' || run.status === 'finding'))
 
 const place = computed(() => placeBox(run.status === 'missing' ? null : run.hole, boxSize, screen, step.value?.placement))
+/** The menu rail on the left: the "Your turn" strip keeps off it when nothing else is in the way. */
+const rail = computed(() => ({ top: 0, left: 0, width: 90, height: screen.height }))
 /** What the box must keep off while the person works: an open dialog, or the dialog the step points into. */
-const obstacle = computed(() => (run.status === 'showing' && run.interactive ? (run.dialog ?? (run.raised ? run.hole : null)) : null))
-/** The full box would cover it: a one-line chip in the freest corner instead. */
+const obstacle = computed(() => {
+  if (run.handover) return run.dialog ?? rail.value
+  return run.status === 'showing' && run.interactive ? (run.dialog ?? (run.raised ? run.hole : null)) : null
+})
+/** The chip keeps clear of the dialog and of the rail's Home and Sign out. */
+const keepClear = computed(() => (obstacle.value ? [obstacle.value, rail.value] : [rail.value]))
+/** The full box would cover it, or the person is doing a hand-over: a one-line chip in the freest corner instead. */
 const compact = computed(() => {
+  if (run.handover) return true
   if (sheet.value || !obstacle.value) return false
   const at = boxRect(place.value, boxSize)
   return !!at && overlapArea(at, obstacle.value) > 0
 })
 const boxStyle = computed(() => {
   if (compact.value) {
-    const c = cornerFor(obstacle.value!, chipSize, screen)
+    const c = cornerFor(keepClear.value, chipSize, screen)
     return { transform: `translate3d(${Math.round(c.left)}px, ${Math.round(c.top)}px, 0)` }
   }
   return place.value.mode === 'float' ? { transform: `translate3d(${Math.round(place.value.left)}px, ${Math.round(place.value.top)}px, 0)` } : {}
 })
-watch(() => [run.status, run.index, run.slow, compact.value] as const, () => nextTick(observeBox), { flush: 'post' })
+watch(() => [run.status, run.index, run.slow, compact.value, run.handover] as const, () => nextTick(observeBox), { flush: 'post' })
 const holeStyle = computed(() => (run.hole ? { top: `${run.hole.top}px`, left: `${run.hole.left}px`, width: `${run.hole.width}px`, height: `${run.hole.height}px` } : {}))
 
 /* ── The paused pill ─────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -132,7 +154,7 @@ const pillText = computed(() => {
     </Transition>
 
     <div ref="boxHost">
-      <Transition name="tour-fade">
+      <Transition name="tour-fade" @after-enter="observeBox">
         <TourBox v-if="boxShown" :sheet="sheet" :compact="compact" :style="boxStyle" />
       </Transition>
     </div>

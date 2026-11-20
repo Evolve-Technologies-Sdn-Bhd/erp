@@ -29,6 +29,13 @@ export type StepWait =
   | { kind: 'appear'; selector: string }
   /** fills in the highlighted field */
   | { kind: 'fill' }
+  /**
+   * switches to a person holding this role (journeys, dev mode). With sameBranchAs, also working at the branch of a
+   * document remembered earlier, so the next person can see it.
+   */
+  | { kind: 'user'; role: string; sameBranchAs?: string }
+  /** something on screen goes away after it was there (a picked job once it is booked) */
+  | { kind: 'gone'; selector: string }
 
 export type Placement = 'auto' | 'top' | 'bottom' | 'left' | 'right'
 
@@ -47,6 +54,16 @@ export interface TourStep {
   /** Left out quietly when its element is not on the screen (a part of the page the person does not have). */
   optional?: boolean
   placement?: Placement
+  /**
+   * A real action (Save, Release, Book, Verify …). The tour explains it; the person chooses "I'll do it now", which
+   * gives the page back to them, presses the real button themselves, and the tour carries on when it sees the outcome
+   * (the wait: a page, something appearing or going away). The tour itself never presses it.
+   */
+  handover?: boolean
+  /** Opens this page when the step starts: a path, or '@key' for a page remembered earlier in the journey */
+  go?: string
+  /** Remembers the page this step shows on (and its document number and branch) under this key */
+  remember?: string
 }
 
 export interface Tour {
@@ -66,6 +83,11 @@ export interface Tour {
    */
   requires?: string[]
   minutes: number
+  /**
+   * A journey: one document through several people. It carries on when the person changes (dev mode), and its place
+   * is kept on this device rather than with one person. Needs 'dev' in requires.
+   */
+  journey?: boolean
   /** Where it starts; starting it from another page goes there first */
   startAt?: string
   steps: TourStep[]

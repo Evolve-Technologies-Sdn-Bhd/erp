@@ -251,7 +251,7 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
         <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
         <RouterLink :to="`/sales/deliveries/${delivery.id}/print`" class="erp-btn erp-btn-secondary">Print DO</RouterLink>
         <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || !dirty" @click="save">Save draft</button>
-        <button v-if="!confirmed" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('confirm') || Boolean(delivery.depositHold)" @click="confirmDelivery">Confirm delivery</button>
+        <button v-if="!confirmed" type="button" data-tour="action:confirm-delivery" class="erp-btn erp-btn-primary" :disabled="saving || !can('confirm') || Boolean(delivery.depositHold)" @click="confirmDelivery">Confirm delivery</button>
       </template>
     </PageHeader>
 

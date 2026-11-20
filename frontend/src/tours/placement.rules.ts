@@ -27,8 +27,12 @@ const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min)
 
 const OPPOSITE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' } as const
 
-export function placeBox(target: Rect | null, box: Size, screen: Size, want: Placement = 'auto'): BoxPlace {
+/** The box's size before it has been measured (or if a measure came back empty). */
+export const BOX_DEFAULT: Size = { width: 360, height: 220 }
+
+export function placeBox(target: Rect | null, measured: Size, screen: Size, want: Placement = 'auto'): BoxPlace {
   if (screen.width < NARROW) return { mode: 'sheet' }
+  const box = measured.width > 0 && measured.height > 0 ? measured : BOX_DEFAULT
   if (!target) return { mode: 'float', side: 'center', top: Math.max(EDGE, (screen.height - box.height) / 2), left: Math.max(EDGE, (screen.width - box.width) / 2) }
 
   const right = target.left + target.width
@@ -72,9 +76,11 @@ export function overlapArea(a: Rect, b: Rect): number {
 
 /**
  * The compact box's corner while the person works in a dialog: the screen corner that covers least of it (ties go to
- * the bottom left, where dialogs keep the least: their buttons sit at the bottom right).
+ * the bottom left, where dialogs keep the least: their buttons sit at the bottom right). Several things to keep clear
+ * (a dialog and the menu rail) count together.
  */
-export function cornerFor(obstacle: Rect, size: Size, screen: Size): { top: number; left: number } {
+export function cornerFor(obstacles: Rect | Rect[], size: Size, screen: Size): { top: number; left: number } {
+  const all = Array.isArray(obstacles) ? obstacles : [obstacles]
   const corners = [
     { top: screen.height - size.height - EDGE, left: EDGE },
     { top: screen.height - size.height - EDGE, left: screen.width - size.width - EDGE },
@@ -84,7 +90,7 @@ export function cornerFor(obstacle: Rect, size: Size, screen: Size): { top: numb
   let best = corners[0]!
   let bestArea = Infinity
   for (const c of corners) {
-    const area = overlapArea({ ...c, ...size }, obstacle)
+    const area = all.reduce((sum, o) => sum + overlapArea({ ...c, ...size }, o), 0)
     if (area < bestArea) {
       best = c
       bestArea = area

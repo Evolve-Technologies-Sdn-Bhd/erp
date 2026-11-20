@@ -3,7 +3,21 @@ import type { Router } from 'vue-router'
 import { holeRect, needsScroll, NARROW, type Rect } from './placement.rules'
 import { progress, updateProgress } from './progress'
 import { tourById } from './registry'
-import { atStep, finished, isInteractive, isSensitiveLabel, leftTour, pageMatches, waitOf, type TutorialState } from './tour.rules'
+import {
+  atStep,
+  docNoIn,
+  fillText,
+  finished,
+  fitsPart,
+  isInteractive,
+  isSensitiveLabel,
+  leftTour,
+  pageMatches,
+  peopleFor,
+  waitOf,
+  type Person,
+  type TutorialState,
+} from './tour.rules'
 import type { Here, Tour, TourStep } from './types'
 
 /**
@@ -14,6 +28,11 @@ import type { Here, Tour, TourStep } from './types'
  * highlighted element on a step that asks for it, is stopped before the page sees it. Inside the highlighted element,
  * a button that changes records (Release, Approve, Delete, Pay …) is stopped too. Pausing or leaving the tour gives
  * the whole page back, so doing something real is always the person's own, deliberate act outside the tour.
+ *
+ * Journeys (Tour.journey, dev mode): one document through several people. A "switch person" step waits until the
+ * person in use holds the role; a hand-over step explains a real action, and only when the person chooses "I'll do it
+ * now" does the tour give the page back to them, then carry on when it sees the outcome. The journey's place and the
+ * documents it remembered are kept on this device, so it carries on whoever is using the app.
  */
 
 export type RunStatus = 'idle' | 'finding' | 'showing' | 'missing' | 'paused' | 'left'
@@ -58,15 +77,39 @@ export const run = reactive({
   nudgeText: '',
   /** The page to go back to after a pause or after leaving the step's page */
   returnPath: '',
+  /** A hand-over step: the person chose to do the real action; the page is theirs until the tour sees it done */
+  handover: false,
+  /** A "switch person" step whose role the person in use already has */
+  userOk: false,
+  /** Documents a journey remembered on the way: their page, number and branch */
+  memory: {} as Record<string, Memo>,
 })
+
+export interface Memo {
+  path: string
+  label: string
+  branch: string
+}
 
 /** The Help panel. */
 export const help = reactive({ open: false })
+
+interface Me {
+  code: string
+  name: string
+  roles: readonly string[]
+  branchCodes: readonly string[]
+  branchCode: string
+}
 
 interface Deps {
   router: Router
   can: (permission: string) => boolean
   onFinish: (tour: Tour) => void
+  /** Who is using the app now */
+  me: () => Me | null
+  /** The people of the demo, for "switch to …" (dev mode) */
+  people: () => readonly Person[]
 }
 let deps: Deps | null = null
 
@@ -90,6 +133,94 @@ function save(change: (s: TutorialState) => TutorialState): void {
   if (progress.owner) updateProgress(change)
 }
 
+/* ── Where a tour is kept: a person's own tours on the server, a journey on this device ──────────────────────────── */
+
+const JOURNEY_KEY = 'zora.tour.journey'
+
+interface KeptJourney {
+  tourId: string
+  step: number
+  path: string
+  paused: boolean
+  memory: Record<string, Memo>
+}
+
+function writeJourney(kept: KeptJourney | null): void {
+  try {
+    if (kept) localStorage.setItem(JOURNEY_KEY, JSON.stringify(kept))
+    else localStorage.removeItem(JOURNEY_KEY)
+  } catch {
+    /* private mode: the journey lasts until reload */
+  }
+}
+
+function readJourney(): KeptJourney | null {
+  try {
+    const raw = localStorage.getItem(JOURNEY_KEY)
+    const v = raw ? (JSON.parse(raw) as KeptJourney) : null
+    return v && typeof v.tourId === 'string' && Number.isInteger(v.step) && typeof v.path === 'string' ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** Where the running tour is now. */
+function record(paused: boolean, path: string): void {
+  const tour = run.tour
+  if (!tour) return
+  if (tour.journey) return writeJourney({ tourId: tour.id, step: run.index, path, paused, memory: { ...run.memory } })
+  save((s) => atStep(s, tour.id, run.index, path, paused))
+}
+
+/** The tour ended: finished (done) or left. A journey only adds itself to the person's finished tours. */
+function recordEnd(tour: Tour, done: boolean): void {
+  if (tour.journey) {
+    writeJourney(null)
+    if (done) save((s) => ({ ...s, done: [...new Set([...s.done, tour.id])] }))
+    return
+  }
+  save((s) => (done ? finished(s, tour.id) : leftTour(s)))
+}
+
+/* ── Journeys: who plays the part, and the words filled in ─────────────────────────────────────────────────────── */
+
+function partBranch(step: TourStep): string | undefined {
+  const wait = waitOf(step)
+  return wait.kind === 'user' && wait.sameBranchAs ? run.memory[wait.sameBranchAs]?.branch || undefined : undefined
+}
+
+function userFits(step: TourStep): boolean {
+  const wait = waitOf(step)
+  return wait.kind === 'user' && fitsPart(deps?.me(), wait.role, partBranch(step))
+}
+
+/** A step's words with what the journey knows: {people} for the part, {order} and other remembered documents. */
+export function stepText(text: string | undefined): string {
+  if (!text) return ''
+  const step = current()
+  const values: Record<string, string> = Object.fromEntries(Object.entries(run.memory).map(([k, m]) => [k, m.label]))
+  const wait = step ? waitOf(step) : null
+  if (wait?.kind === 'user' && deps) values.people = peopleFor(deps.people(), wait.role, partBranch(step!))
+  return fillText(text, values)
+}
+
+/** Whether a hand-over's outcome is there (or a "gone" wait's element has gone, after it was seen). */
+let goneSeen = false
+function outcomeMet(step: TourStep): boolean {
+  const wait = waitOf(step)
+  if (wait.kind === 'page') return pageMatches(wait.to, here())
+  if (wait.kind === 'appear') {
+    const shown = document.querySelector<HTMLElement>(wait.selector)
+    return !!shown && visible(shown)
+  }
+  if (wait.kind === 'gone') {
+    const there = document.querySelector<HTMLElement>(wait.selector)
+    if (there && visible(there)) goneSeen = true
+    else if (goneSeen) return true
+  }
+  return false
+}
+
 /* ── Finding the element ─────────────────────────────────────────────────────────────────────────────────────────── */
 
 function visible(node: HTMLElement): boolean {
@@ -111,8 +242,19 @@ function reveal(node: HTMLElement): void {
   node.scrollIntoView({ block: window.innerWidth < NARROW ? 'start' : 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
 }
 
+/** The element, and a menu it has opened (the person menu, a dropdown list): both stay lit. */
+function litRect(node: HTMLElement): Rect {
+  const r = node.getBoundingClientRect()
+  const menu = node.querySelector<HTMLElement>('[role="menu"]')
+  if (!menu || !visible(menu)) return r
+  const m = menu.getBoundingClientRect()
+  const top = Math.min(r.top, m.top)
+  const left = Math.min(r.left, m.left)
+  return { top, left, width: Math.max(r.right, m.right) - left, height: Math.max(r.bottom, m.bottom) - top }
+}
+
 function updateHole(node: HTMLElement): void {
-  const h = holeRect(node.getBoundingClientRect(), screenSize())
+  const h = holeRect(litRect(node), screenSize())
   const o = run.hole
   if (!o || Math.abs(o.top - h.top) > 0.5 || Math.abs(o.left - h.left) > 0.5 || Math.abs(o.width - h.width) > 0.5 || Math.abs(o.height - h.height) > 0.5) run.hole = h
 }
@@ -159,6 +301,9 @@ function stopStep(keepHole = false): void {
   run.dialog = null
   run.slow = false
   run.offPage = false
+  run.handover = false
+  run.userOk = false
+  goneSeen = false
 }
 
 function loop(): void {
@@ -170,10 +315,24 @@ function show(index: number): void {
   run.index = index
   run.status = 'finding'
   startedAt = performance.now()
-  shownPath = here().fullPath
-  const tour = run.tour!
-  save((s) => atStep(s, tour.id, index, shownPath))
+  // A journey step may open its page: a fixed one, or a document remembered earlier ('@order').
+  const step = run.tour!.steps[index]
+  const go = step?.go ? (step.go.startsWith('@') ? run.memory[step.go.slice(1)]?.path : step.go) : undefined
+  if (go && deps && here().fullPath !== go) void deps.router.push(go)
+  shownPath = go ?? here().fullPath
+  record(false, shownPath)
   loop()
+}
+
+/** Where an open dialog is, so the box keeps off it. */
+function trackDialog(): void {
+  const dialog = [...document.querySelectorAll<HTMLElement>('.p-dialog')].find((d) => visible(d) && !d.closest('[data-tour-ui]'))
+  const dr = dialog?.getBoundingClientRect()
+  if (!dr) {
+    if (run.dialog) run.dialog = null
+  } else if (!run.dialog || Math.abs(run.dialog.top - dr.top) > 1 || Math.abs(run.dialog.left - dr.left) > 1 || Math.abs(run.dialog.height - dr.height) > 1) {
+    run.dialog = { top: dr.top, left: dr.left, width: dr.width, height: dr.height }
+  }
 }
 
 function frame(): void {
@@ -181,6 +340,12 @@ function frame(): void {
   if (!isRunning()) return
   const step = current()
   if (!step) return
+  // The person is doing the real action: the page is theirs; the tour only watches for the outcome.
+  if (run.handover) {
+    trackDialog()
+    if (outcomeMet(step)) return handoverDone()
+    return loop()
+  }
   const now = performance.now()
   const where = here()
   // A slow page says so; an optional step that may simply not be there is left out quietly instead.
@@ -232,21 +397,13 @@ function frame(): void {
   }
 
   if (el) updateHole(el)
-  const dropdown = run.interactive ? document.querySelector<HTMLElement>(DROPDOWNS) : null
+  const dropdown = run.interactive ? (document.querySelector<HTMLElement>(DROPDOWNS) ?? el?.querySelector<HTMLElement>('[role="menu"]') ?? null) : null
   const dropdownOpen = !!dropdown && visible(dropdown)
   if (run.dropdownOpen !== dropdownOpen) run.dropdownOpen = dropdownOpen
-  const dialog = run.interactive ? [...document.querySelectorAll<HTMLElement>('.p-dialog')].find((d) => visible(d) && !d.closest('[data-tour-ui]')) : undefined
-  const dr = dialog?.getBoundingClientRect()
-  if (!dr) {
-    if (run.dialog) run.dialog = null
-  } else if (!run.dialog || Math.abs(run.dialog.top - dr.top) > 1 || Math.abs(run.dialog.left - dr.left) > 1 || Math.abs(run.dialog.height - dr.height) > 1) {
-    run.dialog = { top: dr.top, left: dr.left, width: dr.width, height: dr.height }
-  }
+  if (run.interactive) trackDialog()
+  else if (run.dialog) run.dialog = null
   const wait = waitOf(step)
-  if (run.status === 'showing' && wait.kind === 'appear') {
-    const shown = document.querySelector<HTMLElement>(wait.selector)
-    if (shown && visible(shown)) return next()
-  }
+  if (run.status === 'showing' && !step.handover && (wait.kind === 'appear' || wait.kind === 'gone') && outcomeMet(step)) return next()
   loop()
 }
 
@@ -262,11 +419,18 @@ function arm(step: TourStep): void {
   run.raised = !!el?.closest('.p-dialog, .p-drawer, .p-popover')
   const control = el?.matches(CONTROL) ? el : null
   run.guarded = !!el && (control ? isSensitiveElement(control) : !!el.closest('[data-tour-sensitive]'))
-  run.interactive = !!el && isInteractive(step) && !run.guarded
+  // A hand-over is read first; the page is only given back when the person chooses to do it.
+  run.interactive = !!el && isInteractive(step) && !run.guarded && !step.handover
+  run.userOk = userFits(step)
+  if (step.remember) {
+    const title = document.querySelector('[data-tour="page-header"] h1')?.textContent ?? ''
+    run.memory[step.remember] = { path: here().fullPath, label: docNoIn(title), branch: deps?.me()?.branchCode ?? '' }
+    record(false, shownPath)
+  }
 
   const wait = waitOf(step)
   const node = el
-  if (wait.kind === 'page' && pageMatches(wait.to, here())) {
+  if (wait.kind === 'page' && !step.handover && pageMatches(wait.to, here())) {
     queueMicrotask(next)
     return
   }
@@ -342,8 +506,7 @@ function leave(): void {
   stopStep()
   run.status = 'left'
   run.returnPath = shownPath
-  const tour = run.tour!
-  save((s) => atStep(s, tour.id, run.index, shownPath, true))
+  record(true, shownPath)
 }
 
 function finish(): void {
@@ -351,7 +514,7 @@ function finish(): void {
   stopStep()
   resetRun()
   if (!tour) return
-  save((s) => finished(s, tour.id))
+  recordEnd(tour, true)
   deps?.onFinish(tour)
 }
 
@@ -365,6 +528,12 @@ function resetRun(): void {
   run.status = 'idle'
   run.returnPath = ''
   run.nudgeText = ''
+  run.memory = {}
+}
+
+function handoverDone(): void {
+  run.handover = false
+  next()
 }
 
 /* ── What the controls do ────────────────────────────────────────────────────────────────────────────────────────── */
@@ -376,9 +545,34 @@ export function startTour(id: string): void {
   help.open = false
   stopStep()
   resetRun()
+  if (tour.journey) writeJourney(null)
   run.tour = tour
   if (tour.startAt && here().path !== tour.startAt) void deps.router.push(tour.startAt)
   show(0)
+}
+
+/** "I'll do it now": the page is the person's for this step's real action; the tour carries on when it sees it done. */
+export function handOver(): void {
+  const step = current()
+  if (!step?.handover || run.status !== 'showing') return
+  run.handover = true
+  run.nudgeText = ''
+  run.hole = null
+  goneSeen = false
+}
+
+/** "Carry on": the person says the action is done, if the tour did not see it by itself. */
+export function carryOn(): void {
+  if (run.handover) handoverDone()
+}
+
+/** Someone else is using the app now (dev mode): a journey waiting for that part moves on. */
+export function onUserChange(): void {
+  const step = current()
+  if (!step || !isRunning()) return
+  if (waitOf(step).kind !== 'user') return
+  run.userOk = userFits(step)
+  if (run.userOk && run.status === 'showing') next()
 }
 
 export function next(): void {
@@ -408,13 +602,12 @@ export function back(): void {
 
 export function pause(): void {
   if (!run.tour || !isRunning()) return
-  const keep = run.status === 'showing' ? shownPath : here().fullPath
+  const keep = run.status === 'showing' && !run.handover ? shownPath : here().fullPath
   stopStep()
   run.status = 'paused'
   run.returnPath = keep
   run.nudgeText = ''
-  const tour = run.tour
-  save((s) => atStep(s, tour.id, run.index, keep, true))
+  record(true, keep)
 }
 
 /** Resume a paused tour, or go back to the page a step is on. */
@@ -427,10 +620,11 @@ export function resume(): void {
 }
 
 export function exitTour(): void {
-  if (!run.tour) return
+  const tour = run.tour
+  if (!tour) return
   stopStep()
   resetRun()
-  save(leftTour)
+  recordEnd(tour, false)
 }
 
 /** The router moved: a step waiting for that page moves on; a step on another page pauses the tour. */
@@ -439,13 +633,18 @@ export function onRouteChange(): void {
   const step = current()
   if (!step) return
   const where = here()
+  // During a hand-over the person may go anywhere; only the outcome counts.
+  if (run.handover) {
+    if (outcomeMet(step)) handoverDone()
+    return
+  }
   if (run.status === 'left') {
     if (!step.page || pageMatches(step.page, where)) show(run.index)
     return
   }
   if (!isRunning()) return
   const wait = waitOf(step)
-  if (wait.kind === 'page' && pageMatches(wait.to, where)) return next()
+  if (wait.kind === 'page' && !step.handover && pageMatches(wait.to, where)) return next()
   if (step.page && !pageMatches(step.page, where)) {
     if (run.status !== 'finding') leave()
     return
@@ -471,6 +670,24 @@ export function restoreRun(state: TutorialState): void {
   run.returnPath = active.path
 }
 
+/** A journey left on this device waits as paused, whoever uses the app now. Returns whether there was one. */
+export function restoreJourney(): boolean {
+  const kept = readJourney()
+  const tour = kept ? tourById(kept.tourId) : undefined
+  if (!kept || !tour?.journey || kept.step >= tour.steps.length) {
+    if (kept) writeJourney(null)
+    return false
+  }
+  stopStep()
+  resetRun()
+  run.tour = tour
+  run.index = kept.step
+  run.status = 'paused'
+  run.returnPath = kept.path
+  run.memory = { ...kept.memory }
+  return true
+}
+
 /** Someone else is using the app now (or nobody): stop without saving anything for them. */
 export function dropRun(): void {
   stopStep()
@@ -488,8 +705,11 @@ function nudge(e: Event, text: string): void {
   run.nudge += 1
 }
 
+/** The page is guarded while a step shows, and handed back during a hand-over or a pause. */
+const guarding = () => isRunning() && !run.handover
+
 function onClick(e: MouseEvent): void {
-  if (!isRunning()) return
+  if (!guarding()) return
   const target = e.target instanceof Element ? e.target : null
   if (!target || target.closest('[data-tour-ui], .p-toast')) return
   const control = target.closest(CONTROL)
@@ -501,7 +721,7 @@ function onClick(e: MouseEvent): void {
 }
 
 function onSubmit(e: Event): void {
-  if (!isRunning()) return
+  if (!guarding()) return
   const form = e.target instanceof Element ? e.target : null
   if (form?.closest('[data-tour-ui]')) return
   if (!(run.status === 'showing' && run.interactive && el && form && el.contains(form))) nudge(e, OUTSIDE_NUDGE)
@@ -522,7 +742,7 @@ function onKey(e: KeyboardEvent): void {
     pause()
     return
   }
-  if (typing) return
+  if (typing || run.handover) return
   const step = current()
   if (e.key === 'ArrowRight' && step && waitOf(step).kind === 'next' && run.status === 'showing') {
     e.preventDefault()

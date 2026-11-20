@@ -35,6 +35,11 @@ describe('where the tour box goes', () => {
     expect(placeBox(null, box, screen)).toEqual({ mode: 'float', side: 'center', top: 350, left: 540 })
   })
 
+  it('never pushes a box it could not measure off the screen', () => {
+    // A save button at the top right, with a box that measured 0 while it was being swapped.
+    expect(placeBox({ top: 108, left: 1310, width: 114, height: 54 }, { width: 0, height: 0 }, screen)).toMatchObject({ side: 'bottom', left: 1440 - 360 - EDGE })
+  })
+
   it('docks at the bottom on a phone', () => {
     expect(placeBox({ top: 100, left: 20, width: 100, height: 40 }, box, { width: 390, height: 844 })).toEqual({ mode: 'sheet' })
   })
@@ -50,6 +55,8 @@ describe('the compact box beside a dialog', () => {
     expect(cornerFor({ top: 300, left: 0, width: 900, height: 600 }, chip, screen)).toEqual({ top: 900 - 56 - EDGE, left: 1440 - 420 - EDGE })
     // One filling the bottom: a top corner.
     expect(cornerFor({ top: 400, left: 0, width: 1440, height: 500 }, chip, screen)).toEqual({ top: EDGE, left: EDGE })
+    // A dialog and the menu rail on the left together: the bottom right, keeping the rail's Home and Sign out clear.
+    expect(cornerFor([dialog, { top: 0, left: 0, width: 90, height: 900 }], chip, screen)).toEqual({ top: 900 - 56 - EDGE, left: 1440 - 420 - EDGE })
   })
 
   it('knows when a floating box would cover something', () => {

@@ -451,7 +451,7 @@ const asksFor = computed(() => {
             <div v-if="job.overdueSinceText" class="flex justify-between gap-3"><span class="text-erp-muted">Late</span><span class="text-right text-chip-cancelled-text">Overdue since {{ job.overdueSinceText }}</span></div>
           </div>
         </SideCard>
-        <SideCard v-if="job && (job.salesOrderNo || job.followUpOf || job.followUpJob)" title="Linked documents">
+        <SideCard v-if="job && (job.salesOrderNo || job.followUpOf || job.followUpJob)" data-tour="svc:links" title="Linked documents">
           <div class="flex flex-col gap-1.5 text-[13px]">
             <div v-if="job.salesOrderNo" class="flex justify-between gap-3"><span class="font-semibold">{{ job.salesOrderNo }}</span><span class="text-erp-muted">Sales order</span></div>
             <div v-if="job.orderPayment" class="flex justify-between gap-3">

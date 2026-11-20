@@ -73,7 +73,8 @@ const text = computed(() => props.label ?? LABELS[props.status] ?? props.status)
 </script>
 
 <template>
-  <span class="inline-block rounded-xl px-2.5 py-[3px] text-xs font-semibold whitespace-nowrap" :class="CLASSES[group]">
+  <!-- data-status: the status code, so a guided tour can see a document change (Released, Confirmed …) -->
+  <span class="inline-block rounded-xl px-2.5 py-[3px] text-xs font-semibold whitespace-nowrap" :class="CLASSES[group]" :data-status="status">
     {{ text }}
   </span>
 </template>

@@ -26,13 +26,20 @@ const lists = computed(() =>
 )
 /** This page's tours first, then the others by module, the module open now first. */
 const groups = computed(() => {
+  // Journeys (one document through several people) come first, apart from the one-page tours.
+  const all = [...lists.value.onThisPage, ...lists.value.more]
+  const journeys = all.filter((t) => t.journey)
   const byModule = new Map<string, Tour[]>()
-  for (const t of lists.value.more) byModule.set(t.module ?? '', [...(byModule.get(t.module ?? '') ?? []), t])
+  for (const t of lists.value.more.filter((t) => !t.journey)) byModule.set(t.module ?? '', [...(byModule.get(t.module ?? '') ?? []), t])
   const rank = (k: string) => (k === route.meta.module ? 0 : k === '' ? 2 : 1)
   const more = [...byModule.entries()]
     .sort(([a], [b]) => rank(a) - rank(b))
     .map(([k, tours]) => ({ title: k && k in MODULES ? `${MODULES[k as ModuleKey].label} tours` : 'More tours', tours }))
-  return [{ title: 'On this page', tours: lists.value.onThisPage }, ...more]
+  return [
+    { title: 'Journeys: one order, every person', tours: journeys },
+    { title: 'On this page', tours: lists.value.onThisPage.filter((t) => !t.journey) },
+    ...more,
+  ]
 })
 const isDone = (t: Tour) => progress.state.done.includes(t.id)
 const isPaused = (t: Tour) => run.tour?.id === t.id

@@ -650,7 +650,7 @@ const viewRows = computed<ViewRow[]>(() => {
           <RouterLink v-if="!isNew" to="/sales/orders" class="erp-btn erp-btn-secondary">Back</RouterLink>
           <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
           <button type="button" data-tour="action:save-draft" class="erp-btn" :class="isNew ? 'erp-btn-primary' : 'erp-btn-secondary'" :disabled="saving || (!isNew && !dirty)" @click="save">Save draft</button>
-          <button v-if="!isNew && !showCreditFailed && !priceNeedsApproval" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
+          <button v-if="!isNew && !showCreditFailed && !priceNeedsApproval" type="button" data-tour="action:release" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
         </template>
         <template v-else-if="order && released">
           <RouterLink :to="`/sales/orders/${order.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
@@ -753,7 +753,7 @@ const viewRows = computed<ViewRow[]>(() => {
               </select>
               <div v-else class="erp-input-ro">{{ order?.installation.optionLabel ?? '—' }}</div>
             </FormField>
-            <FormField label="Preferred date" :error="errors.installDate" for="so-install-date">
+            <FormField data-tour="so:install-date" :data-filled="form.installDate ? 'true' : 'false'" label="Preferred date" :error="errors.installDate" for="so-install-date">
               <DatePicker
                 v-if="editable"
                 input-id="so-install-date"

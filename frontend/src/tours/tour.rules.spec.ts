@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   atStep,
   declinedWelcome,
+  docNoIn,
+  fillText,
+  fitsPart,
+  peopleFor,
+  type Person,
   finished,
   freshTutorial,
   isInteractive,
@@ -113,6 +118,52 @@ describe('the tour never presses a real action', () => {
     expect(isInteractive({ title: 't', text: 't', wait: { kind: 'page', to: { layout: 'module' } } })).toBe(true)
     expect(isInteractive({ title: 't', text: 't', wait: { kind: 'hover' } })).toBe(false)
     expect(isInteractive({ title: 't', text: 't' })).toBe(false)
+  })
+})
+
+describe('journeys', () => {
+  const people: Person[] = [
+    { code: 'AG1', name: 'Agent One', roles: ['SALES_AGENT'], branchCodes: ['HQ'] },
+    { code: 'ST1', name: 'Store HQ', roles: ['SALES_STORE'], branchCodes: ['HQ'] },
+    { code: 'ST2', name: 'Store Showrooms', roles: ['SALES_STORE'], branchCodes: ['KD', 'PG'] },
+    { code: 'BOSS', name: 'Boss', roles: ['ADMIN', 'SALES_STORE'], branchCodes: ['HQ', 'KD', 'PG'] },
+  ]
+
+  it('names who can play a part, at the document’s branch when it matters', () => {
+    expect(peopleFor(people, 'SALES_STORE')).toBe('Store HQ, Store Showrooms or Boss')
+    expect(peopleFor(people, 'SALES_STORE', 'KD')).toBe('Store Showrooms or Boss')
+    expect(peopleFor(people, 'SALES_AGENT')).toBe('Agent One')
+    expect(peopleFor(people, 'FINANCE_MANAGER')).toBe('someone with that role')
+    expect(fitsPart(people[2], 'SALES_STORE', 'KD')).toBe(true)
+    expect(fitsPart(people[1], 'SALES_STORE', 'KD')).toBe(false)
+    expect(fitsPart(null, 'ADMIN')).toBe(false)
+  })
+
+  it('fills in what the journey knows, and reads document numbers from page titles', () => {
+    expect(fillText('Open the job for order {order}.', { order: 'SO-0012' })).toBe('Open the job for order SO-0012.')
+    expect(fillText('Switch to {people}.', {})).toBe('Switch to .')
+    expect(docNoIn('Sales order SO-0012')).toBe('SO-0012')
+    expect(docNoIn('Official receipt OR-2611-0003')).toBe('OR-2611-0003')
+    expect(docNoIn('Job JB-0007')).toBe('JB-0007')
+    expect(docNoIn('New sales order')).toBe('New sales order')
+  })
+
+  const journey = (steps: Tour['steps'], over: Partial<Tour> = {}) => tour({ id: 'journey.test', journey: true, requires: ['dev'], pages: 'any', steps, ...over })
+
+  it('lets a hand-over point at a real action, and only while waiting for its outcome', () => {
+    expect(tourProblems(journey([{ target: 'action:release', title: 'Release', text: 'Press it.', handover: true, wait: { kind: 'appear', selector: '[data-status="RELEASED"]' } }]))).toEqual([])
+    expect(tourProblems(journey([{ target: 'action:release', title: 'Release', text: 'Press it.', handover: true, wait: { kind: 'click' } }]))).toEqual([
+      'journey.test step 1: a hand-over waits for an outcome (page, appear or gone)',
+    ])
+  })
+
+  it('switches person only in a journey, which needs dev mode, and uses only what was remembered before', () => {
+    const switchTo = { target: 'account', title: 'Switch', text: 'Switch.', wait: { kind: 'user' as const, role: 'SALES_STORE', sameBranchAs: 'order' } }
+    expect(tourProblems(tour({ steps: [{ ...switchTo, wait: { kind: 'user', role: 'ADMIN' } }] }))).toEqual(['sales.order.create step 1: only a journey switches person'])
+    expect(tourProblems(journey([switchTo]))).toEqual(['journey.test step 1: "order" is not remembered before this step'])
+    expect(tourProblems(journey([{ target: 'page-header', title: 'Order', text: 'Saved.', remember: 'order' }, switchTo, { title: 'Back', text: 'Back.', go: '@order' }]))).toEqual([])
+    expect(tourProblems(journey([{ title: 'Back', text: 'Back.', go: '@job' }]))).toEqual(['journey.test step 1: "@job" is not remembered before this step'])
+    expect(tourProblems(journey([{ title: 'Hi', text: 'Hi.' }], { requires: [] }))).toEqual(["journey.test: a journey switches person, so it needs 'dev'"])
   })
 })
 

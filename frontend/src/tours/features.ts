@@ -9,10 +9,12 @@ import type { Tour } from './types'
  * Which features this company has switched on, for the tours that need one (Tour.requires): the Service module and a
  * connected WMS from the launcher's tiles, the Sales Flow switches from the Sales settings. Asked once per person.
  */
-const state = reactive({ owner: '', open: new Set<string>() })
+const state = reactive({ owner: '', dev: false, open: new Set<string>() })
 
-export async function loadFeatures(owner: string): Promise<void> {
+/** mode: dev mode lets one person switch to another, which journeys need. */
+export async function loadFeatures(owner: string, mode: string): Promise<void> {
   state.owner = owner
+  state.dev = mode === 'dev'
   state.open = new Set()
   if (!owner) return
   try {
@@ -24,6 +26,7 @@ export async function loadFeatures(owner: string): Promise<void> {
 }
 
 export function meets(requirement: Requirement | string): boolean {
+  if (requirement === 'dev') return state.dev
   if (requirement === 'service' || requirement === 'wms') return state.open.has(requirement)
   if (requirement.startsWith('sales:')) {
     loadSalesFlow()
