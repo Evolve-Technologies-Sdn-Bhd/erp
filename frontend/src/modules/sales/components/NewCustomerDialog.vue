@@ -77,7 +77,8 @@ async function save() {
     </div>
     <template #footer>
       <button type="button" class="erp-btn erp-btn-secondary" @click="visible = false">Cancel</button>
-      <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="save">Add customer</button>
+      <!-- data-tour-sensitive: it makes a customer, so a guided tour never presses it -->
+      <button type="button" data-tour-sensitive class="erp-btn erp-btn-primary" :disabled="saving" @click="save">Add customer</button>
     </template>
   </Dialog>
 </template>

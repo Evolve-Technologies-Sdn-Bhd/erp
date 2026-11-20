@@ -649,7 +649,7 @@ const viewRows = computed<ViewRow[]>(() => {
         <template v-if="editable">
           <RouterLink v-if="!isNew" to="/sales/orders" class="erp-btn erp-btn-secondary">Back</RouterLink>
           <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
-          <button type="button" class="erp-btn" :class="isNew ? 'erp-btn-primary' : 'erp-btn-secondary'" :disabled="saving || (!isNew && !dirty)" @click="save">Save draft</button>
+          <button type="button" data-tour="action:save-draft" class="erp-btn" :class="isNew ? 'erp-btn-primary' : 'erp-btn-secondary'" :disabled="saving || (!isNew && !dirty)" @click="save">Save draft</button>
           <button v-if="!isNew && !showCreditFailed && !priceNeedsApproval" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
         </template>
         <template v-else-if="order && released">
@@ -683,8 +683,14 @@ const viewRows = computed<ViewRow[]>(() => {
         </NoticeBanner>
 
         <!-- Header fields (SalesOrderForm.html order) -->
-        <section class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-[18px]">
-          <FormField :label="form.customer ? `Customer · ${form.customer.code}` : 'Customer · from Master Data'" :error="errors.customerCode" for="so-customer">
+        <section data-tour="so:header" class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-[18px]">
+          <FormField
+            data-tour="so:customer"
+            :data-filled="form.customer ? 'true' : 'false'"
+            :label="form.customer ? `Customer · ${form.customer.code}` : 'Customer · from Master Data'"
+            :error="errors.customerCode"
+            for="so-customer"
+          >
             <MasterDataPicker
               v-if="editable"
               v-model="form.customer"
@@ -773,7 +779,7 @@ const viewRows = computed<ViewRow[]>(() => {
         </section>
 
         <!-- Lines -->
-        <section id="so-lines" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section id="so-lines" data-tour="so:lines" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">Lines</h2>
             <span v-if="errors.lines" class="text-xs font-medium text-note-error-text">{{ errors.lines }}</span>
@@ -810,7 +816,7 @@ const viewRows = computed<ViewRow[]>(() => {
                   </tr>
                   <template v-for="(l, i) in form.lines" :key="l.key">
                     <template v-if="l.kind === 'package'">
-                      <tr>
+                      <tr data-tour="so:line">
                         <td class="text-erp-muted">{{ i + 1 }}</td>
                         <td>
                           <div class="flex items-center gap-2 font-bold whitespace-nowrap">{{ l.code }} <StatusChip status="DRAFT" label="Package" group="draft" /></div>
@@ -866,7 +872,7 @@ const viewRows = computed<ViewRow[]>(() => {
                       </tr>
                     </template>
                     <template v-else>
-                    <tr>
+                    <tr data-tour="so:line">
                       <td class="text-erp-muted">{{ i + 1 }}</td>
                       <td>
                         <div class="font-bold whitespace-nowrap">{{ l.item.code }}</div>
@@ -992,7 +998,7 @@ const viewRows = computed<ViewRow[]>(() => {
             </table>
           </div>
           <div v-if="editable" class="flex gap-2">
-            <button type="button" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add item</button>
+            <button type="button" data-tour="action:add-item" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add item</button>
             <button type="button" class="erp-btn erp-btn-secondary" @click="packagePickerOpen = true"><Gift :size="14" aria-hidden="true" />Add package</button>
             <button type="button" class="erp-btn erp-btn-secondary" :disabled="!form.lines.length" @click="addVoucher"><Ticket :size="14" aria-hidden="true" />Add voucher</button>
           </div>
@@ -1083,7 +1089,7 @@ const viewRows = computed<ViewRow[]>(() => {
 
       <!-- Right panel -->
       <aside class="flex flex-col gap-4">
-        <SideCard title="Totals (MYR)">
+        <SideCard data-tour="so:totals" title="Totals (MYR)">
           <div v-if="totals" class="flex flex-col text-[13px]">
             <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Subtotal</span><MoneyText :value="totals.subtotal" /></div>
             <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Discount</span><MoneyText :value="totals.discountTotal" /></div>
@@ -1095,7 +1101,7 @@ const viewRows = computed<ViewRow[]>(() => {
           </div>
         </SideCard>
 
-        <SideCard v-if="order && credit" :title="order.credit.live ? 'Credit now' : 'Credit at save'">
+        <SideCard v-if="order && credit" data-tour="so:credit" :title="order.credit.live ? 'Credit now' : 'Credit at save'">
           <template #chip><StatusChip :status="creditChip.status" :label="creditChip.label" :group="creditChip.group" /></template>
           <div v-if="bar" class="flex h-2 overflow-hidden rounded bg-erp-track">
             <div class="h-full bg-erp-muted" :style="{ width: `${bar.before}%` }" />

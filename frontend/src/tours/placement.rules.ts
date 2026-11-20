@@ -59,6 +59,40 @@ export function placeBox(target: Rect | null, box: Size, screen: Size, want: Pla
   }
 }
 
+/** Where a floating box would sit, as a rectangle. */
+export function boxRect(place: BoxPlace, size: Size): Rect | null {
+  return place.mode === 'float' ? { top: place.top, left: place.left, width: size.width, height: size.height } : null
+}
+
+export function overlapArea(a: Rect, b: Rect): number {
+  const w = Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left)
+  const h = Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top)
+  return w > 0 && h > 0 ? w * h : 0
+}
+
+/**
+ * The compact box's corner while the person works in a dialog: the screen corner that covers least of it (ties go to
+ * the bottom left, where dialogs keep the least: their buttons sit at the bottom right).
+ */
+export function cornerFor(obstacle: Rect, size: Size, screen: Size): { top: number; left: number } {
+  const corners = [
+    { top: screen.height - size.height - EDGE, left: EDGE },
+    { top: screen.height - size.height - EDGE, left: screen.width - size.width - EDGE },
+    { top: EDGE, left: EDGE },
+    { top: EDGE, left: screen.width - size.width - EDGE },
+  ]
+  let best = corners[0]!
+  let bestArea = Infinity
+  for (const c of corners) {
+    const area = overlapArea({ ...c, ...size }, obstacle)
+    if (area < bestArea) {
+      best = c
+      bestArea = area
+    }
+  }
+  return best
+}
+
 /** The highlight: the element plus a little room, kept on the screen. */
 export function holeRect(target: Rect, screen: Size): Rect {
   const top = Math.max(target.top - HOLE_PAD, 4)

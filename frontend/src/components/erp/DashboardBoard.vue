@@ -105,7 +105,7 @@ const KIND: Record<IndicatorKind, { label: string; icon: typeof Table2 }> = {
 
 <template>
   <!-- Dashboard toolbar -->
-  <div class="erp-card flex min-h-14 flex-wrap items-center justify-between gap-3 px-5 py-2.5">
+  <div data-tour="dashboard" class="erp-card flex min-h-14 flex-wrap items-center justify-between gap-3 px-5 py-2.5">
     <div class="flex items-center gap-2.5">
       <span class="text-sm font-bold">Dashboard</span>
       <span v-if="board" class="text-xs text-erp-muted">{{ board.isDefault ? 'Default charts' : 'Your charts · saved to your account' }}</span>
@@ -126,7 +126,7 @@ const KIND: Record<IndicatorKind, { label: string; icon: typeof Table2 }> = {
           {{ n }} cols
         </button>
       </div>
-      <button type="button" class="erp-btn erp-btn-add" :disabled="!board" @click="adding = true"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add chart</button>
+      <button type="button" data-tour="dashboard:add-chart" class="erp-btn erp-btn-add" :disabled="!board" @click="adding = true"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add chart</button>
       <button type="button" class="erp-btn erp-btn-danger" :disabled="!board || !keys.length || busy" @click="clearAll">Clear</button>
     </div>
   </div>

@@ -104,7 +104,7 @@ async function exportCsv() {
     <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
       <PageHeader title="List of Cash Sales" subtitle="Walk-in sales paid on the spot. One document records the sale, the payment and the stock going out.">
         <template #actions>
-          <RouterLink v-if="can('sales.cash_sale.edit')" to="/sales/cash-sales/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cash sale</RouterLink>
+          <RouterLink v-if="can('sales.cash_sale.edit')" to="/sales/cash-sales/new" data-tour="action:new-cash-sale" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cash sale</RouterLink>
           <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
           <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
         </template>

@@ -43,7 +43,8 @@ function confirm() {
     </div>
     <template #footer>
       <button type="button" class="erp-btn erp-btn-secondary" @click="visible = false">Cancel</button>
-      <button type="button" class="erp-btn" :class="danger ? 'erp-btn-danger' : 'erp-btn-primary'" :disabled="busy" @click="confirm">{{ confirmLabel }}</button>
+      <!-- data-tour-sensitive: it always confirms a real action, so a guided tour never presses it -->
+      <button type="button" data-tour-sensitive class="erp-btn" :class="danger ? 'erp-btn-danger' : 'erp-btn-primary'" :disabled="busy" @click="confirm">{{ confirmLabel }}</button>
     </template>
   </Dialog>
 </template>

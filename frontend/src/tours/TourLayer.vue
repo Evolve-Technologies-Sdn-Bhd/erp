@@ -6,7 +6,7 @@ import { Compass, Play, X } from '@lucide/vue'
 import { useSession } from '@/composables/useSession'
 import { dropRun, exitTour, installTourEngine, onRouteChange, restoreRun, resume, run, stepPosition } from './engine'
 import HelpPanel from './HelpPanel.vue'
-import { placeBox, NARROW } from './placement.rules'
+import { boxRect, cornerFor, NARROW, overlapArea, placeBox } from './placement.rules'
 import { clearProgress, loadProgress, progress, setOwnerSource } from './progress'
 import { stepLabel } from './tour.rules'
 import TourBox from './TourBox.vue'
@@ -69,7 +69,9 @@ function measureScreen() {
 }
 const sheet = computed(() => screen.width < NARROW)
 
+/** The full box's size, and the compact one's: each measured while it shows, so choosing between them never flickers. */
 const boxSize = reactive({ width: 360, height: 220 })
+const chipSize = reactive({ width: 420, height: 56 })
 const boxHost = ref<HTMLElement | null>(null)
 let sizeWatcher: ResizeObserver | null = null
 let watchedBox: Element | null = null
@@ -81,19 +83,34 @@ function observeBox() {
   watchedBox = box
   if (!box) return
   sizeWatcher = new ResizeObserver(() => {
-    boxSize.width = (box as HTMLElement).offsetWidth
-    boxSize.height = (box as HTMLElement).offsetHeight
+    const size = box.classList.contains('tour-box-compact') ? chipSize : boxSize
+    size.width = (box as HTMLElement).offsetWidth
+    size.height = (box as HTMLElement).offsetHeight
   })
   sizeWatcher.observe(box)
 }
-watch(() => [run.status, run.index, run.slow] as const, () => nextTick(observeBox), { flush: 'post' })
 
 const step = computed(() => run.tour?.steps[run.index] ?? null)
 const boxShown = computed(() => run.status === 'showing' || run.status === 'missing' || (run.status === 'finding' && run.slow))
 const dimmed = computed(() => run.status === 'showing' || run.status === 'missing' || run.status === 'finding')
 
 const place = computed(() => placeBox(run.status === 'missing' ? null : run.hole, boxSize, screen, step.value?.placement))
-const boxStyle = computed(() => (place.value.mode === 'float' ? { transform: `translate3d(${Math.round(place.value.left)}px, ${Math.round(place.value.top)}px, 0)` } : {}))
+/** What the box must keep off while the person works: an open dialog, or the dialog the step points into. */
+const obstacle = computed(() => (run.status === 'showing' && run.interactive ? (run.dialog ?? (run.raised ? run.hole : null)) : null))
+/** The full box would cover it: a one-line chip in the freest corner instead. */
+const compact = computed(() => {
+  if (sheet.value || !obstacle.value) return false
+  const at = boxRect(place.value, boxSize)
+  return !!at && overlapArea(at, obstacle.value) > 0
+})
+const boxStyle = computed(() => {
+  if (compact.value) {
+    const c = cornerFor(obstacle.value!, chipSize, screen)
+    return { transform: `translate3d(${Math.round(c.left)}px, ${Math.round(c.top)}px, 0)` }
+  }
+  return place.value.mode === 'float' ? { transform: `translate3d(${Math.round(place.value.left)}px, ${Math.round(place.value.top)}px, 0)` } : {}
+})
+watch(() => [run.status, run.index, run.slow, compact.value] as const, () => nextTick(observeBox), { flush: 'post' })
 const holeStyle = computed(() => (run.hole ? { top: `${run.hole.top}px`, left: `${run.hole.left}px`, width: `${run.hole.width}px`, height: `${run.hole.height}px` } : {}))
 
 /* ── The paused pill ─────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -108,13 +125,13 @@ const pillText = computed(() => {
 <template>
   <Teleport to="body">
     <Transition name="tour-fade">
-      <div v-if="dimmed && run.hole && run.status !== 'missing'" class="tour-hole" :class="{ 'tour-hole-live': run.interactive && run.status === 'showing', 'tour-hole-guarded': run.guarded }" :style="holeStyle" aria-hidden="true" />
+      <div v-if="dimmed && run.hole && run.status !== 'missing'" class="tour-hole" :class="{ 'tour-hole-live': run.interactive && run.status === 'showing', 'tour-hole-guarded': run.guarded, 'tour-hole-raised': run.raised }" :style="holeStyle" aria-hidden="true" />
       <div v-else-if="dimmed" class="tour-scrim" aria-hidden="true" />
     </Transition>
 
     <div ref="boxHost">
       <Transition name="tour-fade">
-        <TourBox v-if="boxShown" :sheet="sheet" :style="boxStyle" />
+        <TourBox v-if="boxShown" :sheet="sheet" :compact="compact" :style="boxStyle" />
       </Transition>
     </div>
 

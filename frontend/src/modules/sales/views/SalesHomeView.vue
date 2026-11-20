@@ -50,7 +50,7 @@ const kpis = computed(() => {
 
 <template>
   <!-- Group tiles -->
-  <div class="flex gap-4">
+  <div data-tour="home:tiles" class="flex gap-4">
     <RouterLink
       v-for="(g, i) in salesMenu()"
       :key="g.key"
@@ -74,7 +74,7 @@ const kpis = computed(() => {
         <span>The cards could not be loaded.</span>
         <button type="button" class="erp-btn erp-btn-secondary" @click="load">Try again</button>
       </div>
-      <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
+      <div data-tour="home:kpis" class="grid grid-cols-4 gap-4 max-lg:grid-cols-2">
         <KpiCard label="Open sales orders" :value="data?.kpis.openOrders.count ?? ''" :sub="kpis?.openOrders" to="/sales/orders" :loading="loading" />
         <KpiCard label="Delivered, not yet invoiced" :value="data?.kpis.toInvoice.count ?? ''" :sub="kpis?.toInvoice" to="/sales/invoices/new" :loading="loading" />
         <KpiCard

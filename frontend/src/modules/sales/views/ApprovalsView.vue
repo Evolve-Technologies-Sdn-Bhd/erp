@@ -120,7 +120,7 @@ async function decide(decision: 'approve' | 'reject') {
       <h1 class="m-0 text-xl font-bold">Approvals</h1>
       <p class="mt-1 mb-0 text-xs text-erp-muted">Documents that a policy stopped until someone decides. {{ signedInAs }}</p>
     </div>
-    <div class="flex gap-6" role="tablist">
+    <div data-tour="approvals:tabs" class="flex gap-6" role="tablist">
       <button
         v-for="t in TABS"
         :key="t.key"
@@ -138,7 +138,7 @@ async function decide(decision: 'approve' | 'reject') {
 
   <div class="grid grow grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-stretch gap-4">
     <!-- Left: cards and recent decisions -->
-    <div class="flex min-w-0 flex-col gap-3">
+    <div data-tour="approvals:list" class="flex min-w-0 flex-col gap-3">
       <div v-if="loadingList && !list" class="erp-card px-5 py-8 text-center text-[13px] text-erp-muted">Loading…</div>
       <div v-else-if="!list?.items.length" class="erp-card px-5 py-8 text-center text-[13px] text-erp-muted">
         {{ tab === 'waiting' ? 'Nothing is waiting for you.' : tab === 'approved' ? 'You have not approved anything yet.' : 'You have not rejected anything yet.' }}
@@ -187,7 +187,7 @@ async function decide(decision: 'approve' | 'reject') {
     </div>
 
     <!-- Right: the selected approval -->
-    <section class="erp-card flex min-w-0 flex-col gap-4 px-5 py-[18px]">
+    <section data-tour="approvals:detail" class="erp-card flex min-w-0 flex-col gap-4 px-5 py-[18px]">
       <div v-if="loadingDetail" class="py-10 text-center text-[13px] text-erp-muted">Loading…</div>
       <div v-else-if="!detail" class="py-10 text-center text-[13px] text-erp-muted">Pick an approval on the left to see the details.</div>
       <template v-else>
@@ -274,7 +274,7 @@ async function decide(decision: 'approve' | 'reject') {
             <textarea id="approval-comment" v-model="comment" rows="3" class="erp-input h-auto py-2 font-normal" maxlength="1000" :aria-invalid="Boolean(commentError)" />
             <span v-if="commentError" class="text-xs font-normal text-note-error-text">{{ commentError }}</span>
           </label>
-          <div class="grid grid-cols-2 gap-2">
+          <div data-tour="approvals:decide" class="grid grid-cols-2 gap-2">
             <button type="button" class="erp-btn erp-btn-danger h-10" :disabled="deciding" @click="decide('reject')">Reject</button>
             <button type="button" class="erp-btn erp-btn-primary h-10" :disabled="deciding" @click="decide('approve')">Approve</button>
           </div>

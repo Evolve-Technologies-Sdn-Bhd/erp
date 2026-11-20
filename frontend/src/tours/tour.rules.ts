@@ -7,13 +7,14 @@ import type { Here, PageMatch, StepWait, Tour, TourStep } from './types'
 /* ── Safety: the tour shows real actions, it never performs them ─────────────────────────────────────────────────── */
 
 /**
- * Buttons whose words say they change records for real, send something out or cannot be undone. The tour may point at
- * them and explain them; it never lets them be pressed while it runs. Pausing or leaving the tour gives the page back,
- * so doing it stays a deliberate choice outside the tour. Links are never sensitive: opening a page changes nothing
- * (a "Cancel balance" link only opens a draft form, whose own buttons are guarded).
+ * Buttons whose words say they write something, change records for real, send something out or cannot be undone.
+ * Saving and creating count too: a tour never writes, so a practice run leaves no draft and uses up no number. The tour
+ * may point at them and explain them; it never lets them be pressed while it runs. Pausing or leaving the tour gives
+ * the page back, so doing it stays a deliberate choice outside the tour. Links are never sensitive: opening a page
+ * changes nothing (a "Cancel balance" link only opens a draft form, whose own buttons are guarded).
  */
 const SENSITIVE =
-  /\b(approve|reject|release|post|posting|delete|remove|pay|payment|verify|confirm|void|submit|send|e-?mail|award|cancellation|deactivate|block|discontinue|revoke|unlock|reset|load|mark as (complete|done)|record (a |the )?(payment|visit))\b|\bcancel\s+\w/i
+  /\b(approve|reject|release|post|posting|delete|remove|pay|payment|verify|confirm|void|submit|send|e-?mail|award|cancellation|deactivate|block|discontinue|revoke|unlock|reset|load|save|create|transfer|convert|duplicate|import|mark as (complete|done)|record (a |the )?(payment|visit))\b|\bcancel\s+\w/i
 
 /** Plain dialog buttons that only close what they opened. */
 const HARMLESS = new Set(['cancel', 'close', 'back', 'not now', 'no', 'ok'])

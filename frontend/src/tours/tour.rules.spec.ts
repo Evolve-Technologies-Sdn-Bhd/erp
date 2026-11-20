@@ -58,13 +58,19 @@ describe('the tour never presses a real action', () => {
       'Load 12 rows',
       'Mark as complete',
       'Record the visit',
+      'Save draft',
+      'Save changes',
+      'Create quotation',
+      'Transfer to sales order',
+      'Convert to PO',
+      'Import',
     ]) {
       expect(isSensitiveLabel(label), label).toBe(true)
     }
   })
 
   it('leaves alone the words that only name a place or a state, and plain dialog buttons', () => {
-    for (const label of ['Approvals', 'Released', 'Payments', 'Confirmed', 'Blocked', 'Download', 'Cancel', 'Close', 'Not now', 'Next', 'Save', 'Add line', 'Open', 'Search pages', '']) {
+    for (const label of ['Approvals', 'Released', 'Payments', 'Confirmed', 'Blocked', 'Download', 'Cancel', 'Close', 'Not now', 'Next', 'Saved', 'Add line', 'Add item', 'Search items', 'Open', 'Search pages', '']) {
       expect(isSensitiveLabel(label), label).toBe(false)
     }
   })
@@ -74,6 +80,8 @@ describe('the tour never presses a real action', () => {
     expect(isSensitiveTargetId('action:send-for-approval')).toBe(true)
     expect(isSensitiveTargetId('action:delete')).toBe(true)
     expect(isSensitiveTargetId('action:new')).toBe(false)
+    expect(isSensitiveTargetId('action:save-draft')).toBe(true)
+    expect(isSensitiveTargetId('action:take-payment')).toBe(true)
     expect(isSensitiveTargetId('action:add-line')).toBe(false)
     expect(isSensitiveTargetId('menu:email-templates')).toBe(false)
     expect(isSensitiveTargetId('rail:billing')).toBe(false)

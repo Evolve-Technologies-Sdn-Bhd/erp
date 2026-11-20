@@ -45,6 +45,12 @@ export const run = reactive({
   interactive: false,
   /** The highlighted element itself does something real: the tour only shows it */
   guarded: false,
+  /** The element is inside a dialog, which sits above the page: the highlight goes above it too */
+  raised: false,
+  /** A dropdown or date picker is open on a step the person is doing: the box steps aside so it never covers it */
+  dropdownOpen: false,
+  /** A dialog open on a step the person is doing (or the dialog the step points into): the box keeps off it */
+  dialog: null as Rect | null,
   /** Bumps when a click was stopped, so the box can say why */
   nudge: 0,
   nudgeText: '',
@@ -115,6 +121,10 @@ const CONTROL =
 const OVERLAYS =
   '.p-select-overlay, .p-autocomplete-overlay, .p-multiselect-overlay, .p-datepicker-panel, .p-popover, .p-dialog, .p-confirmdialog, .p-menu-overlay, .p-tieredmenu-overlay, .p-cascadeselect-overlay'
 
+/** Lists that open under a field: the tour box must never sit on top of them while the person picks. */
+const DROPDOWNS =
+  '.p-select-overlay, .p-autocomplete-overlay, .p-multiselect-overlay, .p-datepicker-panel, .p-cascadeselect-overlay, .p-menu-overlay, .p-tieredmenu-overlay'
+
 function labelOf(node: Element): string {
   return node.getAttribute('aria-label') ?? node.textContent ?? ''
 }
@@ -140,6 +150,9 @@ function stopStep(keepHole = false): void {
   if (!keepHole) run.hole = null
   run.interactive = false
   run.guarded = false
+  run.raised = false
+  run.dropdownOpen = false
+  run.dialog = null
   run.slow = false
 }
 
@@ -202,6 +215,16 @@ function frame(): void {
   }
 
   if (el) updateHole(el)
+  const dropdown = run.interactive ? document.querySelector<HTMLElement>(DROPDOWNS) : null
+  const dropdownOpen = !!dropdown && visible(dropdown)
+  if (run.dropdownOpen !== dropdownOpen) run.dropdownOpen = dropdownOpen
+  const dialog = run.interactive ? [...document.querySelectorAll<HTMLElement>('.p-dialog')].find((d) => visible(d) && !d.closest('[data-tour-ui]')) : undefined
+  const dr = dialog?.getBoundingClientRect()
+  if (!dr) {
+    if (run.dialog) run.dialog = null
+  } else if (!run.dialog || Math.abs(run.dialog.top - dr.top) > 1 || Math.abs(run.dialog.left - dr.left) > 1 || Math.abs(run.dialog.height - dr.height) > 1) {
+    run.dialog = { top: dr.top, left: dr.left, width: dr.width, height: dr.height }
+  }
   const wait = waitOf(step)
   if (run.status === 'showing' && wait.kind === 'appear') {
     const shown = document.querySelector<HTMLElement>(wait.selector)
@@ -217,6 +240,7 @@ function arm(step: TourStep): void {
   shownPath = here().fullPath
   if (!el) run.hole = null
   run.backHere = run.history.length ? null : previousHere()
+  run.raised = !!el?.closest('.p-dialog, .p-drawer, .p-popover')
   const control = el?.matches(CONTROL) ? el : null
   run.guarded = !!el && (control ? isSensitiveElement(control) : !!el.closest('[data-tour-sensitive]'))
   run.interactive = !!el && isInteractive(step) && !run.guarded
@@ -251,6 +275,9 @@ function watchHover(node: HTMLElement): void {
 }
 
 function isFilled(node: HTMLElement): boolean {
+  // A picker says itself when a choice is made (data-filled), so typing a few letters does not count as filled.
+  const marked = node.matches('[data-filled]') ? node : node.querySelector('[data-filled]')
+  if (marked) return marked.getAttribute('data-filled') === 'true'
   const fields = node.matches('input, textarea, select') ? [node] : [...node.querySelectorAll<HTMLElement>('input, textarea, select')]
   if (fields.some((f) => (f as HTMLInputElement).value?.trim())) return true
   return !!node.querySelector('.p-select-label:not(.p-placeholder), [data-filled="true"]')
@@ -442,9 +469,9 @@ function onClick(e: MouseEvent): void {
   const target = e.target instanceof Element ? e.target : null
   if (!target || target.closest('[data-tour-ui], .p-toast')) return
   const control = target.closest(CONTROL)
+  const sensitive = !!control && isSensitiveElement(control)
   const inside = run.status === 'showing' && run.interactive && !!el && (el.contains(target) || !!target.closest(OVERLAYS))
-  if (!inside) return nudge(e, OUTSIDE_NUDGE)
-  if (control && isSensitiveElement(control)) return nudge(e, SENSITIVE_NUDGE)
+  if (!inside || sensitive) return nudge(e, sensitive ? SENSITIVE_NUDGE : OUTSIDE_NUDGE)
   const step = current()
   if (step && waitOf(step).kind === 'click' && el?.contains(target)) window.setTimeout(next, 0)
 }

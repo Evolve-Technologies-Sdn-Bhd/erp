@@ -40,6 +40,8 @@ export interface TourStep {
   /** The rule behind it, shown under the text ("Over your limit the button reads Send for approval.") */
   why?: string
   wait?: StepWait
+  /** What the box says while it waits, when the default ("Waiting for you to open it.") does not fit */
+  waiting?: string
   /** The page this step is on. Leaving it pauses the tour, with Go back. */
   page?: PageMatch
   /** Left out quietly when its element is not on the screen (a part of the page the person does not have). */

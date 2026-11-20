@@ -215,7 +215,7 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
 
     <div class="flex items-center justify-between gap-3">
       <div class="flex gap-2">
-        <RouterLink v-if="can('sales.order.edit')" to="/sales/orders/new" class="erp-btn erp-btn-add">
+        <RouterLink v-if="can('sales.order.edit')" to="/sales/orders/new" data-tour="action:new-order" class="erp-btn erp-btn-add">
           <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new order
         </RouterLink>
         <button type="button" class="erp-btn erp-btn-primary" :disabled="!releasable.length" @click="releaseSelected">Release selected</button>

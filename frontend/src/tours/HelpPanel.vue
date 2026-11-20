@@ -5,6 +5,7 @@ import { useToast } from 'primevue/usetoast'
 import { CircleCheck, Compass, Keyboard, Play, RotateCcw, ShieldCheck, X } from '@lucide/vue'
 import SwitchToggle from '@/components/erp/SwitchToggle.vue'
 import { useSession } from '@/composables/useSession'
+import { MODULES, type ModuleKey } from '@/modules/registry'
 import { dropRun, exitTour, help, resume, run, startTour } from './engine'
 import { progress, resetProgress, updateProgress } from './progress'
 import { TOURS } from './registry'
@@ -22,6 +23,16 @@ const session = useSession()
 const lists = computed(() =>
   toursFor(TOURS, { path: route.path, layout: route.meta.layout, module: route.meta.module, code: route.meta.code }, (p) => session.can(p)),
 )
+/** This page's tours first, then the others by module, the module open now first. */
+const groups = computed(() => {
+  const byModule = new Map<string, Tour[]>()
+  for (const t of lists.value.more) byModule.set(t.module ?? '', [...(byModule.get(t.module ?? '') ?? []), t])
+  const rank = (k: string) => (k === route.meta.module ? 0 : k === '' ? 2 : 1)
+  const more = [...byModule.entries()]
+    .sort(([a], [b]) => rank(a) - rank(b))
+    .map(([k, tours]) => ({ title: k && k in MODULES ? `${MODULES[k as ModuleKey].label} tours` : 'More tours', tours }))
+  return [{ title: 'On this page', tours: lists.value.onThisPage }, ...more]
+})
 const isDone = (t: Tour) => progress.state.done.includes(t.id)
 const isPaused = (t: Tour) => run.tour?.id === t.id
 
@@ -88,7 +99,7 @@ function onKey(e: KeyboardEvent) {
           <button type="button" class="erp-btn erp-btn-secondary tour-btn-sm" @click="exitTour">Exit</button>
         </div>
 
-        <section v-for="group in [{ title: 'On this page', tours: lists.onThisPage }, { title: 'More tours', tours: lists.more }]" :key="group.title" class="flex flex-col gap-2">
+        <section v-for="group in groups" :key="group.title" class="flex flex-col gap-2">
           <template v-if="group.tours.length">
             <h3 class="m-0 text-[11px] font-semibold tracking-widest text-erp-muted uppercase">{{ group.title }}</h3>
             <div v-for="t in group.tours" :key="t.id" class="tour-tour-row">

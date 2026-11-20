@@ -8,7 +8,7 @@ import { isInteractive, stepLabel, waitOf } from './tour.rules'
  * The box beside the highlighted element: where the tour is, what to do, and the controls. Built from the ERP's own
  * card, buttons and the module's colour (--tour-accent), so it reads as part of the screen.
  */
-const props = defineProps<{ sheet: boolean }>()
+const props = defineProps<{ sheet: boolean; compact?: boolean }>()
 
 const step = computed(() => run.tour?.steps[run.index] ?? null)
 const position = computed(() => stepPosition())
@@ -26,6 +26,7 @@ const waiting = computed(() => {
   if (kind.value === 'hover') return !touch
   return isInteractive(step.value) && run.interactive
 })
+const waitingText = computed(() => step.value?.waiting ?? WAITING_TEXT[kind.value])
 const WAITING_TEXT: Record<string, string> = {
   click: 'Waiting for you to click it.',
   hover: 'Point at it to carry on.',
@@ -59,13 +60,38 @@ watch(
 
 <template>
   <div
-    v-if="run.tour && step"
+    v-if="run.tour && step && props.compact"
+    data-tour-ui
+    role="dialog"
+    aria-modal="false"
+    :aria-label="`${run.tour.title}, ${label}: ${step.title}. ${step.text}`"
+    class="tour-box tour-box-compact"
+    :class="{ 'tour-shake': shaking, 'tour-box-aside': run.dropdownOpen }"
+    @animationend="shaking = false"
+  >
+    <div class="flex items-center gap-2.5">
+      <span class="tour-badge" aria-hidden="true"><Compass :size="14" /></span>
+      <div class="flex min-w-0 flex-1 flex-col">
+        <span class="truncate text-[11px] font-semibold tracking-wide text-erp-muted uppercase"><span class="erp-num">{{ label }}</span> · {{ run.tour.title }}</span>
+        <span class="flex min-w-0 items-center gap-1.5 text-[13px] font-bold text-erp-text">
+          <span v-if="waiting" class="tour-dot shrink-0" aria-hidden="true" /><span class="truncate">{{ step.title }}</span>
+        </span>
+      </div>
+      <button v-if="waiting" type="button" class="erp-btn erp-btn-secondary tour-btn-sm" @click="skipStep">Skip step</button>
+      <button v-else type="button" class="erp-btn tour-btn-primary tour-btn-sm" @click="next">{{ isLast ? 'Done' : 'Next' }}</button>
+      <button type="button" class="tour-icon-btn" aria-label="Pause the tour" title="Pause (Esc)" @click="pause"><Pause :size="15" /></button>
+      <button type="button" class="tour-icon-btn" aria-label="Exit the tour" title="Exit" @click="exitTour"><X :size="16" /></button>
+    </div>
+    <p v-if="run.nudgeText" :key="run.nudge" class="tour-nudge" role="alert">{{ run.nudgeText }}</p>
+  </div>
+  <div
+    v-else-if="run.tour && step"
     data-tour-ui
     role="dialog"
     aria-modal="false"
     :aria-label="`${run.tour.title}, ${label}`"
     class="tour-box"
-    :class="{ 'tour-box-sheet': props.sheet, 'tour-shake': shaking }"
+    :class="{ 'tour-box-sheet': props.sheet, 'tour-shake': shaking, 'tour-box-aside': run.dropdownOpen }"
     @animationend="shaking = false"
   >
     <div class="flex items-center gap-2">
@@ -87,7 +113,7 @@ watch(
     <p v-if="run.guarded" class="tour-note tour-note-lock">
       <Lock :size="14" class="shrink-0" aria-hidden="true" />The tour only shows this button. Pressing it changes records for real, so it is yours to do after the tour.
     </p>
-    <p v-if="waiting" class="tour-waiting"><span class="tour-dot" aria-hidden="true" />{{ WAITING_TEXT[kind] }}</p>
+    <p v-if="waiting" class="tour-waiting"><span class="tour-dot" aria-hidden="true" />{{ waitingText }}</p>
     <p v-if="finding" class="tour-waiting"><span class="tour-dot" aria-hidden="true" />Waiting for the page…</p>
     <p v-if="missing" class="tour-note">
       <Info :size="14" class="shrink-0" aria-hidden="true" />This part is not on your screen. Your role may not show it, or the page has not loaded yet.

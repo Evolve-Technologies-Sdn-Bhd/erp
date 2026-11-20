@@ -253,7 +253,7 @@ const released = computed(() => cs.value?.status === 'RELEASED')
         <RouterLink v-if="!editable" to="/sales/cash-sales" class="erp-btn erp-btn-secondary">Back</RouterLink>
         <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
         <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || (!isNew && !dirty)" @click="save(false)">Save draft</button>
-        <button v-if="editable" type="button" class="erp-btn erp-btn-primary" :disabled="saving || (!isNew && !can('release'))" @click="takePayment">Take payment and release</button>
+        <button v-if="editable" type="button" data-tour="action:take-payment" class="erp-btn erp-btn-primary" :disabled="saving || (!isNew && !can('release'))" @click="takePayment">Take payment and release</button>
       </template>
     </PageHeader>
 
@@ -269,7 +269,7 @@ const released = computed(() => cs.value?.status === 'RELEASED')
       <div class="grid items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
         <div class="flex min-w-0 flex-col gap-4">
           <section class="erp-card grid grid-cols-[1.3fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-[18px]">
-            <FormField label="Customer · C-CASH"><div class="erp-input-ro">Cash customer (walk-in)</div></FormField>
+            <FormField data-tour="cs:customer" label="Customer · C-CASH"><div class="erp-input-ro">Cash customer (walk-in)</div></FormField>
             <FormField label="Sale date" for="cs-date">
               <DatePicker v-if="editable" input-id="cs-date" :model-value="isoToDate(form.docDate)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="form.docDate = dateToIso($event)" />
               <div v-else class="erp-input-ro">{{ formatDate(form.docDate) }}</div>
@@ -300,7 +300,7 @@ const released = computed(() => cs.value?.status === 'RELEASED')
           <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
             <div class="flex items-center justify-between gap-3">
               <h2 class="m-0 text-[15px] font-bold">Items</h2>
-              <div v-if="editable" class="flex gap-2">
+              <div v-if="editable" data-tour="cs:scan" class="flex gap-2">
                 <input v-model="scan" class="erp-input w-[280px]" placeholder="Scan barcode or type item code" aria-label="Scan barcode or type item code" @keydown.enter.prevent="onScan" />
                 <button type="button" class="erp-btn erp-btn-secondary" @click="pickerOpen = true">Search items</button>
               </div>
@@ -310,7 +310,7 @@ const released = computed(() => cs.value?.status === 'RELEASED')
               <thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Price incl. tax</th><th>Tax</th><th class="num">Amount</th><th v-if="editable" aria-label="Remove" /></tr></thead>
               <tbody>
                 <tr v-if="!form.lines.length"><td :colspan="editable ? 7 : 6" class="text-center text-erp-muted">Scan an item or click Search items.</td></tr>
-                <tr v-for="(l, i) in form.lines" :key="l.key">
+                <tr v-for="(l, i) in form.lines" :key="l.key" data-tour="cs:line">
                   <td class="font-bold whitespace-nowrap">{{ l.itemCode }}</td>
                   <td>{{ l.itemName }}</td>
                   <td class="num w-[90px]">
@@ -331,7 +331,7 @@ const released = computed(() => cs.value?.status === 'RELEASED')
             </table>
           </section>
 
-          <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+          <section data-tour="cs:payment" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
             <h2 class="m-0 text-[15px] font-bold">Payment</h2>
             <div class="grid grid-cols-4 gap-3" role="radiogroup" aria-label="Payment method">
               <button
@@ -366,7 +366,7 @@ const released = computed(() => cs.value?.status === 'RELEASED')
         </div>
 
         <aside class="flex flex-col gap-4">
-          <SideCard title="Totals (MYR)">
+          <SideCard data-tour="cs:totals" title="Totals (MYR)">
             <div class="flex flex-col text-[13px]">
               <div class="flex justify-between py-[5px]"><span class="text-erp-muted">Before tax</span><MoneyText :value="totals.beforeTax" /></div>
               <div class="flex justify-between py-[5px]"><span class="text-erp-muted">Tax included ({{ totals.taxName }})</span><MoneyText :value="totals.tax" /></div>
