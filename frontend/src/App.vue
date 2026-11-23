@@ -2,9 +2,9 @@
 import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ConfirmDialog from 'primevue/confirmdialog'
-import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import { onApiError } from '@/api/http'
+import ErpToast from '@/components/erp/ErpToast.vue'
 import ModuleHomeLayout from '@/components/erp/ModuleHomeLayout.vue'
 import ModuleLayout from '@/components/erp/ModuleLayout.vue'
 import { useSession } from '@/composables/useSession'
@@ -60,7 +60,7 @@ const pageKey = computed(() => `${session.state.version}:${route.path}`)
 </script>
 
 <template>
-  <Toast position="top-right" />
+  <ErpToast />
   <ConfirmDialog class="erp-dialog" :style="{ width: '460px' }" />
   <!-- Guided tours and Help, over every page -->
   <TourLayer v-if="session.state.ready" />

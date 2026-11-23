@@ -71,6 +71,19 @@ Make one `StatusChip` component that maps a document status to these groups. Nev
 | Warning | `#FFFBEB` | `#FCD34D` | `#78350F` | “Inventory is not connected yet…”, soft warnings |
 | Error | `#FEF2F2` | `#FECACA` | `#7F1D1D` | Blocked actions, failed checks |
 
+## Toasts
+
+One shared component, `ErpToast`, draws every toast; pages keep calling PrimeVue's `toast.add({ severity, summary, detail, life })`.
+
+| Part | Value |
+|---|---|
+| Card | white `--erp-card`, 1px `--erp-border`, radius 12px, `--toast-shadow`, 360px wide; top right under the floating top bar (76px from the top, 24px from the right, in line with the bar); full width with a 16px gutter under 640px |
+| Severity badge | 30px circle in the status-chip colours, the same in every module: success = done (green), info = released (blue), warn = pending (amber), error = cancelled (red). Icons: circle-check, info, triangle-alert, circle-x |
+| Text | title 13px semibold `--erp-text`; detail 12.5px `--erp-muted` |
+| Close | 28px ghost button, `--erp-muted`, hover `--erp-head-bg` |
+| Time left | 3px bar along the bottom in the severity colour, paused while the pointer is on the toast (the toast stays open too) |
+| Motion | in from the right, 300 ms `cubic-bezier(0.16, 1, 0.3, 1)`; out folding up, 220 ms; none with *reduce motion* |
+
 ## Guided tours (Help)
 
 | Token | Value | Use |

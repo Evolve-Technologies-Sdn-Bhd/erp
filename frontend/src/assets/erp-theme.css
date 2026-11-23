@@ -79,6 +79,9 @@
   --tour-accent: var(--mod-primary);
   --tour-accent-soft: var(--mod-light);
 
+  /* Toasts (ErpToast): a white card lifted off the page; the severity colours are the status-chip tokens */
+  --toast-shadow: 0 1px 2px rgb(20 26 60 / 0.06), 0 12px 32px -8px rgb(20 26 60 / 0.24);
+
   /* Module colours default to Purchase until a layout sets data-module */
   --mod-side: #15803d;
   --mod-hover: #17733a;
