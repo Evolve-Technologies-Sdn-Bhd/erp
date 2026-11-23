@@ -4,7 +4,8 @@ import { ConfigurationError, ValidationFailedError } from '../../platform/http/e
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import type { AddOrderTypeDto, SaveCreditControlDto, SaveDocumentTypesDto, SaveSalesFlowDto } from './dto/settings.dto';
-import { flowChanges, FLOW_SWITCHES, rangeChange, type FlowSwitches } from './sales-flow.rules';
+import { daysChange, flowChanges, FLOW_SWITCHES, rangeChange, type FlowSwitches } from './sales-flow.rules';
+import { autoCancelErrors } from '../orders/lapse.rules';
 import { rangeErrors } from '../shared/price-range.rules';
 import { dec } from '../../platform/http/decimal';
 import type { Prisma as PrismaTypes } from '@prisma/client';
@@ -22,6 +23,7 @@ const flowOf = (s: FlowSwitches): FlowSwitches => ({
   useReceipts: s.useReceipts,
   reviseOrders: s.reviseOrders,
   preOrders: s.preOrders,
+  autoCancel: s.autoCancel,
 });
 import { codeFromName, creditChanges, CREDIT_DOCS, normaliseRule, numberingChanges, ruleProblems, TOGGLES, type CreditRuleView, type ToggleKey } from './settings.rules';
 
@@ -124,7 +126,7 @@ export class SalesPoliciesService {
   /** Which steps the company uses. Anyone in Sales reads it: the menu and the forms follow it. */
   async salesFlow(ctx: RequestContext) {
     const [s, history] = await Promise.all([this.setting(ctx.tenantId), this.history(ctx.tenantId, 'SALES_FLOW')]);
-    return { switches: flowOf(s), range: { belowPct: pct(s.priceBelowPct), abovePct: pct(s.priceAbovePct) }, labels: FLOW_SWITCHES, history };
+    return { switches: flowOf(s), range: { belowPct: pct(s.priceBelowPct), abovePct: pct(s.priceAbovePct) }, autoCancelDays: s.autoCancelDays, labels: FLOW_SWITCHES, history };
   }
 
   async saveSalesFlow(ctx: RequestContext, dto: SaveSalesFlowDto) {
@@ -138,17 +140,20 @@ export class SalesPoliciesService {
       useReceipts: dto.useReceipts ?? s.useReceipts,
       reviseOrders: dto.reviseOrders ?? s.reviseOrders,
       preOrders: dto.preOrders ?? s.preOrders,
+      autoCancel: dto.autoCancel ?? s.autoCancel,
     };
     const before = { belowPct: pct(s.priceBelowPct), abovePct: pct(s.priceAbovePct) };
     const typed = { belowPct: dto.priceBelowPct?.trim() ?? before.belowPct, abovePct: dto.priceAbovePct?.trim() ?? before.abovePct };
-    const errors = rangeErrors(typed);
+    const days = dto.autoCancelDays ?? s.autoCancelDays;
+    const errors = [...rangeErrors(typed), ...autoCancelErrors({ autoCancel: after.autoCancel, days, useReceipts: after.useReceipts })];
     if (errors.length) throw new ValidationFailedError(errors);
     const range = { belowPct: dec(typed.belowPct).toDecimalPlaces(2).toString(), abovePct: dec(typed.abovePct).toDecimalPlaces(2).toString() };
     const moved = rangeChange(before, range);
-    const changes = [...flowChanges(flowOf(s), after), ...(moved ? [moved] : [])];
+    const daysMoved = daysChange(s.autoCancelDays, days);
+    const changes = [...flowChanges(flowOf(s), after), ...(moved ? [moved] : []), ...(daysMoved ? [daysMoved] : [])];
     if (changes.length) {
       await this.prisma.$transaction(async (tx) => {
-        await tx.salSetting.update({ where: { tenantId: ctx.tenantId }, data: { ...after, priceBelowPct: dec(range.belowPct), priceAbovePct: dec(range.abovePct), updatedBy: ctx.user.code } });
+        await tx.salSetting.update({ where: { tenantId: ctx.tenantId }, data: { ...after, priceBelowPct: dec(range.belowPct), priceAbovePct: dec(range.abovePct), autoCancelDays: days, updatedBy: ctx.user.code } });
         await this.logChanges(tx, ctx, 'SALES_FLOW', changes);
       });
     }

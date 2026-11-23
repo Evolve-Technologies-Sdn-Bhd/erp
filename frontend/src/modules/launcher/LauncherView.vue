@@ -9,6 +9,7 @@ import NoticeBanner from '@/components/erp/NoticeBanner.vue'
 import { useSession } from '@/composables/useSession'
 import { MODULES } from '@/modules/registry'
 import HelpButton from '@/tours/HelpButton.vue'
+import AlertsButton from '@/components/erp/AlertsButton.vue'
 import WelcomeCard from '@/tours/WelcomeCard.vue'
 import { isBuilt, TILE_STYLE } from '@/modules/tiles'
 import { formatLongDate, greeting } from '@/utils/format'
@@ -116,6 +117,7 @@ const year = computed(() => today.value.slice(0, 4))
           </span>
         </div>
         <div class="flex shrink-0 items-center gap-3">
+          <AlertsButton />
           <HelpButton />
           <AccountMenu data-tour="account" variant="launcher" />
         </div>

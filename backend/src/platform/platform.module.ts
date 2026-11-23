@@ -10,6 +10,8 @@ import { ClockModule } from './clock/clock.service';
 import { ContextModule } from './context/context.module';
 import { DashboardBoardsService } from './indicators/dashboard-boards.service';
 import { IndicatorRegistry } from './indicators/indicator.registry';
+import { NotificationsController } from './notifications/notifications.controller';
+import { NotificationsService } from './notifications/notifications.service';
 import { NumberingService } from './numbering/numbering.service';
 import { CustomerOnboarding } from './onboarding/customer-onboarding.registry';
 import { OutboxConsumers } from './outbox/outbox.consumers';
@@ -22,7 +24,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
 
 /**
  * Shared building blocks with no business rules: database, clock, current user, numbering, activity,
- * approvals, outbox, attachments, the record-usage registry, customer onboarding, the home-dashboard indicators and each person's guided tours. Global, so business modules just inject the services.
+ * approvals, outbox, attachments, the record-usage registry, customer onboarding, the home-dashboard indicators, each person's guided tours and their alerts. Global, so business modules just inject the services.
  */
 @Global()
 @Module({
@@ -37,7 +39,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
       }),
     }),
   ],
-  controllers: [AttachmentsController, TutorialController],
+  controllers: [AttachmentsController, TutorialController, NotificationsController],
   providers: [
     NumberingService,
     ActivityService,
@@ -51,6 +53,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
     IndicatorRegistry,
     DashboardBoardsService,
     TutorialService,
+    NotificationsService,
   ],
   exports: [
     PrismaModule,
@@ -66,6 +69,7 @@ import { RecordUsageRegistry } from './usage/record-usage.registry';
     CustomerOnboarding,
     IndicatorRegistry,
     DashboardBoardsService,
+    NotificationsService,
   ],
 })
 export class PlatformModule {}

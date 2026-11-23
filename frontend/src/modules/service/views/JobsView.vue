@@ -92,6 +92,7 @@ watch(search, (v) => {
           <span class="flex flex-wrap items-center gap-1">
             <StatusChip :status="data.stage" :label="data.stageLabel" :group="STAGE_GROUP[data.stage]" />
             <StatusChip v-if="data.overdue" status="OVERDUE" label="Overdue" group="cancelled" :title="`Overdue since ${data.overdueSinceText}`" />
+            <StatusChip v-if="data.atRisk" status="AT_RISK" label="At risk" group="pending" :title="`Stock not ready: ${data.atRiskNote}`" />
           </span>
         </template>
       </Column>

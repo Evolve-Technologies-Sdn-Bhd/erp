@@ -173,13 +173,16 @@ describe('Sign-in (end to end, AUTH_MODE=jwt)', () => {
       'POST /auth/link',
       'POST /auth/reset',
     ];
-    /** Signed in, no permission: who you are, the launcher, your guided tours, attachments (checked against their document), branch switch, My account, the dev-only receipt stub. */
+    /** Signed in, no permission: who you are, the launcher, your guided tours, your alerts, attachments (checked against their document), branch switch, My account, the dev-only receipt stub. */
     const SIGNED_IN_ONLY = [
       'GET /me',
       'GET /me/modules',
       'GET /me/tutorial',
       'PUT /me/tutorial',
       'DELETE /me/tutorial',
+      'GET /me/notifications',
+      'POST /me/notifications/read-all',
+      'POST /me/notifications/:id/read',
       'POST /attachments',
       'GET /attachments/:id',
       'GET /attachments/:id/download',

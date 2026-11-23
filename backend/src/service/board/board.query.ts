@@ -20,6 +20,9 @@ export function timingView(j: SvcJob, now: BusinessNow) {
     overdueSinceText: o.since ? momentText(o.since) : null,
     siteType: j.siteType,
     siteTypeLabel: j.siteType ? SITE_TYPE_LABEL[j.siteType as SiteType] ?? j.siteType : null,
+    /** Stock not ready 24 hours before the installation (phase 5): what is short. */
+    atRisk: Boolean(j.atRiskSince),
+    atRiskNote: j.atRiskNote,
   };
 }
 

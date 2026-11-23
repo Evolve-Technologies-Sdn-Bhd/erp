@@ -312,6 +312,10 @@ const asksFor = computed(() => {
     <NoticeBanner v-else-if="job" kind="error">
       Cancelled {{ job.cancelledAt ? formatDateTime(job.cancelledAt) : '' }}<template v-if="job.cancelReason">: “{{ job.cancelReason }}”</template>.
     </NoticeBanner>
+    <NoticeBanner v-if="job?.atRisk" kind="error" data-tour="svc:at-risk">
+      At risk: stock not ready 24 hours before the installation ({{ job.atRiskNote }}). The office and {{ job.agentName ?? 'the salesperson' }} were alerted;
+      it clears when the stock is there at the next check.
+    </NoticeBanner>
     <NoticeBanner v-if="job?.overdue" kind="error">
       Overdue since {{ job.overdueSinceText }}: the visit has not been recorded.
       {{ job.stage === 'NOT_BOOKED' ? 'It was taken off the board, and it' : 'It' }} stays overdue until the visit is recorded, even when it is extended or moved.

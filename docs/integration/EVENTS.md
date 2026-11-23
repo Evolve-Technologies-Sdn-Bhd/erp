@@ -56,7 +56,7 @@ Screens read the event status to say "Inventory is not connected yet" or "Accoun
 |---|---|---|
 | `sales.order.released` | Sales | **Buy-to-order:** if “Auto-draft a PO for buy-to-order sales lines” is on, drafts one PO per preferred supplier (contract price, else last price), created by System for the branch buyer and linked to the sales order. Lines sold in another unit than Purchase buys in are left to the buyer. Always answers with `purchase.buy_to_order.handled`. **Demand:** adds the order's lines to `pur_sales_demand`, Purchase's copy of open sales-order needs (P04, P06). A revised order (Sales, phase 5) comes again with `revision` above 1 and nothing delivered or cancelled: lines it no longer has are dropped |
 | `sales.shipment.requested` | Sales | Lowers the open quantity in `pur_sales_demand`, by the sales-order line (`soLineNo`) |
-| `sales.order.balance_cancelled` | Sales | Lowers the open quantity in `pur_sales_demand`, by the sales-order line (`lineNo`) |
+| `sales.order.balance_cancelled` | Sales | Lowers the open quantity in `pur_sales_demand`, by the sales-order line (`lineNo`). Also when the system cancels an order with no receipt and no delivery order (phase 5) |
 | `wms.goods.received` | WMS (later) | Creates and confirms the GRN automatically; the GRN screen becomes read-only |
 | `mes.material.required` | MES (later) | Adds a line to the demand list |
 | `finance.payment.made` | Finance (later) | Marks the purchase invoice Paid |
@@ -65,7 +65,7 @@ Screens read the event status to say "Inventory is not connected yet" or "Accoun
 
 | Event | When | Main payload | Who listens |
 |---|---|---|---|
-| `sales.order.released` | SO released; a revised order again with the next revision (phase 5) | soNo, revision (1 for the first release), docDate, branchCode, customerCode, customerName, agentCode, agentName, contactName, deliveryAddress, deliveryPostcode, deliveryState (kept only with the installation option asked; else null), total, deliveryWantedBy, warehouseCode, lines (lineNo, itemCode, uomCode, qty, isBuyToOrder, lineKind, packageCode), vouchers (voucherNo, amount, taxCode, taxAmount), installation (option, preferredDate, afterStock; null when Sales does not ask), preOrder (phase 5: released with short stock while pre-orders are on) | **Purchase** (buy-to-order PO, demand); **Service** (an installation job) |
+| `sales.order.released` | SO released; a revised order again with the next revision (phase 5). Service keeps agentCode, agentName and warehouseCode on the job | soNo, revision (1 for the first release), docDate, branchCode, customerCode, customerName, agentCode, agentName, contactName, deliveryAddress, deliveryPostcode, deliveryState (kept only with the installation option asked; else null), total, deliveryWantedBy, warehouseCode, lines (lineNo, itemCode, uomCode, qty, isBuyToOrder, lineKind, packageCode), vouchers (voucherNo, amount, taxCode, taxAmount), installation (option, preferredDate, afterStock; null when Sales does not ask), preOrder (phase 5: released with short stock while pre-orders are on) | **Purchase** (buy-to-order PO, demand); **Service** (an installation job) |
 | `sales.order.balance_cancelled` | Cancel order released | cancelNo, soNo, branchCode, warehouseCode, customerCode, reason, orderClosed, lines (lineNo = sales-order line, itemCode, uomCode, qty, isBuyToOrder, purchaseOrderNo) | **Purchase** (demand); Purchase is also warned for buy-to-order lines |
 | `sales.shipment.requested` | DO confirmed | doNo, soNo, branchCode, warehouseCode, customerCode, deliverTo, vehicle, driver, consignmentNote, lines (lineNo = DO line, soLineNo = sales-order line, itemCode, uomCode, qty) | **Purchase** (demand); Inventory (stock out) later |
 | `sales.invoice.released` | Invoice released | invoiceNo, docDate, dueDate, branchCode, customer code, name and TIN, currency, subtotal, discountTotal, taxTotal, rounding, total, salesOrderNo, deliveryNos, depositApplied, proformaNo, lines | Finance (receivable), LHDN e-Invoice — later |
@@ -126,6 +126,13 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 |---|---|---|
 | `sales.order.released` | Sales | An order released with the Installation option makes an installation job, *Not booked*, with the customer's preferred date or *after stock arrives*, its items and the delivery address. Delivery only, collect, and companies whose Sales does not ask make none. Once per order (`svc_job` is unique on the order). A revised order released again (`revision` above 1) updates its job not done yet: items, contact, address and, while not booked, the preferred date; a revision without installation cancels the job |
 | `sales.receipt.verified` | Sales | The order's jobs keep where its payment stands (Unpaid, Deposit paid, Fully paid, paid and total), with a line on each job's activity |
+
+## Alerts are not events
+
+Alerts for people (phase 5, `sys_notification`, the *Alerts* button in the top bar) are written by the module that
+makes the change, in the same transaction, for the people it picks. They are not outbox events and nobody listens to
+them: an order to be cancelled or cancelled automatically (`sales.order.lapsing`, `sales.order.lapsed`), a job
+postponed, rescheduled or at risk (`service.job.postponed`, `service.job.moved`, `service.job.at_risk`).
 
 ## Listener names
 

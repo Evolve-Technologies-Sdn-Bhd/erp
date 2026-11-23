@@ -11,6 +11,8 @@ import { OutboxWriter } from '../../platform/outbox/outbox.writer';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { SVC_DOC_TYPE, SVC_ENTITY, SVC_EVENT, SVC_SEQUENCES } from '../service.constants';
 import { AttachmentsService } from '../../platform/attachments/attachments.service';
+import { NotificationsService } from '../../platform/notifications/notifications.service';
+import { SERVICE_PERMISSIONS as P } from '../service.permissions';
 import type { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
 import { extendErrors, momentText, parseTime, runsInto, stickyOverdue, type JobTiming } from './timing.rules';
 import { visitErrors, visitText } from './visit.rules';
@@ -25,7 +27,10 @@ import { JobsQuery } from './jobs.query';
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 /** What taking a job off the board clears, the expected completion and its extension with it. */
-const FREE_SLOT = { personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null, expectedEnd: null, extendReason: null } as const;
+const FREE_SLOT = {
+  personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null, expectedEnd: null, extendReason: null,
+  atRiskSince: null, atRiskNote: null,
+} as const;
 /** A job's timing, for the rules in timing.rules.ts. */
 const timing = (j: { stage: string; jobDate: Date | null; slotEnd: number | null; expectedEnd: number | null; overdueSince: Date | null }): JobTiming => ({
   stage: j.stage, jobDate: j.jobDate ? isoDay(j.jobDate) : null, slotEnd: j.slotEnd, expectedEnd: j.expectedEnd, overdueSince: j.overdueSince,
@@ -47,6 +52,7 @@ export class JobsService {
     private readonly clock: ClockService,
     private readonly settings: ServiceSettingsService,
     private readonly attachments: AttachmentsService,
+    private readonly notifications: NotificationsService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -90,6 +96,7 @@ export class JobsService {
       contactName: order.contactName ?? customer?.contactName ?? null, phone: customer?.phone ?? null,
       siteAddress: order.deliveryAddress ?? customer?.deliveryAddress ?? null, postcode: order.postcode, state: order.state, area: customer?.area ?? null,
       source: 'SALES_ORDER', salesOrderId, salesOrderNo: order.soNo, preferredDate: order.preferredDate, afterStock: order.afterStock, note: null,
+      agentCode: order.agentCode, agentName: order.agentName, warehouseCode: order.warehouseCode,
     }, lines, `Created from ${order.soNo}`);
   }
 
@@ -190,6 +197,15 @@ export class JobsService {
         slotGroupCode: group.code, bookedAt: this.clock.now(), expectedEnd: end, extendReason: null, overdueSince,
       }, ['NOT_BOOKED', 'BOOKED']);
       await this.log(tx, ctx, job.id, job.docNo, moving ? 'moved' : 'booked', `${moving ? 'Moved to' : 'Booked for'} ${person.name}, ${shortDay(dto.date)}, ${slotLabel(dto.start, end)}`);
+      // A rescheduled installation (phase 5): the salesperson hears of it, to tell the customer.
+      const rescheduled = moving && (isoDay(job.jobDate!) !== dto.date || job.slotStart !== dto.start || job.personId !== person.id);
+      if (rescheduled && job.agentCode && job.salesOrderId) {
+        await this.notifications.send(tx, ctx, {
+          to: [job.agentCode], kind: 'service.job.moved', link: `/sales/orders/${job.salesOrderId}`, entityType: SVC_ENTITY.JOB, entityId: job.id,
+          title: `${job.docNo} rescheduled`,
+          body: `${job.customerName} (${job.salesOrderNo}): now ${shortDay(dto.date)} · ${slotLabel(dto.start, end)} · ${person.name}. Please let the customer know.`,
+        });
+      }
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_BOOKED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
         payload: {
@@ -280,6 +296,8 @@ export class JobsService {
         }, 'BOOKED');
         await this.log(tx, ctx, job.id, job.docNo, 'postponed', `Postponed, recorded by ${by}; waiting to be booked again${dto.nextDate ? `, the customer asks for ${shortDay(dto.nextDate)}` : ''}${overdueSince ? ` (it was overdue since ${momentText(overdueSince)})` : ''}`, reason);
         await this.publishUnbooked(tx, ctx, job, `Postponed${reason ? `: ${reason}` : ''}`);
+        await this.alert(tx, ctx, job, 'service.job.postponed', `${job.docNo} postponed`,
+          `${job.customerName}${job.salesOrderNo ? ` (${job.salesOrderNo})` : ''}: ${reason ?? 'postponed at the visit'}. It waits to be booked again${dto.nextDate ? `; the customer asks for ${shortDay(dto.nextDate)}` : ''}.`);
         return;
       }
       await this.bump(tx, ctx, job.id, dto.version, {
@@ -287,7 +305,7 @@ export class JobsService {
         result: dto.result, resultReason: reason, arrivedAt: dto.arrivedAt || null, finishedAt: dto.finishedAt || null,
         paidStatus: dto.paidStatus ?? null, paidMethod: dto.paidStatus === 'PAID' ? (dto.paidMethod ?? null) : null,
         notPaidReason: dto.paidStatus === 'NOT_PAID' ? (dto.notPaidReason?.trim() ?? null) : null,
-        recordedBy: by, recordedAt: this.clock.now(), overdueSince,
+        recordedBy: by, recordedAt: this.clock.now(), overdueSince, atRiskSince: null, atRiskNote: null,
       }, 'BOOKED');
       await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}${overdueSince ? ` · late: overdue since ${momentText(overdueSince)}` : ''}`, dto.note?.trim() || reason);
       if (dto.result === 'COMPLETE') await this.startReminders(tx, ctx, job, intervals);
@@ -346,6 +364,7 @@ export class JobsService {
       where: { id: job.id },
       data: {
         contactName: order.contactName ?? job.contactName, siteAddress: order.deliveryAddress ?? job.siteAddress, postcode: order.postcode, state: order.state,
+        agentCode: order.agentCode ?? job.agentCode, agentName: order.agentName ?? job.agentName, warehouseCode: order.warehouseCode ?? job.warehouseCode,
         ...(waiting && { preferredDate: order.preferredDate ? day(order.preferredDate) : null, afterStock: order.afterStock }),
         items: {
           deleteMany: {},
@@ -379,6 +398,18 @@ export class JobsService {
       name: SVC_EVENT.JOB_UNBOOKED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
       payload: { jobNo: job.docNo, salesOrderId: job.salesOrderId, salesOrderNo: job.salesOrderNo, reason },
     }]);
+  }
+
+  /**
+   * An alert about a job (phase 5): to the people who book jobs at its branch (the Sales Admin), opening the job, and
+   * to the salesperson of its order, opening the order. The person who acted is left out.
+   */
+  async alert(tx: Tx, ctx: RequestContext, job: { id: string; branchCode: string; agentCode: string | null; salesOrderId: string | null }, kind: string, title: string, body: string) {
+    const office = await this.notifications.whoCan(ctx.tenantId, P.JOB_BOOK, job.branchCode);
+    await this.notifications.send(tx, ctx, { to: office, kind, title, body, link: `/service/jobs/${job.id}`, entityType: SVC_ENTITY.JOB, entityId: job.id });
+    if (job.agentCode && job.salesOrderId && !office.includes(job.agentCode)) {
+      await this.notifications.send(tx, ctx, { to: [job.agentCode], kind, title, body, link: `/sales/orders/${job.salesOrderId}`, entityType: SVC_ENTITY.JOB, entityId: job.id });
+    }
   }
 
   // ── Service reminders (F6) ────────────────────────────────────────────────
@@ -423,6 +454,7 @@ export class JobsService {
       siteAddress: string | null; postcode?: string | null; state?: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
       preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string; reminderId?: string;
       siteType?: string | null;
+      agentCode?: string | null; agentName?: string | null; warehouseCode?: string | null;
     },
     lines: { itemCode: string; itemName: string; qty: string; uomCode: string }[],
     message: string,
@@ -433,7 +465,8 @@ export class JobsService {
       data: {
         tenantId: ctx.tenantId, docNo, jobType: j.jobType, stage: 'NOT_BOOKED', branchCode: j.branchCode,
         customerCode: j.customerCode, customerName: j.customerName, contactName: j.contactName, phone: j.phone, siteAddress: j.siteAddress,
-        postcode: j.postcode ?? null, state: j.state ?? null, area: j.area, source: j.source, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
+        postcode: j.postcode ?? null, state: j.state ?? null, area: j.area, source: j.source,
+        agentCode: j.agentCode ?? null, agentName: j.agentName ?? null, warehouseCode: j.warehouseCode ?? null, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
         preferredDate: j.preferredDate ? day(j.preferredDate) : null, afterStock: j.afterStock ?? false, note: j.note,
         followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null, siteType: j.siteType ?? null,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,

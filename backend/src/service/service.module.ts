@@ -11,6 +11,7 @@ import { ServiceRemindersController } from './reminders/reminders.controller';
 import { RemindersService } from './reminders/reminders.service';
 import { JobsQuery } from './jobs/jobs.query';
 import { JobsService } from './jobs/jobs.service';
+import { StockCheckService } from './jobs/stock-check.service';
 import { JobFromOrderListener } from './sales-link/job-from-order.listener';
 import { OrderPaymentListener } from './sales-link/order-payment.listener';
 import { ServiceOnGuard } from './service-on.guard';
@@ -25,7 +26,7 @@ import { SERVICE_SCOPE_RULES } from './service.scope';
  */
 @Module({
   controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController],
-  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, BoardQuery, ServiceSettingsService, RemindersService],
+  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, BoardQuery, ServiceSettingsService, RemindersService, StockCheckService],
 })
 export class ServiceModule implements OnModuleInit {
   constructor(
@@ -35,6 +36,7 @@ export class ServiceModule implements OnModuleInit {
     private readonly listener: JobFromOrderListener,
     private readonly payments: OrderPaymentListener,
     private readonly reminders: RemindersService,
+    private readonly stockCheck: StockCheckService,
   ) {}
 
   onModuleInit(): void {
@@ -45,5 +47,6 @@ export class ServiceModule implements OnModuleInit {
     this.listener.register();
     this.payments.register();
     this.reminders.schedule();
+    this.stockCheck.schedule();
   }
 }

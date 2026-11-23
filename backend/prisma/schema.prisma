@@ -369,6 +369,25 @@ model SysRolePermission {
 }
 
 /// A role held by a user, optionally only between two dates (SRS FR-SEC-005).
+/// An alert for one person (phase 5): shown under the bell in the top bar until they read it. Modules write them in the
+/// same transaction as the change they are about; the platform keeps no business rules about them.
+model SysNotification {
+  id         String    @id @default(uuid()) @db.Char(36)
+  tenantId   String    @db.Char(36)
+  userCode   String    @db.VarChar(20)
+  kind       String    @db.VarChar(40) // sales.order.lapsing, service.job.postponed …
+  title      String    @db.VarChar(200)
+  body       String    @db.VarChar(1000)
+  link       String?   @db.VarChar(300)
+  entityType String?   @db.VarChar(30)
+  entityId   String?   @db.Char(36)
+  createdAt  DateTime  @default(now()) @db.DateTime(3)
+  readAt     DateTime? @db.DateTime(3)
+
+  @@index([tenantId, userCode, readAt])
+  @@map("sys_notification")
+}
+
 model SysUserRole {
   id         String    @id @default(uuid()) @db.Char(36)
   tenantId   String    @db.Char(36)
@@ -2154,6 +2173,9 @@ model SalSalesOrder {
   // Pre-order (phase 5): released with items short while the company makes short orders pre-orders. It stays marked;
   // the order shows "Stock arrived" once its open quantities are in stock.
   isPreOrder        Boolean             @default(false)
+  // The automatic cancel (phase 5): warned 7 days before, then cancelled by a system cancel order.
+  lapseWarnedAt     DateTime?           @db.DateTime(3)
+  lapsedAt          DateTime?           @db.DateTime(3)
   preOrderShort     String?             @db.VarChar(300) // what was short at release
   // Revisions in place (phase 5): the order keeps its number and its links; each earlier revision is kept read-only in
   // sal_order_revision. `revision` above stays 0, the row every list reads.
@@ -2857,6 +2879,8 @@ model SalSetting {
   agentsAddCustomers     Boolean  @default(false) // on: salespeople add a cash customer while keying an order; the office completes it in Core (phase 5)
   priceRange             Boolean  @default(false) // on: prices within a range of the price list; outside it the Sales Manager approves (phase 5)
   useReceipts            Boolean  @default(false) // on: salespeople record customer payments as official receipts; Account verifies them (phase 5)
+  autoCancel             Boolean  @default(false) // on: a released order with no official receipt and no delivery order is cancelled after autoCancelDays (phase 5)
+  autoCancelDays         Int      @default(60)
   preOrders              Boolean  @default(false) // on: an order released with any item short of stock is a pre-order as a whole (phase 5)
   reviseOrders           Boolean  @default(false) // on: a released order is revised until it is delivered; after booking or for a price change the Sales Manager approves (phase 5)
   priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
@@ -3033,6 +3057,13 @@ model SvcJob {
   extendReason   String?      @db.VarChar(300)
   overdueSince   DateTime?    @db.DateTime(3)
   // The order's payment, from Sales' sales.receipt.verified (phase 5): UNPAID, DEPOSIT, FULLY_PAID. Null when not told.
+  // From the released order (phase 5): who sold it, for alerts, and the warehouse its stock comes from.
+  agentCode      String?      @db.VarChar(20)
+  agentName      String?      @db.VarChar(100)
+  warehouseCode  String?      @db.VarChar(20)
+  // Stock not ready 24 hours before a booked installation: the office and the salesperson are alerted (phase 5).
+  atRiskSince    DateTime?    @db.DateTime(3)
+  atRiskNote     String?      @db.VarChar(300)
   orderPayment   String?      @db.VarChar(12)
   orderPaid      Decimal?     @db.Decimal(18, 2)
   orderTotal     Decimal?     @db.Decimal(18, 2)

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { APPROVER_ROLES, CREDIT_ACTIONS, CREDIT_DOCS, EXCLUSION_REASONS } from '../settings.rules';
 
 export class CreditRuleDto {
@@ -46,6 +46,9 @@ export class SaveSalesFlowDto {
   @IsOptional() @IsBoolean() useReceipts?: boolean;
   @IsOptional() @IsBoolean() reviseOrders?: boolean;
   @IsOptional() @IsBoolean() preOrders?: boolean;
+  @IsOptional() @IsBoolean() autoCancel?: boolean;
+  /** Days after release before the automatic cancel; checked in lapse.rules.ts. */
+  @IsOptional() @Type(() => Number) @IsInt() autoCancelDays?: number;
   @IsOptional() @IsString() @MaxLength(10) priceBelowPct?: string;
   @IsOptional() @IsString() @MaxLength(10) priceAbovePct?: string;
 }

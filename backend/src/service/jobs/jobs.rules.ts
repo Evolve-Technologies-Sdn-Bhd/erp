@@ -66,6 +66,10 @@ export interface ReleasedOrder {
   soNo: string;
   /** 1 for the first release; a revised order is released again with the next number (phase 5). */
   revision: number;
+  /** Who sold it, for alerts, and the warehouse its stock comes from (phase 5). */
+  agentCode: string | null;
+  agentName: string | null;
+  warehouseCode: string | null;
   branchCode: string;
   customerCode: string;
   customerName: string;
@@ -87,6 +91,9 @@ export function readReleasedOrder(payload: unknown): ReleasedOrder | null {
   return {
     soNo: p.soNo,
     revision: typeof p.revision === 'number' ? p.revision : 1,
+    agentCode: typeof p.agentCode === 'string' ? p.agentCode : null,
+    agentName: typeof p.agentName === 'string' ? p.agentName : null,
+    warehouseCode: typeof p.warehouseCode === 'string' ? p.warehouseCode : null,
     branchCode: p.branchCode,
     customerCode: p.customerCode,
     customerName: typeof p.customerName === 'string' ? p.customerName : p.customerCode,

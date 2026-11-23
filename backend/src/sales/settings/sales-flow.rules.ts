@@ -10,12 +10,13 @@ export const FLOW_SWITCHES = {
   useReceipts: 'Salespeople record payments as official receipts',
   reviseOrders: 'Salespeople revise a released order until it is delivered',
   preOrders: 'Short stock makes the order a pre-order',
+  autoCancel: 'Cancel an order with no receipt and no delivery after a number of days',
 } as const;
 export type FlowSwitchKey = keyof typeof FLOW_SWITCHES;
 export type FlowSwitches = Record<FlowSwitchKey, boolean>;
 
 /** What a company gets before anyone touches the page: the standard flow (no installation asked). */
-export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false };
+export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false };
 
 /** Change-history lines, in the wording of the other policies: "Use enquiries: On → Off". */
 export function flowChanges(before: FlowSwitches, after: FlowSwitches): string[] {
@@ -31,6 +32,9 @@ export function rangeChange(before: { belowPct: string; abovePct: string }, afte
   const text = (r: { belowPct: string; abovePct: string }) => `${r.belowPct}% below to ${r.abovePct}% above`;
   return text(before) === text(after) ? null : `Price range: ${text(before)} → ${text(after)}`;
 }
+
+/** "Automatic cancel: after 60 days → after 45 days", when the number of days changes. */
+export const daysChange = (before: number, after: number): string | null => (before === after ? null : `Automatic cancel: after ${before} days → after ${after} days`);
 
 /** The refusal when a salesperson tries to add a customer from an order while the company does not allow it. */
 export const NEW_CUSTOMERS_OFF_MESSAGE =

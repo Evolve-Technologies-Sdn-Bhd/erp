@@ -11,6 +11,7 @@ import { formatLongDate } from '@/utils/format'
 import AccountMenu from './AccountMenu.vue'
 import BranchSwitch from './BranchSwitch.vue'
 import HelpButton from '@/tours/HelpButton.vue'
+import AlertsButton from '@/components/erp/AlertsButton.vue'
 import ModuleSwitcher from './ModuleSwitcher.vue'
 import PrintStamp from './PrintStamp.vue'
 
@@ -56,6 +57,7 @@ const year = computed(() => (today.value ? today.value.slice(0, 4) : ''))
             <span v-if="approvals" class="rounded-[10px] bg-mod-side px-[7px] py-px text-[11px] font-bold text-erp-on-dark">{{ approvals }}</span>
           </RouterLink>
           <BranchSwitch data-tour="branch" />
+          <AlertsButton />
           <HelpButton />
           <AccountMenu data-tour="account" variant="home" :subtitle="today ? formatLongDate(today) : ''" />
           <button

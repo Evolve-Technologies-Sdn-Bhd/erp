@@ -13,6 +13,9 @@ export interface JobTimingView {
   overdueSinceText: string | null
   siteType: SiteType | null
   siteTypeLabel: string | null
+  /** Stock not ready 24 hours before the installation (phase 5): what is short. */
+  atRisk: boolean
+  atRiskNote: string | null
 }
 
 export interface JobRow extends JobTimingView {
@@ -66,6 +69,9 @@ export interface JobDetail extends JobRow {
   contactName: string | null
   phone: string | null
   siteAddress: string | null
+  /** The order's salesperson (phase 5), alerted when the job is postponed, moved or at risk. */
+  agentName: string | null
+  atRiskSince: string | null
   postcode: string | null
   state: string | null
   /** What the office needs before booking and the job lacks: warned, never blocking. */

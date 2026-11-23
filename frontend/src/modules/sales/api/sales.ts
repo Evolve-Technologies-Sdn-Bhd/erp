@@ -227,8 +227,13 @@ export const salesSettingsApi = {
   saveCreditControl: (input: { creditScope: 'GROUP' | 'BRANCH'; rules: CreditRuleRow[] } & CreditControlData['toggles']) =>
     api<CreditControlData>('/sales/settings/credit-control', { method: 'PUT', body: input }),
   salesFlow: (options: { silent?: boolean } = {}) => api<SalesFlowData>('/sales/settings/sales-flow', options),
-  saveSalesFlow: (switches: SalesFlowSwitches, range?: PriceRangeSetting) =>
-    api<SalesFlowData>('/sales/settings/sales-flow', { method: 'PUT', body: { ...switches, ...(range && { priceBelowPct: range.belowPct, priceAbovePct: range.abovePct }) } }),
+  saveSalesFlow: (switches: SalesFlowSwitches, range?: PriceRangeSetting, autoCancelDays?: number) =>
+    api<SalesFlowData>('/sales/settings/sales-flow', {
+      method: 'PUT',
+      body: { ...switches, ...(range && { priceBelowPct: range.belowPct, priceAbovePct: range.abovePct }), ...(autoCancelDays !== undefined && { autoCancelDays }) },
+    }),
+  /** Phase 5: runs the automatic cancel now (it also runs every hour). */
+  lapseCheck: () => api<{ warned: string[]; cancelled: { soNo: string; cancelNo: string }[] }>('/sales/orders/lapse-check', { method: 'POST' }),
   documentTypes: () => api<DocumentTypesData>('/sales/settings/document-types'),
   saveDocumentTypes: (sequences: { docType: string; resetEvery: 'NEVER' | 'MONTH'; perBranch: boolean }[]) =>
     api<DocumentTypesData>('/sales/settings/document-types', { method: 'PUT', body: { sequences } }),

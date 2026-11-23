@@ -17,6 +17,8 @@ const { can } = useSession()
 const data = ref<SalesFlowData | null>(null)
 const draft = ref<SalesFlowSwitches | null>(null)
 const range = ref<PriceRangeSetting>({ belowPct: '10', abovePct: '20' })
+const days = ref(60)
+const checking = ref(false)
 const errors = ref<Record<string, string>>({})
 const saving = ref(false)
 const canManage = computed(() => can('sales.settings.manage'))
@@ -24,13 +26,14 @@ const canManage = computed(() => can('sales.settings.manage'))
 function reset() {
   draft.value = { ...data.value!.switches }
   range.value = { ...data.value!.range }
+  days.value = data.value!.autoCancelDays
   errors.value = {}
 }
 onMounted(async () => {
   data.value = await salesSettingsApi.salesFlow()
   reset()
 })
-const dirty = computed(() => Boolean(data.value && draft.value && (JSON.stringify(data.value.switches) !== JSON.stringify(draft.value) || JSON.stringify(data.value.range) !== JSON.stringify(range.value))))
+const dirty = computed(() => Boolean(data.value && draft.value && (JSON.stringify(data.value.switches) !== JSON.stringify(draft.value) || JSON.stringify(data.value.range) !== JSON.stringify(range.value) || data.value.autoCancelDays !== Number(days.value))))
 
 const ORDER: (keyof SalesFlowSwitches)[] = ['useEnquiries', 'officeDraftsQuotations']
 const HINT: Record<keyof SalesFlowSwitches, string> = {
@@ -42,12 +45,25 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   useReceipts: 'A Payments card on the released sales order, and Official Receipts in the Billing menu for Account.',
   reviseOrders: 'A Revise button on the released sales order, until a delivery order, invoice or cancel order is made from it.',
   preOrders: 'An order released with any item short of stock is marked Pre-order, as a whole.',
+  autoCancel: 'A released order with no official receipt and no delivery order is cancelled by the system, with alerts a week before and on the day.',
+}
+
+/** Runs the automatic cancel now; it also runs every hour on the server. */
+async function checkNow() {
+  checking.value = true
+  try {
+    const r = await salesSettingsApi.lapseCheck()
+    const said = [r.warned.length ? `Warned: ${r.warned.join(', ')}` : '', r.cancelled.length ? `Cancelled: ${r.cancelled.map((c) => `${c.soNo} (${c.cancelNo})`).join(', ')}` : '']
+    toast.add({ severity: 'success', summary: said.some(Boolean) ? 'Orders checked' : 'Nothing to do', detail: said.filter(Boolean).join(' · ') || 'No order is due for a warning or the automatic cancel.', life: 5000 })
+  } finally {
+    checking.value = false
+  }
 }
 
 async function save() {
   saving.value = true
   try {
-    const result = await salesSettingsApi.saveSalesFlow(draft.value!, range.value)
+    const result = await salesSettingsApi.saveSalesFlow(draft.value!, range.value, Number(days.value))
     data.value = result
     setSalesFlow(result.switches)
     reset()
@@ -146,6 +162,23 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">
         A pre-order stays marked and shows <em>Stock arrived</em> once everything still to deliver is in stock; the office then carries on as usual. Stock is not
         reserved yet, so "short" is against what is on hand. The sales order list filters on pre-orders.
+      </p>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.autoCancel }}</span><span class="text-xs text-erp-subtle">{{ HINT.autoCancel }}</span></span>
+        <SwitchToggle v-model="draft.autoCancel" :label="data.labels.autoCancel" :disabled="!canManage" />
+      </div>
+      <div class="flex flex-wrap items-end gap-4 text-[13px]" :class="{ 'opacity-50': !draft.autoCancel }">
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-erp-muted">Days after release</span>
+          <input v-model.number="days" class="erp-input w-24 text-right" inputmode="numeric" :disabled="!canManage" :aria-invalid="Boolean(errors.autoCancelDays)" />
+          <span v-if="errors.autoCancelDays" class="text-xs text-note-error-text">{{ errors.autoCancelDays }}</span>
+        </label>
+        <button v-if="canManage && data.switches.autoCancel" type="button" class="erp-btn erp-btn-secondary" :disabled="checking || dirty" @click="checkNow">Check now</button>
+      </div>
+      <span v-if="errors.autoCancel" class="text-xs text-note-error-text">{{ errors.autoCancel }}</span>
+      <p class="m-0 text-xs text-erp-muted">
+        Counted from the order's first release. It needs official receipts on: a recorded receipt, a delivery order or a cancel order keeps the order. Pre-orders are
+        left out. The salesperson and whoever releases cancellations are alerted under Alerts in the top bar. The server checks every hour.
       </p>
     </section>
 

@@ -1295,6 +1295,8 @@ export interface SalesFlowSwitches {
   reviseOrders: boolean
   /** Short stock makes the whole order a pre-order (phase 5). */
   preOrders: boolean
+  /** An order with no receipt and no delivery order is cancelled after a number of days (phase 5). */
+  autoCancel: boolean
 }
 
 export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'
@@ -1393,6 +1395,8 @@ export interface NewCustomerInput {
 export interface SalesFlowData {
   switches: SalesFlowSwitches
   range: PriceRangeSetting
+  /** Days after release before an order with no receipt and no delivery order is cancelled (phase 5). */
+  autoCancelDays: number
   labels: Record<keyof SalesFlowSwitches, string>
   history: SettingChange[]
   saved?: string[]

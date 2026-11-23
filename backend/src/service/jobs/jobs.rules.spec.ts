@@ -11,7 +11,7 @@ const released = {
 describe('readReleasedOrder', () => {
   it('reads an order with installation', () => {
     expect(readReleasedOrder(released)).toEqual({
-      soNo: 'SO-0009', revision: 1, branchCode: 'HQ', customerCode: 'C-0078', customerName: 'Klinik Sihat Jaya', contactName: 'Dr. Nurul Huda',
+      soNo: 'SO-0009', revision: 1, agentCode: null, agentName: null, warehouseCode: null, branchCode: 'HQ', customerCode: 'C-0078', customerName: 'Klinik Sihat Jaya', contactName: 'Dr. Nurul Huda',
       deliveryAddress: 'No. 12, Jalan Sihat 3, 40000 Shah Alam', postcode: null, state: null, preferredDate: '2026-10-01', afterStock: false,
       lines: [{ itemCode: 'TB-DIN-06', uomCode: 'PCS', qty: '1.0000' }, { itemCode: 'CH-DIN-01', uomCode: 'PCS', qty: '6.0000' }],
     });

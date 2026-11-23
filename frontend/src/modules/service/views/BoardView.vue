@@ -56,7 +56,7 @@ async function pickFromQuery() {
     id: j.id, docNo: j.docNo, jobType: j.jobType, typeLabel: j.typeLabel, customerName: j.customerName, area: j.area, salesOrderNo: j.salesOrderNo,
     preferredDate: j.preferredDate, afterStock: j.afterStock, whenText: j.whenText, version: j.version, asksForThisDay: false, moving: true, bookedPerson: j.booking?.personName ?? null,
     overdue: j.overdue, overdueSinceText: j.overdueSinceText, siteType: j.siteType, siteTypeLabel: j.siteTypeLabel,
-    missingForBooking: j.missingForBooking, missingText: j.missingText,
+    missingForBooking: j.missingForBooking, missingText: j.missingText, atRisk: j.atRisk, atRiskNote: j.atRiskNote,
   })
 }
 
@@ -240,7 +240,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
                 class="absolute top-1.5 bottom-1.5 flex flex-col justify-center overflow-hidden rounded-md border text-[11px] leading-tight"
                 :class="[TYPE_BLOCK[j.jobType], picked?.id === j.id ? 'ring-2 ring-mod-primary' : j.overdue ? 'ring-2 ring-chip-cancelled-text' : '', j.busyEnd - j.start <= 60 ? 'px-1' : 'px-2']"
                 :style="{ left: `${pct(j.start)}%`, width: `${pct(j.busyEnd) - pct(j.start)}%` }"
-                :title="[`${j.docNo} · ${j.typeLabel} · ${j.customerName} · ${j.slotText} · ${j.stageLabel}`, j.extendedText, j.overdue ? `Overdue since ${j.overdueSinceText}` : null].filter(Boolean).join(' · ')"
+                :title="[`${j.docNo} · ${j.typeLabel} · ${j.customerName} · ${j.slotText} · ${j.stageLabel}`, j.extendedText, j.overdue ? `Overdue since ${j.overdueSinceText}` : null, j.atRisk ? `At risk: ${j.atRiskNote}` : null].filter(Boolean).join(' · ')"
               >
                 <!-- The extension past the slot, shaded so the slot itself still reads -->
                 <span
@@ -251,7 +251,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
                 />
                 <span class="truncate font-semibold">{{ j.busyEnd - j.start <= 60 ? j.docNo : `${j.docNo} · ${j.typeLabel}` }}</span>
                 <span class="truncate">{{ j.customerName }}</span>
-                <span class="truncate" :class="j.overdue ? 'font-semibold text-chip-cancelled-text' : 'opacity-75'">{{ j.overdue ? 'Overdue' : j.extendedText ?? j.stageLabel }}</span>
+                <span class="truncate" :class="j.overdue || j.atRisk ? 'font-semibold text-chip-cancelled-text' : 'opacity-75'">{{ j.overdue ? 'Overdue' : j.atRisk ? 'At risk: stock' : j.extendedText ?? j.stageLabel }}</span>
               </RouterLink>
               <span
                 v-if="board.nowMinutes !== null && board.nowMinutes > dayStart && board.nowMinutes < dayEnd"

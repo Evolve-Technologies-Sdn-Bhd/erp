@@ -117,6 +117,9 @@ export class JobsQuery {
       contactName: job.contactName,
       phone: job.phone,
       siteAddress: job.siteAddress,
+      /** The salesperson of the order (phase 5), who hears when the job is postponed, moved or at risk. */
+      agentName: job.agentName,
+      atRiskSince: job.atRiskSince?.toISOString() ?? null,
       postcode: job.postcode,
       state: job.state,
       /** What the office needs before booking and the job lacks: warned on the page and the board, never blocking. */

@@ -12,6 +12,7 @@ import { formatTime, formatTopBarDate } from '@/utils/format'
 import AccountMenu from './AccountMenu.vue'
 import BranchSwitch from './BranchSwitch.vue'
 import HelpButton from '@/tours/HelpButton.vue'
+import AlertsButton from '@/components/erp/AlertsButton.vue'
 import ModuleSwitcher from './ModuleSwitcher.vue'
 import PageSearch from './PageSearch.vue'
 import PrintStamp from './PrintStamp.vue'
@@ -251,6 +252,7 @@ const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/1
             <BranchSwitch data-tour="branch" />
             <div class="erp-num text-xs text-erp-muted">{{ clock }}</div>
             <div class="h-4 w-px bg-erp-border" aria-hidden="true" />
+            <AlertsButton />
             <HelpButton />
             <AccountMenu data-tour="account" variant="module" />
           </div>

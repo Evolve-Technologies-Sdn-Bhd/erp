@@ -9,6 +9,7 @@ import { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, JobListQueryDto, 
 import { BoardQuery } from '../board/board.query';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { JobsQuery } from './jobs.query';
+import { StockCheckService } from './stock-check.service';
 import { JobsService } from './jobs.service';
 
 class SearchQuery {
@@ -25,7 +26,15 @@ export class ServiceJobsController {
   constructor(
     private readonly query: JobsQuery,
     private readonly service: JobsService,
+    private readonly stockCheck: StockCheckService,
   ) {}
+
+  /** Phase 5: checks now the stock of installations booked in the next 24 hours; it also runs every hour. */
+  @Post('stock-check')
+  @RequirePermission(P.JOB_BOOK)
+  checkStock(@CurrentContext() ctx: RequestContext) {
+    return this.stockCheck.run(ctx.tenantId);
+  }
 
   @Get()
   @RequirePermission(P.VIEW)

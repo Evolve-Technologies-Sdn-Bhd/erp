@@ -5,6 +5,7 @@ import { SALES_PERMISSIONS as P } from '../sales.permissions';
 import { CreateOrderDto, OrderListQueryDto, RequestApprovalDto, ReviseOrderDto, UpdateOrderDto, VersionDto } from './dto/order.dto';
 import { SalesOrderFlowQuery } from './order-flow.query';
 import { OrdersQuery } from './orders.query';
+import { OrderLapseService } from './lapse.service';
 import { OrdersService } from './orders.service';
 
 /** S10 list, S11 form, S12 credit check — /api/v1/sales/orders */
@@ -14,7 +15,15 @@ export class SalesOrdersController {
     private readonly query: OrdersQuery,
     private readonly orders: OrdersService,
     private readonly flowQuery: SalesOrderFlowQuery,
+    private readonly lapse: OrderLapseService,
   ) {}
+
+  /** Phase 5: runs the automatic cancel now (Sales Flow › Check now); it also runs every hour. */
+  @Post('lapse-check')
+  @RequirePermission(P.SETTINGS_MANAGE)
+  lapseCheck(@CurrentContext() ctx: RequestContext) {
+    return this.lapse.run(ctx.tenantId);
+  }
 
   /** S03 · Document flow of one order */
   @Get(':id/flow')

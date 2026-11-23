@@ -100,9 +100,9 @@ export class CancelOrdersService {
    * Release (FlowS6 step 3): the order row is locked, the balance re-checked, the cancelled quantity added to the
    * order lines. When nothing is left to deliver the order closes as Done with "Balance cancelled".
    */
-  async release(ctx: RequestContext, id: string, version: number) {
+  async release(ctx: RequestContext, id: string, version: number, bySystem = false) {
     const c = await this.query.load(ctx.tenantId, id);
-    this.require(ctx, c, 'release', 'Only the Sales Manager can release a cancellation (sales.cancel_order.release).');
+    if (!bySystem) this.require(ctx, c, 'release', 'Only the Sales Manager can release a cancellation (sales.cancel_order.release).');
     const now = this.clock.now();
     await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM sal_sales_order WHERE id = ${c.salesOrderId} FOR UPDATE`;
@@ -140,6 +140,18 @@ export class CancelOrdersService {
       }]);
     });
     return this.query.detail(ctx, id);
+  }
+
+  /**
+   * The automatic cancel (phase 5): the system drafts a cancel order for the whole undelivered balance and releases it
+   * at once, with the reason in its note. Returns its number.
+   */
+  async cancelBalanceForSystem(ctx: RequestContext, salesOrderId: string, note: string): Promise<string> {
+    const order = await this.prisma.salSalesOrder.findFirstOrThrow({ where: { id: salesOrderId, tenantId: ctx.tenantId }, include: { lines: true } });
+    const lines = order.lines.filter((l) => openToDeliver(l).gt(0)).map((l) => ({ soLineId: l.id, qty: openToDeliver(l).toString() }));
+    const draft = await this.create(ctx, { salesOrderId, reason: 'Cancelled before delivery', note, lines });
+    await this.release(ctx, draft.id, draft.version, true);
+    return draft.docNo;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
