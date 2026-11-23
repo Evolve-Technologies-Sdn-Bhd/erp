@@ -2151,6 +2151,14 @@ model SalSalesOrder {
   installOption     String?             @db.VarChar(12) // INSTALLATION, DELIVERY, COLLECT; null when the company does not ask (phase 5)
   installDate       DateTime?           @db.Date // the customer's preferred installation date; the office books the slot
   installAfterStock Boolean             @default(false) // released with items short: installation is arranged when stock arrives
+  // Revisions in place (phase 5): the order keeps its number and its links; each earlier revision is kept read-only in
+  // sal_order_revision. `revision` above stays 0, the row every list reads.
+  revisionNo        Int                 @default(1)
+  revisingSince     DateTime?           @db.DateTime(3) // a released order back in draft for a revision
+  reviseReason      String?             @db.VarChar(300)
+  // The installer's booking, from Service's events: a revision after booking needs approval.
+  installBooking    String?             @db.VarChar(150) // "Thu, 1 Oct · 10 AM – 12 PM · Hafiz Rahman"
+  installBookedAt   DateTime?           @db.DateTime(3)
   quotationId       String?             @db.Char(36)
   quotationNo       String?             @db.VarChar(30)
   enquiryNo         String?             @db.VarChar(30)
@@ -2176,6 +2184,7 @@ model SalSalesOrder {
   updatedBy         String              @db.VarChar(20)
   lines             SalSalesOrderLine[]
   vouchers          SalOrderVoucher[]
+  revisions         SalOrderRevision[]
   deliveries        SalDelivery[]
   proformas         SalProforma[]
   cancelOrders      SalCancelOrder[]
@@ -2238,6 +2247,26 @@ model SalSalesOrderLine {
 
 /// A voucher on a sales order (phase 5): a typed number and an amount off that lowers the taxed amount. Kept beside
 /// the lines so it never reaches a delivery; the order's first invoice that can cover it uses it (invoiceId).
+/// An earlier revision of a sales order, kept read-only (phase 5): what the order was before it was revised, why it
+/// was revised, and what the next revision changed once released.
+model SalOrderRevision {
+  id           String        @id @default(uuid()) @db.Char(36)
+  tenantId     String        @db.Char(36)
+  salesOrderId String        @db.Char(36)
+  revisionNo   Int
+  snapshot     Json // header, lines and vouchers as they were
+  reason       String        @db.VarChar(300) // why the next revision was started
+  revisedBy    String        @db.VarChar(100)
+  revisedAt    DateTime      @db.DateTime(3)
+  replacedAt   DateTime?     @db.DateTime(3) // the next revision was released
+  changes      String?       @db.Text // what the next revision changed
+  salesOrder   SalSalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([salesOrderId, revisionNo])
+  @@index([tenantId, salesOrderId])
+  @@map("sal_order_revision")
+}
+
 model SalOrderVoucher {
   id           String        @id @default(uuid()) @db.Char(36)
   tenantId     String        @db.Char(36)
@@ -2824,6 +2853,7 @@ model SalSetting {
   agentsAddCustomers     Boolean  @default(false) // on: salespeople add a cash customer while keying an order; the office completes it in Core (phase 5)
   priceRange             Boolean  @default(false) // on: prices within a range of the price list; outside it the Sales Manager approves (phase 5)
   useReceipts            Boolean  @default(false) // on: salespeople record customer payments as official receipts; Account verifies them (phase 5)
+  reviseOrders           Boolean  @default(false) // on: a released order is revised until it is delivered; after booking or for a price change the Sales Manager approves (phase 5)
   priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
   priceAbovePct          Decimal  @default(20) @db.Decimal(7, 4)
   updatedAt              DateTime @updatedAt @db.DateTime(3)

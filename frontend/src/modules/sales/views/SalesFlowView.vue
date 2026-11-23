@@ -40,6 +40,7 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   agentsAddCustomers: 'A + New customer link on the sales order, for households that are not in the list yet.',
   priceRange: 'Off: a discount over the limit on a quotation needs the Sales Manager. On: the range below decides, on quotations and sales orders.',
   useReceipts: 'A Payments card on the released sales order, and Official Receipts in the Billing menu for Account.',
+  reviseOrders: 'A Revise button on the released sales order, until a delivery order, invoice or cancel order is made from it.',
 }
 
 async function save() {
@@ -124,6 +125,18 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">
         Each payment is a deposit or the balance, with a photo or PDF of the slip. Account verifies it against the bank or the card settlement slip; only verified
         receipts count as paid, and whoever recorded a receipt never verifies it. Invoices and the books stay as they are.
+      </p>
+    </section>
+
+    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+      <h2 class="m-0 text-[15px] font-bold">Orders</h2>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.reviseOrders }}</span><span class="text-xs text-erp-subtle">{{ HINT.reviseOrders }}</span></span>
+        <SwitchToggle v-model="draft.reviseOrders" :label="data.labels.reviseOrders" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">
+        A revision keeps the order's number and customer; the earlier revision is kept to look at. Releasing a revision made after the installer is booked, or one that
+        changes a price, needs the Sales Manager. Every revision is recorded on the order.
       </p>
     </section>
 

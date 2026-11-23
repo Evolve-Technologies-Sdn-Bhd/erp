@@ -64,6 +64,8 @@ export function waitingText(j: { preferredDate: string | null; afterStock: boole
  */
 export interface ReleasedOrder {
   soNo: string;
+  /** 1 for the first release; a revised order is released again with the next number (phase 5). */
+  revision: number;
   branchCode: string;
   customerCode: string;
   customerName: string;
@@ -84,6 +86,7 @@ export function readReleasedOrder(payload: unknown): ReleasedOrder | null {
   const lines = Array.isArray(p.lines) ? p.lines : [];
   return {
     soNo: p.soNo,
+    revision: typeof p.revision === 'number' ? p.revision : 1,
     branchCode: p.branchCode,
     customerCode: p.customerCode,
     customerName: typeof p.customerName === 'string' ? p.customerName : p.customerCode,
@@ -98,6 +101,13 @@ export function readReleasedOrder(payload: unknown): ReleasedOrder | null {
       .filter((l) => typeof l.itemCode === 'string' && typeof l.qty === 'string')
       .map((l) => ({ itemCode: l.itemCode as string, uomCode: typeof l.uomCode === 'string' ? l.uomCode : '', qty: l.qty as string })),
   };
+}
+
+/** Any released order, read enough to tell a revision that dropped installation (phase 5). */
+export function readOrderRevision(payload: unknown): { soNo: string; revision: number; branchCode: string } | null {
+  const p = payload as Record<string, unknown> | null;
+  if (!p || typeof p.soNo !== 'string' || typeof p.branchCode !== 'string') return null;
+  return { soNo: p.soNo, revision: typeof p.revision === 'number' ? p.revision : 1, branchCode: p.branchCode };
 }
 
 /** A job the office adds by hand: a type, a site to go to, and a preferred date not in the past. */

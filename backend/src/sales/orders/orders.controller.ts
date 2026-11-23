@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 import { CurrentContext, RequirePermission } from '../../platform/context/context.decorators';
 import type { RequestContext } from '../../platform/context/request-context';
 import { SALES_PERMISSIONS as P } from '../sales.permissions';
-import { CreateOrderDto, OrderListQueryDto, RequestApprovalDto, UpdateOrderDto, VersionDto } from './dto/order.dto';
+import { CreateOrderDto, OrderListQueryDto, RequestApprovalDto, ReviseOrderDto, UpdateOrderDto, VersionDto } from './dto/order.dto';
 import { SalesOrderFlowQuery } from './order-flow.query';
 import { OrdersQuery } from './orders.query';
 import { OrdersService } from './orders.service';
@@ -63,5 +63,18 @@ export class SalesOrdersController {
   @RequirePermission(P.ORDER_RELEASE)
   release(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
     return this.orders.release(ctx, id, dto.version);
+  }
+
+  /** Phase 5: the next revision of a released order, back in draft under the same number. */
+  @Post(':id/revise')
+  @RequirePermission(P.ORDER_EDIT)
+  revise(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: ReviseOrderDto) {
+    return this.orders.revise(ctx, id, dto);
+  }
+
+  @Post(':id/discard-revision')
+  @RequirePermission(P.ORDER_EDIT)
+  discardRevision(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
+    return this.orders.discardRevision(ctx, id, dto.version);
   }
 }

@@ -19,10 +19,11 @@ import { toEnteredLine } from '../shared/package-lines.rules';
 import { priceVouchers, totalsWithVouchers, type TaxedLine, type VoucherInput } from '../shared/voucher.rules';
 import type { MdCustomer } from '../../master-data/master-data.port';
 import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.constants';
-import type { CreateOrderDto, RequestApprovalDto, UpdateOrderDto } from './dto/order.dto';
+import type { CreateOrderDto, RequestApprovalDto, ReviseOrderDto, UpdateOrderDto } from './dto/order.dto';
 import { ORDER_LOCKED_MESSAGE, stockShortfall, type OrderAction } from './order.rules';
 import { deliveryAreaFields, installationErrors, installationFields, releaseInstallation } from './installation.rules';
 import { OrdersQuery, type OrderWithLines } from './orders.query';
+import { headerData, snapshotOf, type RevisionSnapshot } from './revision.snapshot';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -110,6 +111,13 @@ export class OrdersService {
     const order = await this.query.load(ctx.tenantId, id);
     this.require(await this.actionsFor(ctx, order), 'edit', order.isMigrated ? 'Migrated orders cannot be changed.' : order.status === 'PENDING_APPROVAL' ? `${order.docNo} is waiting for approval and is locked.` : ORDER_LOCKED_MESSAGE);
 
+    // A revision (phase 5) keeps the order's customer and date: receipts, jobs and the number stay with them.
+    if (order.revisingSince && dto.customerCode && dto.customerCode !== order.customerCode) {
+      throw ValidationFailedError.field('customerCode', `A revised order keeps its customer: ${order.docNo} stays with ${order.customerName}.`);
+    }
+    if (order.revisingSince && dto.docDate && dto.docDate !== iso(order.docDate)) {
+      throw ValidationFailedError.field('docDate', `A revised order keeps its order date (${iso(order.docDate)}).`);
+    }
     const docDate = dto.docDate ?? iso(order.docDate);
     const customer = await this.docs.activeCustomer(ctx, dto.customerCode ?? order.customerCode);
     const customerChanged = customer.code !== order.customerCode;
@@ -194,18 +202,24 @@ export class OrdersService {
     const order = await this.query.load(ctx.tenantId, id);
     const credit = await this.query.liveCredit(ctx, order);
     const price = await this.query.priceCheck(ctx.tenantId, order);
+    const revision = await this.query.revisionState(ctx.tenantId, order);
+    const revisionNeeds = Boolean(revision?.approval.needs);
     const creditNeeds = Boolean(credit && credit.check.action === 'APPROVAL');
     if (credit && credit.check.action === 'BLOCK') {
       throw new BusinessRuleError('APPROVAL_NOT_NEEDED', `The credit check blocks this order: ${breachText(credit.check)}. It cannot be approved; reduce the order or ask Finance.`);
     }
-    if (credit && !creditNeeds && !price.needs) {
+    if (credit && !creditNeeds && !price.needs && !revisionNeeds) {
       throw new BusinessRuleError('APPROVAL_NOT_NEEDED', price.rangeOn ? 'The credit check passed and every price is within the allowed range. Release the order directly.' : 'The credit check passed. Release the order directly.');
     }
-    this.require(this.query.actions(ctx, order, credit, price.needs), 'requestApproval', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is already waiting for approval.` : ORDER_LOCKED_MESSAGE);
+    this.require(this.query.actions(ctx, order, credit, price.needs, { needs: revisionNeeds }), 'requestApproval', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is already waiting for approval.` : ORDER_LOCKED_MESSAGE);
     const steps: Awaited<ReturnType<SalesDocumentLines['approver']>>[] = [];
     const reasons: string[] = [];
-    if (price.needs) {
+    if (revisionNeeds) {
       steps.push(await this.docs.approver(ctx, SAL_ROLE.MANAGER, order.branchCode));
+      reasons.push(revision!.approval.reason!);
+    }
+    if (price.needs) {
+      if (!steps.some((s) => s.approverRole === SAL_ROLE.MANAGER)) steps.push(await this.docs.approver(ctx, SAL_ROLE.MANAGER, order.branchCode));
       reasons.push(price.reason!);
     }
     if (creditNeeds) {
@@ -226,7 +240,8 @@ export class OrdersService {
         reason: `${reasons.join(' · ')}${from}`,
         requesterNote: dto.reason, steps,
       });
-      await this.log(tx, ctx, order.id, order.docNo, 'approval_requested', price.needs ? `${price.reason} · sent for approval to ${to}` : `Sent for approval to ${to}`, dto.reason.trim());
+      const why = [revisionNeeds ? revision!.approval.reason : null, price.needs ? price.reason : null].filter(Boolean).join(' · ');
+      await this.log(tx, ctx, order.id, order.docNo, 'approval_requested', why ? `${why} · sent for approval to ${to}` : `Sent for approval to ${to}`, dto.reason.trim());
     });
     return this.query.detail(ctx, id);
   }
@@ -264,7 +279,9 @@ export class OrdersService {
     }
     const price = await this.query.priceCheck(ctx.tenantId, order);
     if (price.needs) throw new BusinessRuleError('PRICE_APPROVAL_REQUIRED', `${price.reason}. Type a reason and request approval.`);
-    this.require(this.query.actions(ctx, order, credit, price.needs), 'release', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is waiting for approval.` : `${order.docNo} is already released.`);
+    const revision = await this.query.revisionState(ctx.tenantId, order);
+    if (revision?.approval.needs && !order.approvedAt) throw new BusinessRuleError('REVISION_APPROVAL_REQUIRED', `${revision.approval.reason}. Type a reason and request approval.`);
+    this.require(this.query.actions(ctx, order, credit, price.needs, { needs: Boolean(revision?.approval.needs) }), 'release', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is waiting for approval.` : `${order.docNo} is already released.`);
     const giftOnly = order.lines.filter((l) => l.lineKind === 'GIFT' && !order.lines.some((o) => o.itemCode === l.itemCode && o.lineKind !== 'GIFT')).map((l) => l.itemCode);
     await this.docs.checkStillSellable(ctx, order.branchCode, order.lines.map((l) => l.itemCode), giftOnly);
 
@@ -282,18 +299,27 @@ export class OrdersService {
     const now = this.clock.now();
 
     await this.prisma.$transaction(async (tx) => {
+      // A revision goes out again under the same number; the order keeps its first release (phase 5).
+      const first = !order.releasedAt;
       await this.bump(tx, ctx, order.id, version, {
-        installAfterStock: install.afterStock,
-        status: 'RELEASED', releasedAt: now, releasedByCode: ctx.user.code, releasedByName: ctx.user.name,
+        installAfterStock: install.afterStock, revisingSince: null,
+        status: 'RELEASED', ...(first && { releasedAt: now, releasedByCode: ctx.user.code, releasedByName: ctx.user.name }),
         ...(credit && !order.approvedAt && { creditResult: credit.check.result, creditSnapshot: credit.snapshot }),
       }, 'DRAFT');
       if (shortfall) await this.log(tx, ctx, order.id, order.docNo, 'stock_warning', `At release: ${shortfall}. Warned, not blocked (policy: stock check warns).`);
       const bto = order.lines.filter((l) => l.isBuyToOrder);
-      await this.log(tx, ctx, order.id, order.docNo, 'released', `Released by ${ctx.user.name} · event sales.order.released saved${bto.length ? ' · Purchase drafts a PO for the buy-to-order lines' : ''}`);
+      if (revision) {
+        const changes = revision.changes.changes.length ? revision.changes.changes.join('; ') : 'No changes';
+        await tx.salOrderRevision.update({ where: { id: revision.before.id }, data: { replacedAt: now, changes } });
+        await this.log(tx, ctx, order.id, order.docNo, 'released', `Revision ${order.revisionNo} released by ${ctx.user.name}: ${changes} · event sales.order.released saved`);
+      } else {
+        await this.log(tx, ctx, order.id, order.docNo, 'released', `Released by ${ctx.user.name} · event sales.order.released saved${bto.length ? ' · Purchase drafts a PO for the buy-to-order lines' : ''}`);
+      }
       await this.outbox.publish(tx, ctx, [{
         name: SAL_EVENT.ORDER_RELEASED, aggregateType: SAL_ENTITY.ORDER, aggregateId: order.id,
         payload: {
-          soNo: order.docNo, docDate: iso(order.docDate), branchCode: order.branchCode, customerCode: customer.code, customerName: customer.name,
+          soNo: order.docNo, revision: order.revisionNo, docDate: iso(order.docDate), branchCode: order.branchCode, customerCode: customer.code, customerName: customer.name,
+          agentCode: order.agentCode, agentName: order.agentName,
           contactName: order.contactName, deliveryAddress: order.deliveryAddress, deliveryPostcode: order.deliveryPostcode, deliveryState: order.deliveryState,
           total: toMoney(order.total), deliveryWantedBy: order.deliveryWantedBy ? iso(order.deliveryWantedBy) : null, warehouseCode: order.warehouseCode,
           lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder, lineKind: l.lineKind, packageCode: l.packageCode })),
@@ -303,6 +329,60 @@ export class OrdersService {
           vouchers: order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: toMoney(v.amount), taxCode: v.taxCode, taxAmount: toMoney(v.taxAmount) })),
         },
       }]);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  // ── Revisions (phase 5) ───────────────────────────────────────────────────
+
+  /**
+   * Starts the next revision of a released order: the order as it is is kept read-only, and the order goes back to
+   * draft under the same number, with the reason. It is changed with the usual form and released again.
+   */
+  async revise(ctx: RequestContext, id: string, dto: ReviseOrderDto) {
+    const order = await this.query.load(ctx.tenantId, id);
+    const check = order.status === 'RELEASED' ? await this.query.reviseCheck(ctx.tenantId, order) : null;
+    if (check) throw new BusinessRuleError(check.code, check.message);
+    this.require(await this.actionsFor(ctx, order), 'revise', order.status === 'RELEASED' ? 'You cannot revise sales orders.' : `Only a released order with nothing delivered can be revised.`);
+    const reason = dto.reason.trim();
+    const next = order.revisionNo + 1;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.salOrderRevision.create({
+        data: {
+          tenantId: ctx.tenantId, salesOrderId: order.id, revisionNo: order.revisionNo, snapshot: snapshotOf(order) as unknown as Prisma.InputJsonValue,
+          reason, revisedBy: ctx.user.name, revisedAt: this.clock.now(),
+        },
+      });
+      const r = await tx.salSalesOrder.updateMany({
+        where: { id: order.id, tenantId: ctx.tenantId, version: dto.version, status: 'RELEASED' },
+        data: {
+          status: 'DRAFT', revisionNo: next, revisingSince: this.clock.now(), reviseReason: reason, approvedAt: null, approvalRequired: false,
+          version: { increment: 1 }, updatedBy: ctx.user.code,
+        },
+      });
+      if (r.count === 0) throw new StaleVersionError();
+      await this.log(tx, ctx, order.id, order.docNo, 'revised', `Revision ${next} started by ${ctx.user.name}; revision ${order.revisionNo} is kept. The order is back in draft until it is released again.`, reason);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /** Drops the revision in draft: the order goes back to the revision before, as it was released. */
+  async discardRevision(ctx: RequestContext, id: string, version: number) {
+    const order = await this.query.load(ctx.tenantId, id);
+    this.require(await this.actionsFor(ctx, order), 'discardRevision', order.status === 'PENDING_APPROVAL' ? `${order.docNo} is waiting for approval and is locked.` : `${order.docNo} is not being revised.`);
+    const before = await this.prisma.salOrderRevision.findFirstOrThrow({ where: { tenantId: ctx.tenantId, salesOrderId: order.id, revisionNo: order.revisionNo - 1 } });
+    const snap = before.snapshot as unknown as RevisionSnapshot;
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, order.id, version, {
+        ...headerData(snap), status: 'RELEASED', revisionNo: before.revisionNo, revisingSince: null, reviseReason: null,
+      }, 'DRAFT');
+      await tx.salSalesOrderLine.deleteMany({ where: { salesOrderId: order.id } });
+      await tx.salOrderVoucher.deleteMany({ where: { salesOrderId: order.id } });
+      await tx.salSalesOrderLine.createMany({ data: snap.lines.map((l) => ({ ...l, salesOrderId: order.id })) as Prisma.SalSalesOrderLineCreateManyInput[] });
+      if (snap.vouchers.length) await tx.salOrderVoucher.createMany({ data: snap.vouchers.map((v) => ({ ...v, salesOrderId: order.id })) as Prisma.SalOrderVoucherCreateManyInput[] });
+      await tx.salOrderRevision.delete({ where: { id: before.id } });
+      await this.approvals.cancelPending(tx, ctx, SAL_ENTITY.ORDER, order.id);
+      await this.log(tx, ctx, order.id, order.docNo, 'revision_discarded', `Revision ${order.revisionNo} discarded by ${ctx.user.name}; back to revision ${before.revisionNo} as it was released`);
     });
     return this.query.detail(ctx, id);
   }
@@ -357,7 +437,7 @@ export class OrdersService {
 
 
   private async actionsFor(ctx: RequestContext, order: OrderWithLines) {
-    return this.query.actions(ctx, order, await this.query.liveCredit(ctx, order), (await this.query.priceCheck(ctx.tenantId, order)).needs);
+    return this.query.actionsWithRevision(ctx, order, await this.query.liveCredit(ctx, order), (await this.query.priceCheck(ctx.tenantId, order)).needs);
   }
 
   private require(actions: OrderAction[], action: OrderAction, message: string) {

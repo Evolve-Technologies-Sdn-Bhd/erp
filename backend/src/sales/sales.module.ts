@@ -5,6 +5,7 @@ import { SALES_SCOPE_RULES } from './sales.scope';
 import { SalesApprovalsController } from './approvals/approvals.controller';
 import { SalesApprovalsInboxService } from './approvals/approvals-inbox.service';
 import { SalesBuyToOrderListener } from './buy-to-order/buy-to-order.listener';
+import { SalesInstallBookingListener } from './orders/install-booking.listener';
 import { SalesDashboardController } from './dashboard/dashboard.controller';
 import { SalesDeliveriesController } from './deliveries/deliveries.controller';
 import { SalesInvoicesController } from './invoices/invoices.controller';
@@ -77,6 +78,7 @@ import { SalesMailService } from './shared/sales-mail.service';
   providers: [
     SalesNewCustomersService,
     SalesBuyToOrderListener,
+    SalesInstallBookingListener,
     SalesDashboardService,
     SalesIndicators,
     SalesApprovalsInboxService,

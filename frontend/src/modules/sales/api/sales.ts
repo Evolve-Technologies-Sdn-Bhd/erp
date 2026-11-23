@@ -85,6 +85,8 @@ export const salesOrdersApi = {
   requestApproval: (id: string, version: number, reason: string) =>
     api<OrderDetail>(`/sales/orders/${id}/request-approval`, { method: 'POST', body: { version, reason } }),
   release: (id: string, version: number, silent = false) => api<OrderDetail>(`/sales/orders/${id}/release`, { method: 'POST', body: { version }, silent }),
+  revise: (id: string, version: number, reason: string) => api<OrderDetail>(`/sales/orders/${id}/revise`, { method: 'POST', body: { version, reason } }),
+  discardRevision: (id: string, version: number) => api<OrderDetail>(`/sales/orders/${id}/discard-revision`, { method: 'POST', body: { version } }),
 }
 
 export type QuotationList = ListResponse<QuotationListItem> & { expiringSoon: { docNo: string; validUntil: string }[] }

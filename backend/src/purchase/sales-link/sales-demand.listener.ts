@@ -36,14 +36,22 @@ export class SalesDemandListener implements OnModuleInit {
     this.consumers.listen(SALES_DEMAND_EVENT.BALANCE_CANCELLED, SALES_DEMAND_LISTENER.BALANCE_CANCELLED, (e, tx) => this.onLineQty(e, tx, 'cancelledQty'));
   }
 
-  /** `sales.order.released`: one row per order line. Running it again only refreshes the order's details. */
+  /**
+   * `sales.order.released`: one row per order line. Running it again only refreshes the order's details. A revised
+   * order (Sales, phase 5) is released again with nothing delivered or cancelled yet, so lines it no longer has are
+   * dropped.
+   */
   async onReleased(event: OutboxEnvelope, tx: Tx): Promise<void> {
     const order = readReleasedSalesOrder(event.payload);
     if (!order) {
       this.logger.warn(`${event.name} ${event.id} has no usable sales order in its payload; ignored`);
       return;
     }
-    for (const r of demandRowsFromRelease(order, event.occurredAt)) {
+    const rows = demandRowsFromRelease(order, event.occurredAt);
+    if (rows.length) {
+      await tx.purSalesDemand.deleteMany({ where: { tenantId: event.tenantId, soNo: rows[0]!.soNo, soLineNo: { notIn: rows.map((r) => r.soLineNo) } } });
+    }
+    for (const r of rows) {
       const details = {
         salesOrderId: event.aggregateId,
         soDate: new Date(`${r.soDate}T00:00:00.000Z`),

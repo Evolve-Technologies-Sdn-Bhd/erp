@@ -6,7 +6,7 @@ import { dec, type DecimalInput } from '../../platform/http/decimal';
 export const SO_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'RELEASED', 'PARTIAL', 'DONE', 'CANCELLED'] as const;
 export type SoStatus = (typeof SO_STATUSES)[number];
 
-export type OrderAction = 'edit' | 'delete' | 'requestApproval' | 'release' | 'email' | 'deliver' | 'invoice' | 'proforma' | 'cancelBalance' | 'flow';
+export type OrderAction = 'edit' | 'delete' | 'requestApproval' | 'release' | 'email' | 'deliver' | 'invoice' | 'proforma' | 'cancelBalance' | 'flow' | 'revise' | 'discardRevision';
 
 export const ORDER_LOCKED_MESSAGE = 'Released orders are locked. Change them by revision, or cancel the undelivered balance.';
 
@@ -30,12 +30,20 @@ export function allowedOrderActions(o: {
   canInvoice: boolean;
   canProforma: boolean;
   canCancel: boolean;
+  /** Phase 5 revisions: the order was released before (a revision in draft is never deleted), it is being revised now,
+   *  releasing the revision needs the Sales Manager, and it may be revised (switch on, nothing made from it yet). */
+  everReleased?: boolean;
+  inRevision?: boolean;
+  revisionNeedsApproval?: boolean;
+  canRevise?: boolean;
 }): OrderAction[] {
   if (o.isMigrated) return [];
   const actions: OrderAction[] = [];
   if (o.status === 'DRAFT') {
-    if (o.canEdit) actions.push('edit', 'delete');
-    const needs = o.creditNeedsApproval || Boolean(o.priceNeedsApproval);
+    if (o.canEdit) actions.push('edit');
+    if (o.canEdit && !o.everReleased) actions.push('delete');
+    if (o.canEdit && o.inRevision) actions.push('discardRevision');
+    const needs = o.creditNeedsApproval || Boolean(o.priceNeedsApproval) || Boolean(o.revisionNeedsApproval);
     if (o.canEdit && needs && !o.approved) actions.push('requestApproval');
     if (o.canRelease && !o.creditBlocked && (!needs || o.approved)) actions.push('release');
     return actions;
@@ -46,6 +54,7 @@ export function allowedOrderActions(o: {
     if (o.hasOpenBalance && o.canDeliver) actions.push('deliver');
     if (o.hasOpenBalance && o.canProforma) actions.push('proforma');
     if (o.hasOpenBalance && o.canCancel) actions.push('cancelBalance');
+    if (o.status === 'RELEASED' && o.canEdit && o.canRevise) actions.push('revise');
   }
   if (o.hasToInvoice && o.canInvoice) actions.push('invoice');
   return actions;

@@ -77,7 +77,7 @@ export interface ItemSearchResult {
 
 // ── Sales orders (S10, S11, S12) ────────────────────────────────────────────
 
-export type OrderAction = 'edit' | 'delete' | 'requestApproval' | 'release' | 'email' | 'deliver' | 'invoice' | 'proforma' | 'cancelBalance' | 'flow'
+export type OrderAction = 'edit' | 'delete' | 'requestApproval' | 'release' | 'email' | 'deliver' | 'invoice' | 'proforma' | 'cancelBalance' | 'flow' | 'revise' | 'discardRevision'
 
 export interface OrderListItem {
   id: string
@@ -242,6 +242,10 @@ export interface OrderDetail {
   totals: SaleTotals
   vouchers: OrderVoucher[]
   installation: OrderInstallation
+  /** Revisions (phase 5): the one in draft, why the order cannot be revised now, and the earlier ones kept read-only. */
+  revisions: OrderRevisions
+  /** The installer's booking, from Service (phase 5). */
+  installBooking: string | null
   quantities: { ordered: string; delivered: string; uomCode: string }
   credit: { result: string | null; snapshot: CreditSnapshot | null; live: boolean; needsApproval: boolean; blocked: boolean; approverRole: string | null }
   /** Official receipts (phase 5): null while the company does not use them. */
@@ -296,6 +300,31 @@ export interface OrderInput {
   installDate?: string | null
   deliveryPostcode?: string | null
   deliveryState?: string | null
+}
+
+/** Phase 5: sales order revisions under the same number. */
+export interface OrderRevisions {
+  number: number
+  switchOn: boolean
+  inRevision: boolean
+  reason: string | null
+  since: string | null
+  /** What the revision in draft changes so far, in plain words. */
+  changes: string[]
+  needsApproval: boolean
+  approvalReason: string | null
+  /** Why a released order cannot be revised now. */
+  notRevisable: string | null
+  history: {
+    revisionNo: number
+    reason: string
+    revisedBy: string
+    revisedAt: string
+    replacedAt: string | null
+    changes: string | null
+    total: string
+    lines: { lineNo: number; itemCode: string; itemName: string; uomCode: string; qty: string; unitPrice: string; discountPct: string; amount: string }[]
+  }[]
 }
 
 /** Phase 5: installation, delivery only or collect, asked when the company turns it on (S34). */
@@ -1258,6 +1287,8 @@ export interface SalesFlowSwitches {
   priceRange: boolean
   /** Salespeople record customer payments as official receipts; Account verifies them (phase 5). */
   useReceipts: boolean
+  /** Salespeople revise a released order until it is delivered (phase 5). */
+  reviseOrders: boolean
 }
 
 export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'

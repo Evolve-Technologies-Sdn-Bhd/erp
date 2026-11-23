@@ -24,6 +24,14 @@ describe('order.rules', () => {
     expect(allowedOrderActions({ ...base, isMigrated: true })).toEqual([]);
   });
 
+  it('offers a revision of a released order where allowed; a revision in draft is never deleted, only discarded (phase 5)', () => {
+    expect(allowedOrderActions({ ...base, status: 'RELEASED', canRevise: true })).toEqual(['email', 'flow', 'revise']);
+    expect(allowedOrderActions({ ...base, status: 'RELEASED', canRevise: true, canEdit: false })).toEqual(['email', 'flow']);
+    expect(allowedOrderActions({ ...base, status: 'PARTIAL', canRevise: true })).toEqual(['email', 'flow']);
+    expect(allowedOrderActions({ ...base, everReleased: true, inRevision: true })).toEqual(['edit', 'discardRevision', 'release']);
+    expect(allowedOrderActions({ ...base, everReleased: true, inRevision: true, revisionNeedsApproval: true })).toEqual(['edit', 'discardRevision', 'requestApproval']);
+  });
+
   it('checks line quantities, prices and discounts', () => {
     expect(lineProblems([{ index: 0, qty: '0', unitPrice: '10', discountPct: '0' }])[0]?.message).toBe('Quantity must be more than 0.');
     expect(lineProblems([{ index: 1, qty: '1', unitPrice: '-1', discountPct: '120' }]).map((p) => p.field)).toEqual(['lines[1].unitPrice', 'lines[1].discountPct']);

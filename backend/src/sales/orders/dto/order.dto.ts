@@ -204,6 +204,14 @@ export class VersionDto {
   version!: number;
 }
 
+/** Phase 5: starts the next revision of a released order, with why. */
+export class ReviseOrderDto extends VersionDto {
+  @IsString()
+  @Matches(/\S/, { message: 'Type why the order is revised.' })
+  @MaxLength(300)
+  reason!: string;
+}
+
 export class RequestApprovalDto extends VersionDto {
   @IsString()
   @IsNotEmpty({ message: 'Type a reason for the approver.' })

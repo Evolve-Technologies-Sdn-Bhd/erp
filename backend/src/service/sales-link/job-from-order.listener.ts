@@ -4,7 +4,7 @@ import type { RequestContext } from '../../platform/context/request-context';
 import { OutboxConsumers } from '../../platform/outbox/outbox.consumers';
 import type { OutboxEnvelope } from '../../platform/outbox/outbox.types';
 import type { Tx } from '../../platform/prisma/prisma.service';
-import { readReleasedOrder } from '../jobs/jobs.rules';
+import { readOrderRevision, readReleasedOrder } from '../jobs/jobs.rules';
 import { JobsService } from '../jobs/jobs.service';
 import { SYSTEM_USER } from '../service.constants';
 
@@ -34,19 +34,27 @@ export class JobFromOrderListener {
 
   async onSalesOrderReleased(event: OutboxEnvelope, tx: Tx): Promise<void> {
     const order = readReleasedOrder(event.payload);
-    if (!order) return;
+    const revised = readOrderRevision(event.payload);
+    if (!order && !(revised && revised.revision > 1)) return;
     const tenantId = event.tenantId;
     const branches = await this.masterData.listBranches(tenantId);
     const ctx: RequestContext = {
       tenantId,
-      branchCode: order.branchCode,
+      branchCode: order?.branchCode ?? revised!.branchCode,
       correlationId: event.correlationId,
       user: {
         id: SYSTEM_USER.code, tenantId, code: SYSTEM_USER.code, name: SYSTEM_USER.name, email: '', roles: [],
         branchCodes: branches.map((b) => b.code), department: null, jobTitle: null,
       },
     };
+    // A revision (phase 5) that dropped installation cancels the job; one that kept it updates the job.
+    if (!order) {
+      const cancelled = await this.jobs.cancelForOrder(tx, ctx, event.aggregateId, `${revised!.soNo} revision ${revised!.revision} has no installation`);
+      if (cancelled) this.logger.log(`${cancelled.docNo} cancelled: ${revised!.soNo} revision ${revised!.revision} has no installation`);
+      return;
+    }
     const job = await this.jobs.createFromOrder(tx, ctx, event.aggregateId, order);
     if (job) this.logger.log(`${job.docNo} made from ${order.soNo}`);
+    else if (order.revision > 1) await this.jobs.updateFromOrder(tx, ctx, event.aggregateId, order);
   }
 }

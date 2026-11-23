@@ -44,6 +44,7 @@ export class SaveSalesFlowDto {
   /** The price range (phase 5): the switch and its two percentages, each kept when not sent. Checked in price-range.rules.ts. */
   @IsOptional() @IsBoolean() priceRange?: boolean;
   @IsOptional() @IsBoolean() useReceipts?: boolean;
+  @IsOptional() @IsBoolean() reviseOrders?: boolean;
   @IsOptional() @IsString() @MaxLength(10) priceBelowPct?: string;
   @IsOptional() @IsString() @MaxLength(10) priceAbovePct?: string;
 }

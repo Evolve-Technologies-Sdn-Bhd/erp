@@ -16,6 +16,8 @@ export const SVC_EVENT = {
   JOB_CREATED: 'service.job.created',
   JOB_CANCELLED: 'service.job.cancelled',
   JOB_BOOKED: 'service.job.booked',
+  /** A booked job is off the board again: taken off, or the visit postponed. Sales clears the booking it shows. */
+  JOB_UNBOOKED: 'service.job.unbooked',
   /** The office gave a booked job longer: a new expected completion that day, with the reason (F3 part 4). */
   JOB_EXTENDED: 'service.job.extended',
   /** The visit is recorded as complete or partly done: what fees and commission will count (F5). */

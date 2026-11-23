@@ -26,6 +26,7 @@ import { salesDeliveriesApi, salesLookupsApi, salesOrdersApi, salesProformasApi 
 import ItemPickerDialog from '../components/ItemPickerDialog.vue'
 import NewCustomerDialog from '../components/NewCustomerDialog.vue'
 import PackagePickerDialog from '../components/PackagePickerDialog.vue'
+import ReasonDialog from '../components/ReasonDialog.vue'
 import ReceiptDialog from '../components/ReceiptDialog.vue'
 import { PAYMENT_GROUP, RECEIPT_GROUP } from './receipts'
 import { salesFlow } from '../flow'
@@ -50,6 +51,9 @@ const errors = ref<Record<string, string>>({})
 const pickerOpen = ref(false)
 const reason = ref('')
 const reasonError = ref('')
+// ── Revisions (phase 5): a released order back in draft under the same number ──
+const reviseOpen = ref(false)
+const shownRevision = ref<number | null>(null)
 const transferMenu = ref<InstanceType<typeof Menu> | null>(null)
 
 // ── Form state ───────────────────────────────────────────────────────────────
@@ -535,6 +539,34 @@ function deleteDraft() {
   })
 }
 
+async function revise(why: string) {
+  const o = order.value!
+  saving.value = true
+  try {
+    show(await salesOrdersApi.revise(o.id, o.version, why))
+    reviseOpen.value = false
+    toast.add({ severity: 'success', summary: `Revision ${order.value!.revisions.number} started`, detail: `${o.docNo} is back in draft. Change it, then release it again.`, life: 4500 })
+  } finally {
+    saving.value = false
+  }
+}
+
+function discardRevision() {
+  const o = order.value!
+  confirm.require({
+    header: `Discard revision ${o.revisions.number}?`,
+    message: `Your changes are dropped and ${o.docNo} goes back to revision ${o.revisions.number - 1}, as it was released.`,
+    acceptLabel: 'Discard revision',
+    rejectLabel: 'Keep editing',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      show(await salesOrdersApi.discardRevision(o.id, o.version))
+      notifyApprovalsChanged()
+      toast.add({ severity: 'success', summary: 'Revision discarded', detail: `${o.docNo} is back to revision ${order.value!.revisions.number}.`, life: 3500 })
+    },
+  })
+}
+
 function keepAsDraft() {
   reason.value = ''
   toast.add({ severity: 'info', summary: 'Kept as draft', detail: 'The order stays a draft. Request approval when you are ready.', life: 3000 })
@@ -586,6 +618,9 @@ const showCreditFailed = computed(() => Boolean(order.value && order.value.statu
 /** The price range (phase 5): prices outside it wait for the Sales Manager. Shown on its own when credit is fine. */
 const priceNeedsApproval = computed(() => Boolean(order.value && order.value.status === 'DRAFT' && order.value.price.needsApproval))
 const showPricePanel = computed(() => priceNeedsApproval.value && !showCreditFailed.value)
+/** A revision after booking or with a price change (phase 5) waits for the Sales Manager. */
+const revisionNeedsApproval = computed(() => Boolean(order.value && order.value.status === 'DRAFT' && order.value.revisions.needsApproval))
+const showRevisionPanel = computed(() => revisionNeedsApproval.value && !showCreditFailed.value && !priceNeedsApproval.value)
 const creditChip = computed(() => {
   const r = order.value?.credit.result
   if (r === 'OVER_LIMIT' || r === 'BLOCKED') return { status: 'REJECTED', label: 'Over limit', group: 'cancelled' as const }
@@ -656,7 +691,7 @@ const viewRows = computed<ViewRow[]>(() => {
           · from quotation <RouterLink :to="docRoute('SAL_QUOTATION', order.quotation.id)!" class="erp-link">{{ order.quotation.no }}</RouterLink>
         </template>
         <template v-else-if="order.enquiryNo"> · from enquiry {{ order.enquiryNo }}</template>
-        · Revision {{ order.revision }}
+        · Revision {{ order.revisions.number }}
       </template>
       <template v-else #subtitle>Pick the customer and add items. The SO number is given when you save.</template>
 
@@ -664,13 +699,23 @@ const viewRows = computed<ViewRow[]>(() => {
         <template v-if="editable">
           <RouterLink v-if="!isNew" to="/sales/orders" class="erp-btn erp-btn-secondary">Back</RouterLink>
           <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
+          <button v-if="can('discardRevision')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="discardRevision">Discard revision</button>
           <button type="button" data-tour="action:save-draft" class="erp-btn" :class="isNew ? 'erp-btn-primary' : 'erp-btn-secondary'" :disabled="saving || (!isNew && !dirty)" @click="save">Save draft</button>
-          <button v-if="!isNew && !showCreditFailed && !priceNeedsApproval" type="button" data-tour="action:release" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
+          <button v-if="!isNew && !showCreditFailed && !priceNeedsApproval && !revisionNeedsApproval" type="button" data-tour="action:release" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
         </template>
         <template v-else-if="order && released">
           <RouterLink :to="`/sales/orders/${order.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
           <button type="button" class="erp-btn erp-btn-secondary" @click="later('Email')">Email</button>
-          <button type="button" class="erp-btn erp-btn-secondary" @click="later('Revise')">Revise</button>
+          <button
+            type="button"
+            data-tour="action:revise"
+            class="erp-btn erp-btn-secondary"
+            :disabled="!can('revise')"
+            :title="order.revisions.notRevisable ?? (order.revisions.switchOn ? undefined : 'Turn on revisions in Operation Policies › Sales Flow.')"
+            @click="reviseOpen = true"
+          >
+            Revise
+          </button>
           <RouterLink :to="`/sales/orders/${order.id}/flow`" class="erp-btn erp-btn-secondary">Document flow</RouterLink>
           <button type="button" class="erp-btn erp-btn-primary" @click="transferMenu?.toggle($event)">Transfer to <ChevronDown :size="14" aria-hidden="true" /></button>
           <Menu ref="transferMenu" :model="transferItems" popup />
@@ -687,6 +732,12 @@ const viewRows = computed<ViewRow[]>(() => {
             Released {{ order.releasedAt ? formatDateTime(order.releasedAt) : '' }} by {{ order.releasedByName }}. Header and lines are locked. Change by revision, or cancel the undelivered balance.
           </span>
         </NoticeBanner>
+        <NoticeBanner v-else-if="order?.revisions.inRevision && order.status === 'DRAFT'" kind="warning" data-tour="so:revision">
+          <strong>Revision {{ order.revisions.number }}</strong> is in draft<template v-if="order.revisions.reason">: “{{ order.revisions.reason }}”</template>.
+          <template v-if="order.revisions.changes.length"> Changes so far: {{ order.revisions.changes.join('; ') }}.</template>
+          <template v-else> Nothing is changed yet.</template>
+          Release it to send it out again under the same number, or discard it.
+        </NoticeBanner>
         <NoticeBanner v-else-if="order?.status === 'PENDING_APPROVAL'" kind="warning">
           Waiting for <strong>{{ order.approval.waitingFor }}</strong> to approve: {{ order.approval.reason }}. The order is locked until someone decides.
         </NoticeBanner>
@@ -694,7 +745,7 @@ const viewRows = computed<ViewRow[]>(() => {
           Rejected by {{ order.approval.decidedBy }}<template v-if="order.approval.comment">: “{{ order.approval.comment }}”</template>. Change the order and request approval again.
         </NoticeBanner>
         <NoticeBanner v-else-if="order?.approval.state === 'APPROVED' && order.status === 'DRAFT'">
-          Credit approved by {{ order.approval.decidedBy }}<template v-if="order.approval.comment"> · “{{ order.approval.comment }}”</template>. You can release the order.
+          {{ order.revisions.inRevision ? 'Approved' : 'Credit approved' }} by {{ order.approval.decidedBy }}<template v-if="order.approval.comment"> · “{{ order.approval.comment }}”</template>. You can release the order.
         </NoticeBanner>
 
         <!-- Header fields (SalesOrderForm.html order) -->
@@ -800,7 +851,8 @@ const viewRows = computed<ViewRow[]>(() => {
               </div>
             </FormField>
             <p class="col-span-2 m-0 self-end pb-2 text-xs" :class="editable && order?.installation.dateNeeded && !form.installDate && form.installOption === 'INSTALLATION' ? 'text-attention' : 'text-erp-muted'">
-              {{ editable ? installHint : order?.installation.option === 'INSTALLATION' ? 'The office books the installer and slot.' : '' }}
+              <template v-if="order?.installBooking">Installer booked: {{ order.installBooking }}.</template>
+              <template v-else>{{ editable ? installHint : order?.installation.option === 'INSTALLATION' ? 'The office books the installer and slot.' : '' }}</template>
             </p>
           </template>
         </section>
@@ -1111,6 +1163,23 @@ const viewRows = computed<ViewRow[]>(() => {
           </template>
         </section>
 
+        <!-- A revision after booking or with a price change (phase 5) needs the Sales Manager before release -->
+        <section v-if="showRevisionPanel && order" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
+          <div>
+            <h2 class="m-0 text-[15px] font-bold text-note-warn-text">Revision needs approval</h2>
+            <p class="m-0 mt-0.5 text-xs text-erp-muted">{{ order.revisions.approvalReason }}. The Sales Manager approves it before the order goes out again.</p>
+          </div>
+          <template v-if="can('requestApproval')">
+            <FormField label="Reason for the approver" :error="reasonError" for="so-revision-reason">
+              <textarea id="so-revision-reason" v-model="reason" rows="2" class="erp-input h-auto py-2" maxlength="1000" :aria-invalid="Boolean(reasonError)" />
+            </FormField>
+            <div class="flex justify-end gap-2">
+              <button type="button" class="erp-btn erp-btn-secondary" @click="backToEdit">Back to edit</button>
+              <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
+            </div>
+          </template>
+        </section>
+
         <ActivityList v-if="order" :items="order.activity.filter((a) => a.action !== 'stock_warning')" />
       </div>
 
@@ -1147,6 +1216,33 @@ const viewRows = computed<ViewRow[]>(() => {
           </p>
         </SideCard>
 
+        <SideCard v-if="order?.revisions.history.length" data-tour="so:revisions" title="Revisions">
+          <ol class="m-0 flex list-none flex-col gap-3 p-0 text-[13px]">
+            <li v-for="h in order.revisions.history" :key="h.revisionNo" class="flex flex-col gap-0.5">
+              <span class="flex items-baseline justify-between gap-2">
+                <strong>Revision {{ h.revisionNo }}</strong>
+                <button type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-xs text-erp-link" @click="shownRevision = shownRevision === h.revisionNo ? null : h.revisionNo">
+                  {{ shownRevision === h.revisionNo ? 'Hide' : 'View' }}
+                </button>
+              </span>
+              <span class="text-xs text-erp-muted">Revised {{ formatDateTime(h.revisedAt) }} by {{ h.revisedBy }}: “{{ h.reason }}”</span>
+              <span v-if="h.changes" class="text-xs">Revision {{ h.revisionNo + 1 }} changed: {{ h.changes }}</span>
+              <table v-if="shownRevision === h.revisionNo" class="erp-table mt-1 text-xs">
+                <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr></thead>
+                <tbody>
+                  <tr v-for="l in h.lines" :key="l.lineNo">
+                    <td>{{ l.itemCode }}</td>
+                    <td class="num">{{ formatQty(l.qty) }}</td>
+                    <td class="num">{{ formatPrice(l.unitPrice) }}</td>
+                    <td class="num">{{ formatMoney(l.amount) }}</td>
+                  </tr>
+                  <tr><td colspan="3" class="font-semibold">Total</td><td class="num font-semibold">{{ formatMoney(h.total) }}</td></tr>
+                </tbody>
+              </table>
+            </li>
+          </ol>
+        </SideCard>
+
         <SideCard v-if="order?.payments && order.payments.released" data-tour="so:payments" title="Payments">
           <template #chip><StatusChip :status="order.payments.status" :label="order.payments.label" :group="PAYMENT_GROUP[order.payments.status]" /></template>
           <div class="flex flex-col text-[13px] erp-num">
@@ -1170,6 +1266,16 @@ const viewRows = computed<ViewRow[]>(() => {
 
     <NewCustomerDialog v-model:visible="newCustomerOpen" @added="onCustomerAdded" />
     <ReceiptDialog v-model:visible="receiptOpen" :order="receiptFor" @saved="receiptSaved" />
+    <ReasonDialog
+      v-if="order"
+      v-model:visible="reviseOpen"
+      :title="`Revise ${order.docNo}?`"
+      :message="`It goes back to draft as revision ${order.revisions.number + 1}, under the same number. Revision ${order.revisions.number} is kept to look at. After the installer is booked, or with a price change, the Sales Manager approves the revision before it goes out again.`"
+      label="Why the order is revised"
+      confirm-label="Start revision"
+      :busy="saving"
+      @confirm="revise"
+    />
     <ItemPickerDialog
       v-model:visible="pickerOpen"
       :context="`${order?.docNo ?? 'New order'} · ${form.customer?.name ?? ''} · ${order?.branch.name ?? form.customer?.branchCode ?? ''}${order ? ` · price list ${order.priceList.name}` : ''}`"

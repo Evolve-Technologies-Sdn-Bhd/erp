@@ -54,7 +54,7 @@ Screens read the event status to say "Inventory is not connected yet" or "Accoun
 
 | Event | From | What Purchase does |
 |---|---|---|
-| `sales.order.released` | Sales | **Buy-to-order:** if “Auto-draft a PO for buy-to-order sales lines” is on, drafts one PO per preferred supplier (contract price, else last price), created by System for the branch buyer and linked to the sales order. Lines sold in another unit than Purchase buys in are left to the buyer. Always answers with `purchase.buy_to_order.handled`. **Demand:** adds the order's lines to `pur_sales_demand`, Purchase's copy of open sales-order needs (P04, P06) |
+| `sales.order.released` | Sales | **Buy-to-order:** if “Auto-draft a PO for buy-to-order sales lines” is on, drafts one PO per preferred supplier (contract price, else last price), created by System for the branch buyer and linked to the sales order. Lines sold in another unit than Purchase buys in are left to the buyer. Always answers with `purchase.buy_to_order.handled`. **Demand:** adds the order's lines to `pur_sales_demand`, Purchase's copy of open sales-order needs (P04, P06). A revised order (Sales, phase 5) comes again with `revision` above 1 and nothing delivered or cancelled: lines it no longer has are dropped |
 | `sales.shipment.requested` | Sales | Lowers the open quantity in `pur_sales_demand`, by the sales-order line (`soLineNo`) |
 | `sales.order.balance_cancelled` | Sales | Lowers the open quantity in `pur_sales_demand`, by the sales-order line (`lineNo`) |
 | `wms.goods.received` | WMS (later) | Creates and confirms the GRN automatically; the GRN screen becomes read-only |
@@ -65,7 +65,7 @@ Screens read the event status to say "Inventory is not connected yet" or "Accoun
 
 | Event | When | Main payload | Who listens |
 |---|---|---|---|
-| `sales.order.released` | SO released | soNo, docDate, branchCode, customerCode, customerName, contactName, deliveryAddress, deliveryPostcode, deliveryState (kept only with the installation option asked; else null), total, deliveryWantedBy, warehouseCode, lines (lineNo, itemCode, uomCode, qty, isBuyToOrder, lineKind, packageCode), vouchers (voucherNo, amount, taxCode, taxAmount), installation (option, preferredDate, afterStock; null when Sales does not ask) | **Purchase** (buy-to-order PO, demand); **Service** (an installation job) |
+| `sales.order.released` | SO released; a revised order again with the next revision (phase 5) | soNo, revision (1 for the first release), docDate, branchCode, customerCode, customerName, agentCode, agentName, contactName, deliveryAddress, deliveryPostcode, deliveryState (kept only with the installation option asked; else null), total, deliveryWantedBy, warehouseCode, lines (lineNo, itemCode, uomCode, qty, isBuyToOrder, lineKind, packageCode), vouchers (voucherNo, amount, taxCode, taxAmount), installation (option, preferredDate, afterStock; null when Sales does not ask) | **Purchase** (buy-to-order PO, demand); **Service** (an installation job) |
 | `sales.order.balance_cancelled` | Cancel order released | cancelNo, soNo, branchCode, warehouseCode, customerCode, reason, orderClosed, lines (lineNo = sales-order line, itemCode, uomCode, qty, isBuyToOrder, purchaseOrderNo) | **Purchase** (demand); Purchase is also warned for buy-to-order lines |
 | `sales.shipment.requested` | DO confirmed | doNo, soNo, branchCode, warehouseCode, customerCode, deliverTo, vehicle, driver, consignmentNote, lines (lineNo = DO line, soLineNo = sales-order line, itemCode, uomCode, qty) | **Purchase** (demand); Inventory (stock out) later |
 | `sales.invoice.released` | Invoice released | invoiceNo, docDate, dueDate, branchCode, customer code, name and TIN, currency, subtotal, discountTotal, taxTotal, rounding, total, salesOrderNo, deliveryNos, depositApplied, proformaNo, lines | Finance (receivable), LHDN e-Invoice — later |
@@ -81,8 +81,10 @@ Screens read the event status to say "Inventory is not connected yet" or "Accoun
 | `purchase.goods.received` | Purchase | Adds the received quantity to the order lines on that PO (`purchaseReceivedQty`); received but not delivered goods count as ready on the delivery waiting list |
 | `purchase.order.balance_cancelled` | Purchase | Adds the cancelled quantity to the order lines on that PO (`purchaseCancelledQty`), counting only what the order is short |
 | `mdm.customer.created` | Core | When the payload names an enquiry (`enquiryNo`) that has no customer yet, links it to the new customer so it can be quoted, and writes that in the enquiry's activity (Phase 3 decision 7) |
+| `service.job.booked` | Service | Keeps the installer's booking on the order (`installBooking`, "Thu, 1 Oct · 10 AM – 12 PM · Hafiz Rahman") with a line in its activity; a revision after booking needs the Sales Manager (phase 5) |
+| `service.job.unbooked`, `service.job.cancelled` | Service | Clears the booking on the order, with a line in its activity |
 
-Sales never bumps the order's version for these: they are Purchase's facts, not edits.
+Sales never bumps the order's version for these: they are Purchase's and Service's facts, not edits.
 
 ## Core publishes
 
@@ -112,16 +114,17 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 | Event | When | Main payload | Who listens |
 |---|---|---|---|
 | `service.job.created` | A job made from a released order or added by the office | jobNo, jobType, typeLabel, branchCode, customerCode, salesOrderNo or null, preferredDate, afterStock | Phone app, Sales (the job on the order) — later |
-| `service.job.booked` | A job booked or moved on the Planning Board | jobNo, jobType, personId, personName, date, start and end (minutes from midnight), moved | Phone app — later |
+| `service.job.booked` | A job booked or moved on the Planning Board | jobNo, jobType, personId, personName, date, start and end (minutes from midnight), moved, salesOrderId, salesOrderNo, bookingText | **Sales** (the booking on the order); phone app — later |
+| `service.job.unbooked` | A booked job taken off the board, or its visit postponed | jobNo, salesOrderId, salesOrderNo, reason | **Sales** (clears the booking) |
 | `service.job.done` | A visit recorded as complete or partly done | jobNo, jobType, personId, personName, date, result, paidStatus, salesOrderNo, customerCode | Fees and commission (F5) — later |
 | `service.job.extended` | The office gave a booked job longer (F3 part 4) | jobNo, personId, personName, date, from and to (minutes from midnight), reason, runsInto (the later jobs it now runs into) | Phone app — later |
-| `service.job.cancelled` | The office cancelled a job not done yet (a booked one frees its slot) | jobNo, jobType, customerCode, salesOrderNo, reason | — |
+| `service.job.cancelled` | The office cancelled a job not done yet (a booked one frees its slot), or a revised order dropped installation | jobNo, jobType, customerCode, salesOrderId, salesOrderNo, reason | **Sales** (clears the booking) |
 
 ## Service listens to
 
 | Event | From | What Service does |
 |---|---|---|
-| `sales.order.released` | Sales | An order released with the Installation option makes an installation job, *Not booked*, with the customer's preferred date or *after stock arrives*, its items and the delivery address. Delivery only, collect, and companies whose Sales does not ask make none. Once per order (`svc_job` is unique on the order) |
+| `sales.order.released` | Sales | An order released with the Installation option makes an installation job, *Not booked*, with the customer's preferred date or *after stock arrives*, its items and the delivery address. Delivery only, collect, and companies whose Sales does not ask make none. Once per order (`svc_job` is unique on the order). A revised order released again (`revision` above 1) updates its job not done yet: items, contact, address and, while not booked, the preferred date; a revision without installation cancels the job |
 | `sales.receipt.verified` | Sales | The order's jobs keep where its payment stands (Unpaid, Deposit paid, Fully paid, paid and total), with a line on each job's activity |
 
 ## Listener names
@@ -138,6 +141,9 @@ Stored in `sys_event_handled.handler`. The seed marks its own history as handled
 | `sales.buy-to-order-received` | `purchase.goods.received` |
 | `sales.buy-to-order-cancelled` | `purchase.order.balance_cancelled` |
 | `sales.prospect-link` | `mdm.customer.created` |
+| `sales.install-booked` | `service.job.booked` |
+| `sales.install-unbooked` | `service.job.unbooked` |
+| `sales.install-cancelled` | `service.job.cancelled` |
 | `service.job-from-order` | `sales.order.released` (only with `SERVICE_MODULE=on`) |
 | `service.job-payment` | `sales.receipt.verified` (only with `SERVICE_MODULE=on`) |
 

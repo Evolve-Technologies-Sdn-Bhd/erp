@@ -22,6 +22,8 @@ import { ReceiptsQuery } from '../receipts/receipts.query';
 import { INSTALL_OPTION_LABEL, installationText, type InstallOption } from './installation.rules';
 import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
+import { REVISIONS_OFF_MESSAGE, reviseRefusal, revisionApproval, revisionChanges } from './revision.rules';
+import { revisionContent, type RevisionSnapshot } from './revision.snapshot';
 
 export type OrderWithLines = SalSalesOrder & { lines: SalSalesOrderLine[]; vouchers: SalOrderVoucher[] };
 
@@ -87,9 +89,19 @@ export class OrdersQuery {
     };
   }
 
-  actions(ctx: RequestContext, order: SalSalesOrder & { lines: SalSalesOrderLine[] }, credit: CreditOutcome | null, priceNeeds = false) {
+  actions(
+    ctx: RequestContext,
+    order: SalSalesOrder & { lines: SalSalesOrderLine[] },
+    credit: CreditOutcome | null,
+    priceNeeds = false,
+    revision: { canRevise?: boolean; needs?: boolean } = {},
+  ) {
     const has = (p: string) => this.permissions.has(ctx.user.roles, p);
     return allowedOrderActions({
+      everReleased: Boolean(order.releasedAt),
+      inRevision: Boolean(order.revisingSince),
+      revisionNeedsApproval: Boolean(revision.needs),
+      canRevise: Boolean(revision.canRevise),
       status: order.status as SoStatus,
       isMigrated: order.isMigrated,
       creditNeedsApproval: credit ? credit.check.action === 'APPROVAL' : order.creditResult === 'OVER_LIMIT',
@@ -105,6 +117,50 @@ export class OrdersQuery {
       canProforma: has(P.PROFORMA_EDIT),
       canCancel: has(P.CANCEL_ORDER_EDIT),
     });
+  }
+
+  // ── Revisions (phase 5) ───────────────────────────────────────────────────
+
+  /** Why the order cannot be revised now, or null: the Sales Flow switch, then anything already made from it. */
+  async reviseCheck(tenantId: string, order: OrderWithLines): Promise<{ code: string; message: string } | null> {
+    const setting = await this.prisma.salSetting.findUnique({ where: { tenantId }, select: { reviseOrders: true } });
+    if (!setting?.reviseOrders) return { code: 'REVISIONS_OFF', message: REVISIONS_OFF_MESSAGE };
+    const pick = { docNo: true } as const;
+    const [delivery, invoice, cancel, proforma] = await Promise.all([
+      this.prisma.salDelivery.findFirst({ where: { tenantId, salesOrderId: order.id }, select: pick }),
+      this.prisma.salInvoice.findFirst({ where: { tenantId, salesOrderId: order.id }, select: pick }),
+      this.prisma.salCancelOrder.findFirst({ where: { tenantId, salesOrderId: order.id }, select: pick }),
+      this.prisma.salProforma.findFirst({ where: { tenantId, salesOrderId: order.id, status: { not: 'CANCELLED' } }, select: pick }),
+    ]);
+    const documents: { kind: string; docNo: string }[] = [];
+    if (delivery) documents.push({ kind: 'delivery order', docNo: delivery.docNo });
+    if (invoice) documents.push({ kind: 'invoice', docNo: invoice.docNo });
+    if (cancel) documents.push({ kind: 'cancel order', docNo: cancel.docNo });
+    if (proforma) documents.push({ kind: 'proforma invoice', docNo: proforma.docNo });
+    const message = reviseRefusal({
+      docNo: order.docNo, status: order.status, isMigrated: order.isMigrated, documents,
+      moved: order.lines.some((l) => l.deliveredQty.gt(0) || l.invoicedQty.gt(0) || l.cancelledQty.gt(0)),
+      purchaseOrderNo: order.lines.find((l) => l.purchaseOrderNo)?.purchaseOrderNo ?? null,
+    });
+    return message ? { code: 'NOT_REVISABLE', message } : null;
+  }
+
+  /** A revision in draft: what it changes so far against the revision before, and whether releasing it needs approval. */
+  async revisionState(tenantId: string, order: OrderWithLines) {
+    if (!order.revisingSince) return null;
+    const before = await this.prisma.salOrderRevision.findFirst({ where: { tenantId, salesOrderId: order.id, revisionNo: order.revisionNo - 1 } });
+    if (!before) return null;
+    const changes = revisionChanges((before.snapshot as unknown as RevisionSnapshot).content, revisionContent(order));
+    return { before, changes, approval: revisionApproval(order.revisionNo, changes, order.installBooking) };
+  }
+
+  /** The actions with the revision's part worked out (the service calls this before each command). */
+  async actionsWithRevision(ctx: RequestContext, order: OrderWithLines, credit: CreditOutcome | null, priceNeeds: boolean) {
+    const [check, state] = await Promise.all([
+      order.status === 'RELEASED' ? this.reviseCheck(ctx.tenantId, order) : Promise.resolve(null),
+      this.revisionState(ctx.tenantId, order),
+    ]);
+    return this.actions(ctx, order, credit, priceNeeds, { canRevise: order.status === 'RELEASED' && !check, needs: Boolean(state?.approval.needs) });
   }
 
   // ── List (S10) ────────────────────────────────────────────────────────────
@@ -201,6 +257,12 @@ export class OrdersQuery {
     const taxLines = taxLinesWithVouchers(order.lines, order.vouchers).map((t) => ({ code: t.code, name: taxName(t.code), amount: toMoney(t.amount) }));
     const quotation = order.quotationId ? await this.prisma.salQuotation.findFirst({ where: { id: order.quotationId }, select: { id: true, docNo: true } }) : null;
     const price = await this.priceCheck(ctx.tenantId, order);
+    const switchOn = Boolean((await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { reviseOrders: true } }))?.reviseOrders);
+    const [reviseCheck, revisionState, revisions] = await Promise.all([
+      order.status === 'RELEASED' ? this.reviseCheck(ctx.tenantId, order) : Promise.resolve(null),
+      this.revisionState(ctx.tenantId, order),
+      this.prisma.salOrderRevision.findMany({ where: { tenantId: ctx.tenantId, salesOrderId: order.id }, orderBy: { revisionNo: 'desc' } }),
+    ]);
 
     return {
       id: order.id,
@@ -228,6 +290,33 @@ export class OrdersQuery {
       deliveryAddress: order.deliveryAddress,
       deliveryPostcode: order.deliveryPostcode,
       deliveryState: order.deliveryState,
+      /** Revisions (phase 5): the one in draft, why it cannot be revised now, and the earlier ones kept read-only. */
+      revisions: {
+        number: order.revisionNo,
+        switchOn,
+        inRevision: Boolean(order.revisingSince),
+        reason: order.revisingSince ? order.reviseReason : null,
+        since: order.revisingSince?.toISOString() ?? null,
+        changes: revisionState?.changes.changes ?? [],
+        needsApproval: Boolean(revisionState?.approval.needs) && !order.approvedAt,
+        approvalReason: revisionState?.approval.reason ?? null,
+        /** Why a released order cannot be revised now; null when it can, or when it is not released. */
+        notRevisable: order.status === 'RELEASED' && switchOn ? (reviseCheck?.message ?? null) : null,
+        history: revisions.map((r) => {
+          const snap = r.snapshot as unknown as RevisionSnapshot;
+          return {
+            revisionNo: r.revisionNo, reason: r.reason, revisedBy: r.revisedBy, revisedAt: r.revisedAt.toISOString(),
+            replacedAt: r.replacedAt?.toISOString() ?? null, changes: r.changes, total: toMoney(dec(snap.content.total)),
+            lines: snap.lines.map((l) => ({
+              lineNo: Number(l.lineNo), itemCode: String(l.itemCode), itemName: String(l.itemName), uomCode: String(l.uomCode),
+              qty: toQty(dec(String(l.orderedQty))), unitPrice: toPrice(dec(String(l.unitPrice))),
+              discountPct: dec(String(l.discountPct)).toFixed(2), amount: toMoney(dec(String(l.amount))),
+            })),
+          };
+        }),
+      },
+      /** The installer's booking, from Service (phase 5): a revision after booking needs approval. */
+      installBooking: order.installBooking,
       installation: {
         asked: Boolean(setting?.askInstallation),
         option: order.installOption,
@@ -318,7 +407,10 @@ export class OrdersQuery {
       releasedByName: order.releasedByName,
       links,
       activity,
-      allowedActions: this.actions(ctx, order, credit, price.needs),
+      allowedActions: this.actions(ctx, order, credit, price.needs, {
+        canRevise: order.status === 'RELEASED' && !reviseCheck,
+        needs: Boolean(revisionState?.approval.needs),
+      }),
     };
   }
 }

@@ -142,7 +142,7 @@ export class JobsService {
       }
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_CANCELLED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
-        payload: { jobNo: job.docNo, jobType: job.jobType, customerCode: job.customerCode, salesOrderNo: job.salesOrderNo, reason },
+        payload: { jobNo: job.docNo, jobType: job.jobType, customerCode: job.customerCode, salesOrderId: job.salesOrderId, salesOrderNo: job.salesOrderNo, reason },
       }]);
     });
     return this.query.detail(ctx, id);
@@ -192,7 +192,10 @@ export class JobsService {
       await this.log(tx, ctx, job.id, job.docNo, moving ? 'moved' : 'booked', `${moving ? 'Moved to' : 'Booked for'} ${person.name}, ${shortDay(dto.date)}, ${slotLabel(dto.start, end)}`);
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_BOOKED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
-        payload: { jobNo: job.docNo, jobType: job.jobType, personId: person.id, personName: person.name, date: dto.date, start: dto.start, end, moved: moving },
+        payload: {
+          jobNo: job.docNo, jobType: job.jobType, personId: person.id, personName: person.name, date: dto.date, start: dto.start, end, moved: moving,
+          salesOrderId: job.salesOrderId, salesOrderNo: job.salesOrderNo, bookingText: `${shortDay(dto.date)} · ${slotLabel(dto.start, end)} · ${person.name}`,
+        },
       }]);
     });
     return this.query.detail(ctx, id);
@@ -206,6 +209,7 @@ export class JobsService {
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, job.id, dto.version, { stage: 'NOT_BOOKED', ...FREE_SLOT, overdueSince }, 'BOOKED');
       await this.log(tx, ctx, job.id, job.docNo, 'unbooked', `Taken off the board by ${ctx.user.name}; the slot of ${job.personName} is free again`);
+      await this.publishUnbooked(tx, ctx, job, 'Taken off the board');
     });
     return this.query.detail(ctx, id);
   }
@@ -275,6 +279,7 @@ export class JobsService {
           ...(dto.nextDate && { preferredDate: day(dto.nextDate), afterStock: false }),
         }, 'BOOKED');
         await this.log(tx, ctx, job.id, job.docNo, 'postponed', `Postponed, recorded by ${by}; waiting to be booked again${dto.nextDate ? `, the customer asks for ${shortDay(dto.nextDate)}` : ''}${overdueSince ? ` (it was overdue since ${momentText(overdueSince)})` : ''}`, reason);
+        await this.publishUnbooked(tx, ctx, job, `Postponed${reason ? `: ${reason}` : ''}`);
         return;
       }
       await this.bump(tx, ctx, job.id, dto.version, {
@@ -324,6 +329,56 @@ export class JobsService {
       await this.log(tx, ctx, job.id, job.docNo, 'closed', `Closed by ${ctx.user.name}`);
     });
     return this.query.detail(ctx, id);
+  }
+
+  // ── A revised order (phase 5) ─────────────────────────────────────────────
+
+  /**
+   * A revised order released again (listener `service.job-from-order`): its job, not done yet, takes the order's
+   * items, contact and address; while not booked, also the preferred date. Booked, it keeps its slot.
+   */
+  async updateFromOrder(tx: Tx, ctx: RequestContext, salesOrderId: string, order: ReleasedOrder): Promise<{ docNo: string } | null> {
+    const job = await tx.svcJob.findFirst({ where: { tenantId: ctx.tenantId, salesOrderId } });
+    if (!job || (job.stage !== 'NOT_BOOKED' && job.stage !== 'BOOKED')) return null;
+    const items = order.lines.length ? await this.masterData.findItems(ctx.tenantId, [...new Set(order.lines.map((l) => l.itemCode))]) : [];
+    const waiting = job.stage === 'NOT_BOOKED';
+    await tx.svcJob.update({
+      where: { id: job.id },
+      data: {
+        contactName: order.contactName ?? job.contactName, siteAddress: order.deliveryAddress ?? job.siteAddress, postcode: order.postcode, state: order.state,
+        ...(waiting && { preferredDate: order.preferredDate ? day(order.preferredDate) : null, afterStock: order.afterStock }),
+        items: {
+          deleteMany: {},
+          create: order.lines.map((l, i) => ({
+            tenantId: ctx.tenantId, lineNo: i + 1, itemCode: l.itemCode, itemName: items.find((x) => x.code === l.itemCode)?.name ?? l.itemCode, qty: dec(l.qty), uomCode: l.uomCode,
+          })),
+        },
+        version: { increment: 1 }, updatedBy: ctx.user.code,
+      },
+    });
+    await this.log(tx, ctx, job.id, job.docNo, 'updated', `Updated from ${order.soNo} revision ${order.revision}: items, contact and address as revised${waiting ? '' : '; the booking stays'}`);
+    return { docNo: job.docNo };
+  }
+
+  /** A revised order that no longer has installation cancels its job, if not done yet. */
+  async cancelForOrder(tx: Tx, ctx: RequestContext, salesOrderId: string, reason: string): Promise<{ docNo: string } | null> {
+    const job = await tx.svcJob.findFirst({ where: { tenantId: ctx.tenantId, salesOrderId } });
+    if (!job || (job.stage !== 'NOT_BOOKED' && job.stage !== 'BOOKED')) return null;
+    await tx.svcJob.update({ where: { id: job.id }, data: { stage: 'CANCELLED', cancelReason: reason, cancelledAt: this.clock.now(), ...FREE_SLOT, version: { increment: 1 }, updatedBy: ctx.user.code } });
+    await this.log(tx, ctx, job.id, job.docNo, 'cancelled', `Cancelled: ${reason}${job.personName ? `; ${job.personName}'s slot is free again` : ''}`);
+    await this.outbox.publish(tx, ctx, [{
+      name: SVC_EVENT.JOB_CANCELLED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
+      payload: { jobNo: job.docNo, jobType: job.jobType, customerCode: job.customerCode, salesOrderId: job.salesOrderId, salesOrderNo: job.salesOrderNo, reason },
+    }]);
+    return { docNo: job.docNo };
+  }
+
+  /** Tells Sales a booked job is off the board again, so the order stops showing the booking. */
+  private async publishUnbooked(tx: Tx, ctx: RequestContext, job: { id: string; docNo: string; salesOrderId: string | null; salesOrderNo: string | null }, reason: string) {
+    await this.outbox.publish(tx, ctx, [{
+      name: SVC_EVENT.JOB_UNBOOKED, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
+      payload: { jobNo: job.docNo, salesOrderId: job.salesOrderId, salesOrderNo: job.salesOrderNo, reason },
+    }]);
   }
 
   // ── Service reminders (F6) ────────────────────────────────────────────────
