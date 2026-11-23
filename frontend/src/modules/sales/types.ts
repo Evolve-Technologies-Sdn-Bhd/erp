@@ -86,6 +86,8 @@ export interface OrderListItem {
   customerName: string
   isBuyToOrder: boolean
   agentName: string
+  /** Phase 5: "Pre-order · waiting for stock" or "· stock arrived"; null for other orders. */
+  preOrder: { label: string; stockArrived: boolean } | null
   total: string
   orderedQty: string
   deliveredQty: string
@@ -246,6 +248,8 @@ export interface OrderDetail {
   revisions: OrderRevisions
   /** The installer's booking, from Service (phase 5). */
   installBooking: string | null
+  /** Pre-order (phase 5): short stock made the whole order a pre-order. */
+  preOrder: { switchOn: boolean; isPreOrder: boolean; shortAtRelease: string | null; label: string | null; stockArrived: boolean; willBe: boolean }
   quantities: { ordered: string; delivered: string; uomCode: string }
   credit: { result: string | null; snapshot: CreditSnapshot | null; live: boolean; needsApproval: boolean; blocked: boolean; approverRole: string | null }
   /** Official receipts (phase 5): null while the company does not use them. */
@@ -1289,6 +1293,8 @@ export interface SalesFlowSwitches {
   useReceipts: boolean
   /** Salespeople revise a released order until it is delivered (phase 5). */
   reviseOrders: boolean
+  /** Short stock makes the whole order a pre-order (phase 5). */
+  preOrders: boolean
 }
 
 export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'

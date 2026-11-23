@@ -41,6 +41,7 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   priceRange: 'Off: a discount over the limit on a quotation needs the Sales Manager. On: the range below decides, on quotations and sales orders.',
   useReceipts: 'A Payments card on the released sales order, and Official Receipts in the Billing menu for Account.',
   reviseOrders: 'A Revise button on the released sales order, until a delivery order, invoice or cancel order is made from it.',
+  preOrders: 'An order released with any item short of stock is marked Pre-order, as a whole.',
 }
 
 async function save() {
@@ -137,6 +138,14 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">
         A revision keeps the order's number and customer; the earlier revision is kept to look at. Releasing a revision made after the installer is booked, or one that
         changes a price, needs the Sales Manager. Every revision is recorded on the order.
+      </p>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.preOrders }}</span><span class="text-xs text-erp-subtle">{{ HINT.preOrders }}</span></span>
+        <SwitchToggle v-model="draft.preOrders" :label="data.labels.preOrders" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">
+        A pre-order stays marked and shows <em>Stock arrived</em> once everything still to deliver is in stock; the office then carries on as usual. Stock is not
+        reserved yet, so "short" is against what is on hand. The sales order list filters on pre-orders.
       </p>
     </section>
 

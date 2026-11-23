@@ -24,6 +24,7 @@ import { ORDER_LOCKED_MESSAGE, stockShortfall, type OrderAction } from './order.
 import { deliveryAreaFields, installationErrors, installationFields, releaseInstallation } from './installation.rules';
 import { OrdersQuery, type OrderWithLines } from './orders.query';
 import { headerData, snapshotOf, type RevisionSnapshot } from './revision.snapshot';
+import { preOrderActivity, preOrderAtRelease } from './pre-order.rules';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -296,17 +297,21 @@ export class OrdersService {
     const allInStock = !shortfall && !order.lines.some((l) => l.isBuyToOrder);
     const install = releaseInstallation({ installOption: order.installOption, installDate: order.installDate ? iso(order.installDate) : null }, allInStock);
     if (install.refusal) throw new BusinessRuleError('INSTALL_DATE_REQUIRED', install.refusal);
+    // Pre-order (phase 5): with the switch on, short stock makes the whole order a pre-order.
+    const preOrdersOn = Boolean((await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { preOrders: true } }))?.preOrders);
+    const pre = preOrderAtRelease(preOrdersOn, shortfall);
     const now = this.clock.now();
 
     await this.prisma.$transaction(async (tx) => {
       // A revision goes out again under the same number; the order keeps its first release (phase 5).
       const first = !order.releasedAt;
       await this.bump(tx, ctx, order.id, version, {
-        installAfterStock: install.afterStock, revisingSince: null,
+        installAfterStock: install.afterStock, revisingSince: null, isPreOrder: pre.isPreOrder, preOrderShort: pre.note,
         status: 'RELEASED', ...(first && { releasedAt: now, releasedByCode: ctx.user.code, releasedByName: ctx.user.name }),
         ...(credit && !order.approvedAt && { creditResult: credit.check.result, creditSnapshot: credit.snapshot }),
       }, 'DRAFT');
       if (shortfall) await this.log(tx, ctx, order.id, order.docNo, 'stock_warning', `At release: ${shortfall}. Warned, not blocked (policy: stock check warns).`);
+      if (pre.isPreOrder) await this.log(tx, ctx, order.id, order.docNo, 'pre_order', preOrderActivity(shortfall!));
       const bto = order.lines.filter((l) => l.isBuyToOrder);
       if (revision) {
         const changes = revision.changes.changes.length ? revision.changes.changes.join('; ') : 'No changes';
@@ -323,6 +328,7 @@ export class OrdersService {
           contactName: order.contactName, deliveryAddress: order.deliveryAddress, deliveryPostcode: order.deliveryPostcode, deliveryState: order.deliveryState,
           total: toMoney(order.total), deliveryWantedBy: order.deliveryWantedBy ? iso(order.deliveryWantedBy) : null, warehouseCode: order.warehouseCode,
           lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder, lineKind: l.lineKind, packageCode: l.packageCode })),
+          preOrder: pre.isPreOrder,
           installation: order.installOption
             ? { option: order.installOption, preferredDate: order.installDate ? iso(order.installDate) : null, afterStock: install.afterStock }
             : null,

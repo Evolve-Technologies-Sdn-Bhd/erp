@@ -24,6 +24,7 @@ import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
 import { REVISIONS_OFF_MESSAGE, reviseRefusal, revisionApproval, revisionChanges } from './revision.rules';
 import { revisionContent, type RevisionSnapshot } from './revision.snapshot';
+import { preOrderState } from './pre-order.rules';
 
 export type OrderWithLines = SalSalesOrder & { lines: SalSalesOrderLine[]; vouchers: SalOrderVoucher[] };
 
@@ -119,6 +120,26 @@ export class OrdersQuery {
     });
   }
 
+  // ── Pre-orders (phase 5) ──────────────────────────────────────────────────
+
+  /** Where each pre-order stands now: its open quantities against stock in its warehouse. */
+  async preOrderStates(tenantId: string, orders: (SalSalesOrder & { lines: SalSalesOrderLine[] })[]) {
+    const out = new Map<string, { label: string; stockArrived: boolean }>();
+    const pre = orders.filter((o) => o.isPreOrder);
+    if (!pre.length) return out;
+    const codes = [...new Set(pre.flatMap((o) => o.lines.map((l) => l.itemCode)))];
+    const [items, stock] = await Promise.all([this.masterData.findItems(tenantId, codes), this.stock.listStock(tenantId, codes)]);
+    for (const o of pre) {
+      const shortNow = stockShortfall(o.lines.map((l) => ({
+        itemCode: l.itemCode, qty: open(l), isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
+        onHand: sum(stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === o.warehouseCode).map((s) => dec(s.onHand))),
+      })));
+      const state = preOrderState({ isPreOrder: o.isPreOrder, status: o.status }, shortNow);
+      if (state) out.set(o.id, state);
+    }
+    return out;
+  }
+
   // ── Revisions (phase 5) ───────────────────────────────────────────────────
 
   /** Why the order cannot be revised now, or null: the Sales Flow switch, then anything already made from it. */
@@ -176,6 +197,7 @@ export class OrdersQuery {
       ...(query.customer?.trim() && { customerName: { contains: query.customer.trim() } }),
       ...(query.agent && { agentCode: query.agent }),
       ...(query.branch && { branchCode: query.branch }),
+      ...(query.preOrder === '1' && { isPreOrder: true }),
       ...(q && { OR: [{ docNo: { contains: q } }, { customerName: { contains: q } }, { customerPoRef: { contains: q } }] }),
     };
     const status = statusFromKey(query.status, SO_STATUSES);
@@ -185,6 +207,7 @@ export class OrdersQuery {
       this.prisma.salSalesOrder.count({ where }),
       this.prisma.salSalesOrder.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
     ]);
+    const pre = await this.preOrderStates(ctx.tenantId, rows);
     const invoiced = await this.prisma.salInvoice.groupBy({
       by: ['salesOrderNo'],
       where: { tenantId: ctx.tenantId, status: 'RELEASED', salesOrderNo: { in: rows.map((r) => r.docNo) } },
@@ -198,6 +221,8 @@ export class OrdersQuery {
         docDate: iso(o.docDate),
         customerName: o.customerName,
         isBuyToOrder: o.orderTypeCode === 'BTO',
+        /** Phase 5: "Pre-order · waiting for stock" or "· stock arrived"; null for other orders. */
+        preOrder: pre.get(o.id) ?? null,
         agentName: o.agentName,
         total: toMoney(o.total),
         orderedQty: toQty(sum(o.lines.map((l) => l.orderedQty))),
@@ -257,7 +282,9 @@ export class OrdersQuery {
     const taxLines = taxLinesWithVouchers(order.lines, order.vouchers).map((t) => ({ code: t.code, name: taxName(t.code), amount: toMoney(t.amount) }));
     const quotation = order.quotationId ? await this.prisma.salQuotation.findFirst({ where: { id: order.quotationId }, select: { id: true, docNo: true } }) : null;
     const price = await this.priceCheck(ctx.tenantId, order);
-    const switchOn = Boolean((await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { reviseOrders: true } }))?.reviseOrders);
+    const flags = await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { reviseOrders: true, preOrders: true } });
+    const switchOn = Boolean(flags?.reviseOrders);
+    const preOrder = (await this.preOrderStates(ctx.tenantId, [order])).get(order.id) ?? null;
     const [reviseCheck, revisionState, revisions] = await Promise.all([
       order.status === 'RELEASED' ? this.reviseCheck(ctx.tenantId, order) : Promise.resolve(null),
       this.revisionState(ctx.tenantId, order),
@@ -314,6 +341,15 @@ export class OrdersQuery {
             })),
           };
         }),
+      },
+      /** Pre-order (phase 5): what was short at release and where it stands now; for a draft, whether it will be one. */
+      preOrder: {
+        switchOn: Boolean(flags?.preOrders),
+        isPreOrder: order.isPreOrder,
+        shortAtRelease: order.preOrderShort,
+        label: preOrder?.label ?? null,
+        stockArrived: preOrder?.stockArrived ?? false,
+        willBe: draft && Boolean(flags?.preOrders) && Boolean(shortfall),
       },
       /** The installer's booking, from Service (phase 5): a revision after booking needs approval. */
       installBooking: order.installBooking,

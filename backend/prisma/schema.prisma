@@ -2151,6 +2151,10 @@ model SalSalesOrder {
   installOption     String?             @db.VarChar(12) // INSTALLATION, DELIVERY, COLLECT; null when the company does not ask (phase 5)
   installDate       DateTime?           @db.Date // the customer's preferred installation date; the office books the slot
   installAfterStock Boolean             @default(false) // released with items short: installation is arranged when stock arrives
+  // Pre-order (phase 5): released with items short while the company makes short orders pre-orders. It stays marked;
+  // the order shows "Stock arrived" once its open quantities are in stock.
+  isPreOrder        Boolean             @default(false)
+  preOrderShort     String?             @db.VarChar(300) // what was short at release
   // Revisions in place (phase 5): the order keeps its number and its links; each earlier revision is kept read-only in
   // sal_order_revision. `revision` above stays 0, the row every list reads.
   revisionNo        Int                 @default(1)
@@ -2853,6 +2857,7 @@ model SalSetting {
   agentsAddCustomers     Boolean  @default(false) // on: salespeople add a cash customer while keying an order; the office completes it in Core (phase 5)
   priceRange             Boolean  @default(false) // on: prices within a range of the price list; outside it the Sales Manager approves (phase 5)
   useReceipts            Boolean  @default(false) // on: salespeople record customer payments as official receipts; Account verifies them (phase 5)
+  preOrders              Boolean  @default(false) // on: an order released with any item short of stock is a pre-order as a whole (phase 5)
   reviseOrders           Boolean  @default(false) // on: a released order is revised until it is delivered; after booking or for a price change the Sales Manager approves (phase 5)
   priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
   priceAbovePct          Decimal  @default(20) @db.Decimal(7, 4)

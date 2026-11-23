@@ -45,6 +45,7 @@ export class SaveSalesFlowDto {
   @IsOptional() @IsBoolean() priceRange?: boolean;
   @IsOptional() @IsBoolean() useReceipts?: boolean;
   @IsOptional() @IsBoolean() reviseOrders?: boolean;
+  @IsOptional() @IsBoolean() preOrders?: boolean;
   @IsOptional() @IsString() @MaxLength(10) priceBelowPct?: string;
   @IsOptional() @IsString() @MaxLength(10) priceAbovePct?: string;
 }

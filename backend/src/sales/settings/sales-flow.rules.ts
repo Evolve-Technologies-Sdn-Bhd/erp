@@ -9,12 +9,13 @@ export const FLOW_SWITCHES = {
   priceRange: 'Salespeople set prices within a range of the price list',
   useReceipts: 'Salespeople record payments as official receipts',
   reviseOrders: 'Salespeople revise a released order until it is delivered',
+  preOrders: 'Short stock makes the order a pre-order',
 } as const;
 export type FlowSwitchKey = keyof typeof FLOW_SWITCHES;
 export type FlowSwitches = Record<FlowSwitchKey, boolean>;
 
 /** What a company gets before anyone touches the page: the standard flow (no installation asked). */
-export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false };
+export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false };
 
 /** Change-history lines, in the wording of the other policies: "Use enquiries: On → Off". */
 export function flowChanges(before: FlowSwitches, after: FlowSwitches): string[] {

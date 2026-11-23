@@ -9,6 +9,11 @@ const MONEY = /^\d{1,14}(\.\d{1,2})?$/;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export class OrderListQueryDto extends ListQueryDto {
+  /** Phase 5: ?preOrder=1, only pre-orders. */
+  @IsOptional()
+  @IsIn(['1'])
+  preOrder?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(100)

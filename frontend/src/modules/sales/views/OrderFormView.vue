@@ -1081,11 +1081,17 @@ const viewRows = computed<ViewRow[]>(() => {
             <button type="button" data-tour="action:add-package" class="erp-btn erp-btn-secondary" @click="packagePickerOpen = true"><Gift :size="14" aria-hidden="true" />Add package</button>
             <button type="button" data-tour="action:add-voucher" class="erp-btn erp-btn-secondary" :disabled="!form.lines.length" @click="addVoucher"><Ticket :size="14" aria-hidden="true" />Add voucher</button>
           </div>
-          <NoticeBanner v-if="order?.stock.releaseNote" kind="warning">
+          <NoticeBanner v-if="order?.preOrder.isPreOrder" :kind="order.preOrder.stockArrived ? 'info' : 'warning'" data-tour="so:pre-order">
+            <strong>{{ order.preOrder.label }}.</strong>
+            Short at release: {{ order.preOrder.shortAtRelease }}.
+            {{ order.preOrder.stockArrived ? 'Everything still to deliver is in stock now: carry on as usual.' : 'The whole order waits for stock.' }}
+          </NoticeBanner>
+          <NoticeBanner v-else-if="order?.stock.releaseNote" kind="warning">
             {{ order.stock.releaseNote }}
           </NoticeBanner>
           <NoticeBanner v-else-if="editable && order?.stock.draftWarning" kind="warning">
-            Stock now: {{ order.stock.draftWarning }}. Short stock only warns; the order can still be released.
+            Stock now: {{ order.stock.draftWarning }}.
+            {{ order.preOrder.willBe ? 'The order will be released as a pre-order, as a whole.' : 'Short stock only warns; the order can still be released.' }}
           </NoticeBanner>
         </section>
 

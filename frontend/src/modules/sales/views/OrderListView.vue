@@ -21,6 +21,7 @@ import { useViewBranch } from '@/composables/useViewBranch'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatQty } from '@/utils/format'
 import { salesLookupsApi, salesOrdersApi } from '../api/sales'
+import { salesFlow } from '../flow'
 import type { OrderListItem } from '../types'
 
 /** S10 · List of Sales Order (SalesOrderList.html) */
@@ -29,7 +30,7 @@ const toast = useToast()
 const confirm = useConfirm()
 const { can, today } = useSession()
 
-const list = useListPage({ filterKeys: ['customer', 'agent', 'branch'], fetch: salesOrdersApi.list })
+const list = useListPage({ filterKeys: ['customer', 'agent', 'branch', 'preOrder'], fetch: salesOrdersApi.list })
 // The person's branches: the Branch filter and column appear for someone working in more than one.
 const view = useViewBranch()
 const rows = computed(() => list.data.value?.items ?? [])
@@ -209,6 +210,10 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
         @update:model-value="onDateRange"
         @clear-click="onDateRange(null)"
       />
+      <label v-if="salesFlow.preOrders || list.params.value.preOrder" class="flex items-center gap-2 text-[13px] whitespace-nowrap">
+        <input type="checkbox" :checked="list.params.value.preOrder === '1'" @change="list.setFilter('preOrder', ($event.target as HTMLInputElement).checked ? '1' : '')" />
+        Pre-orders only
+      </label>
     </FilterBar>
 
     <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
@@ -258,6 +263,11 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
         <template #body="{ data }: { data: OrderListItem }">
           {{ data.customerName }}
           <span v-if="data.isBuyToOrder" class="ml-1 rounded-md bg-erp-head px-1.5 py-px text-[11px] font-semibold whitespace-nowrap text-erp-muted">Buy to order</span>
+          <span
+            v-if="data.preOrder"
+            class="ml-1 rounded-md px-1.5 py-px text-[11px] font-semibold whitespace-nowrap"
+            :class="data.preOrder.stockArrived ? 'bg-chip-done-bg text-chip-done-text' : 'bg-chip-pending-bg text-chip-pending-text'"
+          >{{ data.preOrder.label }}</span>
         </template>
       </Column>
       <Column v-if="show('agent')" header="Sales agent" field="agentName" />
