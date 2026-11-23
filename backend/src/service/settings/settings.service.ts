@@ -108,11 +108,12 @@ export class ServiceSettingsService {
     let code = base;
     for (let n = 2; existing.some((e) => e.code === code); n++) code = `${base}-${n}`;
     const defaultFor = ordered(dto.defaultFor ?? [], JOB_TYPES);
+    const siteTypes = ordered(dto.siteTypes ?? [...SITE_TYPES], SITE_TYPES);
     await this.prisma.$transaction(async (tx) => {
       const g = await tx.svcSlotGroup.create({
         data: {
           tenantId: ctx.tenantId, code, name: dto.name.trim(), slotMinutes: dto.slotMinutes, firstStart: dto.firstStart, lastEnd: dto.lastEnd,
-          jobTypes: dto.jobTypes.join(','), defaultFor: defaultFor.join(','), isActive: dto.isActive ?? true, sortOrder: existing.length + 1, updatedBy: ctx.user.code,
+          jobTypes: dto.jobTypes.join(','), defaultFor: defaultFor.join(','), siteTypes: siteTypes.join(','), isActive: dto.isActive ?? true, sortOrder: existing.length + 1, updatedBy: ctx.user.code,
         },
       });
       await this.activity.log(tx, ctx, { entityType: ENTITY.SLOT_GROUP, entityId: g.id, docNo: g.name, action: 'created', message: `Slot group ${g.name} added: ${describe(g)}`, comment: null });
@@ -121,7 +122,7 @@ export class ServiceSettingsService {
     return this.view(ctx);
   }
 
-  /** A changed slot group applies to new bookings; jobs already booked keep their times. */
+  /** A changed slot group applies to new bookings; jobs already booked keep their times and their group. */
   async updateSlotGroup(ctx: RequestContext, id: string, dto: UpdateSlotGroupDto) {
     this.check(dto);
     const before = await this.prisma.svcSlotGroup.findFirst({ where: { tenantId: ctx.tenantId, id } });
@@ -130,7 +131,7 @@ export class ServiceSettingsService {
     const defaultFor = ordered(dto.defaultFor ?? listOf(before.defaultFor).filter((t) => dto.jobTypes.includes(t)), JOB_TYPES);
     const data = {
       name: dto.name.trim(), slotMinutes: dto.slotMinutes, firstStart: dto.firstStart, lastEnd: dto.lastEnd, jobTypes: dto.jobTypes.join(','),
-      defaultFor: defaultFor.join(','), isActive: dto.isActive ?? before.isActive,
+      defaultFor: defaultFor.join(','), siteTypes: dto.siteTypes ? ordered(dto.siteTypes, SITE_TYPES).join(',') : before.siteTypes, isActive: dto.isActive ?? before.isActive,
     };
     await this.prisma.$transaction(async (tx) => {
       const r = await tx.svcSlotGroup.updateMany({ where: { id, tenantId: ctx.tenantId, version: dto.version }, data: { ...data, version: { increment: 1 }, updatedBy: ctx.user.code } });
@@ -175,9 +176,10 @@ const jobsText = (v: string) => listOf(v).map((t) => JOB_TYPE_LABEL[t as JobType
 /** "Landed house, Condo / apartment", or "any site" when every site type is ticked. */
 const sitesText = (v: string) => (listOf(v).length === SITE_TYPES.length ? 'any site' : listOf(v).map((t) => SITE_TYPE_LABEL[t as SiteType] ?? t).join(', ') || '—');
 
-function describe(g: Pick<SvcSlotGroup, 'slotMinutes' | 'firstStart' | 'lastEnd' | 'jobTypes' | 'defaultFor' | 'isActive'>): string {
+function describe(g: Pick<SvcSlotGroup, 'slotMinutes' | 'firstStart' | 'lastEnd' | 'jobTypes' | 'defaultFor' | 'siteTypes' | 'isActive'>): string {
   const defaults = listOf(g.defaultFor).length ? `, default for ${jobsText(g.defaultFor)}` : '';
-  return `${g.slotMinutes / 60} h slots, ${timeLabel(g.firstStart)} – ${timeLabel(g.lastEnd)}, for ${jobsText(g.jobTypes)}${defaults}${g.isActive ? '' : ' (not in use)'}`;
+  const sites = listOf(g.siteTypes).length === SITE_TYPES.length ? '' : `, at ${sitesText(g.siteTypes)}`;
+  return `${g.slotMinutes / 60} h slots, ${timeLabel(g.firstStart)} – ${timeLabel(g.lastEnd)}, for ${jobsText(g.jobTypes)}${sites}${defaults}${g.isActive ? '' : ' (not in use)'}`;
 }
 
 export function personView(p: SvcPerson) {
@@ -196,6 +198,9 @@ export function slotGroupView(g: SvcSlotGroup) {
   return {
     id: g.id, code: g.code, name: g.name, slotMinutes: g.slotMinutes, firstStart: g.firstStart, lastEnd: g.lastEnd,
     jobTypes: listOf(g.jobTypes), defaultFor: listOf(g.defaultFor), isActive: g.isActive, version: g.version,
+    /** The sites the group is for: a category such as hacking or ceiling work may suit only some. */
+    siteTypes: listOf(g.siteTypes) as SiteType[],
+    sitesText: sitesText(g.siteTypes),
     slots: slots.map((s) => ({ start: s.start, end: s.end, label: slotLabel(s.start, s.end) })),
     slotsText: slots.length <= 4 ? slots.map((s) => slotLabel(s.start, s.end)).join(' · ') : `${slots.length} slots, ${timeLabel(g.firstStart)} – ${timeLabel(g.lastEnd)}`,
   };

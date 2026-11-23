@@ -31,6 +31,21 @@ export function installationFields(
   return { installOption: option, installDate: option === 'INSTALLATION' ? date || null : null };
 }
 
+/**
+ * The postcode and state of the delivery address, asked with the installation option so the office has the whole
+ * install address before booking. With the switch off nothing is kept. Left out on a save, they stay as they were;
+ * empty clears them.
+ */
+export function deliveryAreaFields(
+  asked: boolean,
+  input: { postcode?: string | null; state?: string | null },
+  current: { postcode: string | null; state: string | null } | null = null,
+): { deliveryPostcode: string | null; deliveryState: string | null } {
+  if (!asked) return { deliveryPostcode: null, deliveryState: null };
+  const pick = (v: string | null | undefined, was: string | null) => (v === undefined ? was : v?.trim() || null);
+  return { deliveryPostcode: pick(input.postcode, current?.postcode ?? null), deliveryState: pick(input.state, current?.state ?? null) };
+}
+
 /** The preferred date cannot be before the order date. */
 export function installationErrors(f: { installOption: InstallOption | null; installDate: string | null }, docDate: string): FieldError[] {
   if (f.installOption === 'INSTALLATION' && f.installDate && f.installDate < docDate) {

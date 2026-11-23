@@ -12,9 +12,10 @@ import type { Board, BoardWaiting, JobType, Person, SlotGroup } from '../types'
 import { TYPE_BLOCK, TYPE_DOT } from './stages'
 
 /**
- * V02 · Planning Board (SvcBoard.html, kept simple): one day at a time. Pick a job, a slot group (the job type's default
- * first), then a free slot on someone who takes that job and goes to its kind of site. Two jobs for one person can never
- * overlap, an extended job keeps its person busy, and an overdue job is marked; the server checks again on booking.
+ * V02 · Planning Board (SvcBoard.html, kept simple): one day at a time. Pick a job, a slot group (only those for its type
+ * and its kind of site, the type's default first), then a free slot on someone who takes that job and goes to its kind of
+ * site. Two jobs for one person can never overlap, an extended job keeps its person busy, and an overdue job is marked;
+ * the server checks again on booking. What the office needs before booking and the job lacks is warned, never blocking.
  */
 const route = useRoute()
 const router = useRouter()
@@ -55,13 +56,14 @@ async function pickFromQuery() {
     id: j.id, docNo: j.docNo, jobType: j.jobType, typeLabel: j.typeLabel, customerName: j.customerName, area: j.area, salesOrderNo: j.salesOrderNo,
     preferredDate: j.preferredDate, afterStock: j.afterStock, whenText: j.whenText, version: j.version, asksForThisDay: false, moving: true, bookedPerson: j.booking?.personName ?? null,
     overdue: j.overdue, overdueSinceText: j.overdueSinceText, siteType: j.siteType, siteTypeLabel: j.siteTypeLabel,
+    missingForBooking: j.missingForBooking, missingText: j.missingText,
   })
 }
 
 function pick(j: (BoardWaiting & { moving?: boolean; bookedPerson?: string | null }) | null) {
   picked.value = picked.value?.id === j?.id ? null : j
-  // The job type's default slot group first (Slots and Stages), else the first that fits.
-  const groups = picked.value ? groupsFor(picked.value.jobType) : []
+  // The job type's default slot group first (Slots and Stages), else the first that fits the job.
+  const groups = picked.value ? groupsFor(picked.value) : []
   groupCode.value = (groups.find((g) => g.defaultFor.includes(picked.value!.jobType)) ?? groups[0])?.code ?? ''
 }
 
@@ -74,7 +76,9 @@ function shift(days: number) {
   goTo(base.toISOString().slice(0, 10))
 }
 
-const groupsFor = (type: JobType): SlotGroup[] => board.value?.slotGroups.filter((g) => g.jobTypes.includes(type)) ?? []
+/** The slot groups for a job: of its type, and for its kind of site when that is set (hacking or ceiling work may suit only some). */
+const groupsFor = (j: Pick<BoardWaiting, 'jobType' | 'siteType'>): SlotGroup[] =>
+  board.value?.slotGroups.filter((g) => g.jobTypes.includes(j.jobType) && (!j.siteType || g.siteTypes.includes(j.siteType))) ?? []
 const group = computed(() => board.value?.slotGroups.find((g) => g.code === groupCode.value) ?? null)
 const past = computed(() => Boolean(board.value && board.value.date < board.value.today))
 
@@ -116,7 +120,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
   const g = group.value
   confirm.require({
     header: `${j.moving ? 'Move' : 'Book'} ${j.docNo}?`,
-    message: `${j.typeLabel} for ${j.customerName}: ${p.name}, ${board.value!.dateText}, ${slot.label} (${g.name}).`,
+    message: `${j.typeLabel} for ${j.customerName}: ${p.name}, ${board.value!.dateText}, ${slot.label} (${g.name}).${j.missingText ? ` ${j.missingText}` : ''}`,
     acceptLabel: j.moving ? 'Move' : 'Book',
     rejectLabel: 'Cancel',
     accept: async () => {
@@ -180,6 +184,7 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
             <span class="h-2 w-2 rounded-full" :class="TYPE_DOT[j.jobType]" aria-hidden="true" />{{ j.docNo }} · {{ j.typeLabel }}
             <span v-if="j.asksForThisDay" class="text-attention" title="The customer asks for this day">★</span>
             <span v-if="j.overdue" class="ml-auto rounded bg-chip-cancelled-bg px-1.5 text-[11px] text-chip-cancelled-text" :title="`Overdue since ${j.overdueSinceText}`">Overdue</span>
+            <span v-else-if="j.missingText" class="ml-auto rounded bg-chip-pending-bg px-1.5 text-[11px] text-chip-pending-text" :title="j.missingText">Details missing</span>
           </span>
           <span class="text-xs">{{ j.customerName }}<template v-if="j.area"> · {{ j.area }}</template><template v-if="j.siteTypeLabel"> · {{ j.siteTypeLabel }}</template></span>
           <span class="text-xs text-erp-muted">{{ j.salesOrderNo ? `${j.salesOrderNo} · ` : '' }}{{ j.whenText.toLowerCase() === '—' ? 'no date asked' : j.whenText.replace('Asks', 'asks') }}</span>
@@ -189,10 +194,16 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
           <label class="flex flex-col gap-1 font-semibold">
             Slot group
             <select v-model="groupCode" class="erp-input">
-              <option v-for="g in groupsFor(picked.jobType)" :key="g.code" :value="g.code">{{ g.name }} · {{ g.slotMinutes / 60 }} h</option>
+              <option v-for="g in groupsFor(picked)" :key="g.code" :value="g.code">{{ g.name }} · {{ g.slotMinutes / 60 }} h</option>
             </select>
           </label>
-          <p v-if="!groupsFor(picked.jobType).length" class="m-0 text-xs text-note-error-text">No slot group is for {{ picked.typeLabel.toLowerCase() }} jobs. Add one in Slots and Stages.</p>
+          <p v-if="!groupsFor(picked).length" class="m-0 text-xs text-note-error-text">
+            No slot group is for {{ picked.typeLabel.toLowerCase() }} jobs{{ picked.siteTypeLabel ? ` at ${picked.siteTypeLabel.toLowerCase()} sites` : '' }}. Add one in Slots and Stages.
+          </p>
+          <p v-if="picked.missingText" data-tour="svc:missing" class="m-0 rounded-md border border-note-warn-border bg-note-warn-bg px-2 py-1.5 text-xs text-note-warn-text">
+            {{ picked.missingText }} You can still book; fill them in on
+            <RouterLink :to="`/service/jobs/${picked.id}`" class="erp-link font-semibold">{{ picked.docNo }}</RouterLink>.
+          </p>
           <p v-else class="m-0 text-xs text-erp-muted">Click a free slot on the right to {{ picked.moving ? 'move' : 'book' }} {{ picked.docNo }}.</p>
           <button type="button" class="erp-btn erp-btn-secondary" @click="pick(null)">Cancel</button>
         </div>

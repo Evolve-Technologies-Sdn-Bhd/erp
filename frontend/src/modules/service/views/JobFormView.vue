@@ -16,6 +16,7 @@ import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
 import { useSession } from '@/composables/useSession'
+import { MY_STATES, postcodeError } from '@/utils/address'
 import { formatDate, formatDateTime, formatMoney, formatQty } from '@/utils/format'
 import { serviceApi, serviceJobsApi } from '../api/service'
 import type { JobDetail, JobStage, JobType, PaidMethod, PaidStatus, ServiceCustomerOption, SiteType, VisitResult } from '../types'
@@ -41,6 +42,8 @@ const form = reactive({
   contactName: '',
   phone: '',
   siteAddress: '',
+  postcode: '',
+  state: '',
   area: '',
   preferredDate: '',
   note: '',
@@ -61,6 +64,8 @@ function fill(j: JobDetail | null) {
   form.contactName = j?.contactName ?? ''
   form.phone = j?.phone ?? ''
   form.siteAddress = j?.siteAddress ?? ''
+  form.postcode = j?.postcode ?? ''
+  form.state = j?.state ?? ''
   form.area = j?.area ?? ''
   form.preferredDate = j?.preferredDate ?? ''
   form.note = j?.note ?? ''
@@ -101,12 +106,13 @@ async function save() {
   const e: Record<string, string> = {}
   if (isNew.value && !form.customer) e.customerCode = 'Pick the customer from Master Data.'
   if (!form.siteAddress.trim()) e.siteAddress = 'Type the address the installer goes to.'
+  if (postcodeError(form.postcode.trim())) e.postcode = postcodeError(form.postcode.trim())
   errors.value = e
   if (Object.keys(e).length) return
   saving.value = true
   try {
     const body = {
-      contactName: form.contactName, phone: form.phone, siteAddress: form.siteAddress, area: form.area,
+      contactName: form.contactName, phone: form.phone, siteAddress: form.siteAddress, postcode: form.postcode.trim(), state: form.state, area: form.area,
       preferredDate: form.preferredDate || null, note: form.note, siteType: form.siteType || null,
     }
     const result = isNew.value
@@ -313,6 +319,9 @@ const asksFor = computed(() => {
     <NoticeBanner v-if="job?.postponed && job.stage === 'NOT_BOOKED'" kind="warning">
       Postponed{{ job.postponed.count > 1 ? ` ${job.postponed.count} times` : '' }}<template v-if="job.postponed.reason">: “{{ job.postponed.reason }}”</template>. It waits to be booked again on the Planning Board.
     </NoticeBanner>
+    <NoticeBanner v-if="job?.missingText" kind="warning" data-tour="svc:missing">
+      {{ job.missingText }} Booking is not stopped; {{ editable ? 'fill them in below and save.' : 'they can be filled in while the job is not done.' }}
+    </NoticeBanner>
     <NoticeBanner v-if="job?.followUpOf">
       Follow-up of <RouterLink :to="`/service/jobs/${job.followUpOf.id}`" class="erp-link font-semibold">{{ job.followUpOf.docNo }}</RouterLink>, which was partly done.
     </NoticeBanner>
@@ -350,6 +359,17 @@ const asksFor = computed(() => {
           <FormField label="Site address" class="col-span-2" :error="errors.siteAddress" for="job-site">
             <input v-if="editable" id="job-site" v-model="form.siteAddress" class="erp-input" maxlength="300" :aria-invalid="Boolean(errors.siteAddress)" />
             <div v-else class="erp-input-ro">{{ form.siteAddress || '—' }}</div>
+          </FormField>
+          <FormField label="Postcode" :error="errors.postcode" for="job-postcode">
+            <input v-if="editable" id="job-postcode" v-model="form.postcode" class="erp-input" inputmode="numeric" maxlength="5" placeholder="e.g. 40150" />
+            <div v-else class="erp-input-ro">{{ form.postcode || '—' }}</div>
+          </FormField>
+          <FormField label="State" :error="errors.state" for="job-state">
+            <select v-if="editable" id="job-state" v-model="form.state" class="erp-input">
+              <option value="">—</option>
+              <option v-for="s in MY_STATES" :key="s" :value="s">{{ s }}</option>
+            </select>
+            <div v-else class="erp-input-ro">{{ form.state || '—' }}</div>
           </FormField>
           <FormField label="Area" for="job-area">
             <input v-if="editable" id="job-area" v-model="form.area" class="erp-input" maxlength="60" />

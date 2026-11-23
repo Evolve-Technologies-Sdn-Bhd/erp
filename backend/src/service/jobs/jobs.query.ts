@@ -16,7 +16,7 @@ import type { JobListQueryDto } from './dto/job.dto';
 import { timingView } from '../board/board.query';
 import { busyEnd, slotLabel, timeLabel } from '../board/booking.rules';
 import { businessNow, expectedEndOf, runsInto, type BusinessNow } from './timing.rules';
-import { allowedJobActions, JOB_STAGE_LABEL, JOB_STAGES, JOB_TYPE_LABEL, shortDay, waitingText, type JobStage, type JobType } from './jobs.rules';
+import { allowedJobActions, bookingNeeds, JOB_STAGE_LABEL, JOB_STAGES, JOB_TYPE_LABEL, shortDay, waitingText, type JobStage, type JobType } from './jobs.rules';
 import { METHOD_LABEL, PAID_LABEL, RESULT_LABEL, type PaidMethod, type PaidStatus, type VisitResult } from './visit.rules';
 
 export type JobWithItems = SvcJob & { items: SvcJobItem[] };
@@ -117,6 +117,10 @@ export class JobsQuery {
       contactName: job.contactName,
       phone: job.phone,
       siteAddress: job.siteAddress,
+      postcode: job.postcode,
+      state: job.state,
+      /** What the office needs before booking and the job lacks: warned on the page and the board, never blocking. */
+      ...bookingNeeds(job),
       preferredDate: iso(job.preferredDate),
       afterStock: job.afterStock,
       note: job.note,

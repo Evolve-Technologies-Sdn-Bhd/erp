@@ -25,6 +25,9 @@ export const SITE_TYPES = ['LANDED', 'CONDO', 'COMMERCIAL'] as const;
 export type SiteType = (typeof SITE_TYPES)[number];
 export const SITE_TYPE_LABEL: Record<SiteType, string> = { LANDED: 'Landed house', CONDO: 'Condo / apartment', COMMERCIAL: 'Shop / office' };
 
+/** Every site type, as a column keeps it: what a new slot group is for until the office narrows it. */
+export const ALL_SITE_TYPES = SITE_TYPES.join(',');
+
 /** A comma list kept in a column ("INSTALLATION,WARRANTY"), as a list. */
 export const listOf = (v: string | null | undefined): string[] => (v ?? '').split(',').filter(Boolean);
 
@@ -33,6 +36,10 @@ export const canTake = (personJobTypes: string, jobType: JobType): boolean => li
 
 /** Whether a person goes to a site of this type. A job whose site type is not set suits everyone. */
 export const goesTo = (personSiteTypes: string, siteType: string | null): boolean => !siteType || listOf(personSiteTypes).includes(siteType);
+
+/** Whether a slot group suits a job: it is for the job's type, and for its kind of site when the site type is set. */
+export const groupSuits = (g: { jobTypes: string[]; siteTypes: string[] }, jobType: string, siteType: string | null): boolean =>
+  g.jobTypes.includes(jobType) && (!siteType || g.siteTypes.includes(siteType));
 
 /** What a person takes and where they go: at least one of each. */
 export function personErrors(p: { jobTypes: string[]; siteTypes: string[] }): { field: string; message: string }[] {
@@ -47,10 +54,10 @@ export function personErrors(p: { jobTypes: string[]; siteTypes: string[] }): { 
  * the job types the board picks the group for first (F3 part 4).
  */
 export const STARTER_SLOT_GROUPS = [
-  { code: 'STANDARD', name: 'Standard', slotMinutes: 120, firstStart: 600, lastEnd: 1080, jobTypes: 'INSTALLATION', defaultFor: 'INSTALLATION', sortOrder: 1 },
-  { code: 'EARLY', name: 'Early', slotMinutes: 120, firstStart: 540, lastEnd: 1020, jobTypes: 'INSTALLATION', defaultFor: '', sortOrder: 2 },
-  { code: 'SHORT', name: 'Short', slotMinutes: 60, firstStart: 540, lastEnd: 1020, jobTypes: 'SERVICE,WARRANTY,REPAIR', defaultFor: 'SERVICE,WARRANTY,REPAIR', sortOrder: 3 },
-  { code: 'LONG', name: 'Long', slotMinutes: 240, firstStart: 600, lastEnd: 1080, jobTypes: 'INSTALLATION', defaultFor: '', sortOrder: 4 },
+  { code: 'STANDARD', name: 'Standard', slotMinutes: 120, firstStart: 600, lastEnd: 1080, jobTypes: 'INSTALLATION', defaultFor: 'INSTALLATION', siteTypes: ALL_SITE_TYPES, sortOrder: 1 },
+  { code: 'EARLY', name: 'Early', slotMinutes: 120, firstStart: 540, lastEnd: 1020, jobTypes: 'INSTALLATION', defaultFor: '', siteTypes: ALL_SITE_TYPES, sortOrder: 2 },
+  { code: 'SHORT', name: 'Short', slotMinutes: 60, firstStart: 540, lastEnd: 1020, jobTypes: 'SERVICE,WARRANTY,REPAIR', defaultFor: 'SERVICE,WARRANTY,REPAIR', siteTypes: ALL_SITE_TYPES, sortOrder: 3 },
+  { code: 'LONG', name: 'Long', slotMinutes: 240, firstStart: 600, lastEnd: 1080, jobTypes: 'INSTALLATION', defaultFor: '', siteTypes: ALL_SITE_TYPES, sortOrder: 4 },
 ] as const;
 
 export interface SlotGroupDef {
@@ -85,14 +92,20 @@ export const overlaps = (a: { start: number; end: number }, b: { start: number; 
 /** Until when a booked job keeps its person busy: the end of its slot, or later when the office extended it. */
 export const busyEnd = (j: { slotEnd: number; expectedEnd: number | null }) => Math.max(j.slotEnd, j.expectedEnd ?? j.slotEnd);
 
-/** The slot group the board picks first for a job type: the one marked as its default, else the first that fits. */
-export function defaultGroupFor<G extends { jobTypes: string[]; defaultFor: string[] }>(groups: G[], jobType: string): G | null {
-  const fits = groups.filter((g) => g.jobTypes.includes(jobType));
+/**
+ * The slot group the board picks first for a job: among the groups that suit its type and site, the one marked as the
+ * type's default, else the first.
+ */
+export function defaultGroupFor<G extends { jobTypes: string[]; siteTypes: string[]; defaultFor: string[] }>(groups: G[], jobType: string, siteType: string | null = null): G | null {
+  const fits = groups.filter((g) => groupSuits(g, jobType, siteType));
   return fits.find((g) => g.defaultFor.includes(jobType)) ?? fits[0] ?? null;
 }
 
-/** A slot group's own fields: a name, a length, a day that holds at least one slot, and defaults it is used for. */
-export function slotGroupErrors(g: { name: string; slotMinutes: number; firstStart: number; lastEnd: number; jobTypes: string[]; defaultFor?: string[] }): { field: string; message: string }[] {
+/**
+ * A slot group's own fields: a name, a length, a day that holds at least one slot, defaults it is used for, and the
+ * sites it is for (a job category such as hacking or ceiling work may suit only some sites).
+ */
+export function slotGroupErrors(g: { name: string; slotMinutes: number; firstStart: number; lastEnd: number; jobTypes: string[]; defaultFor?: string[]; siteTypes?: string[] }): { field: string; message: string }[] {
   const errors: { field: string; message: string }[] = [];
   if (!g.name.trim()) errors.push({ field: 'name', message: 'Type a name for the slot group.' });
   if (!Number.isInteger(g.slotMinutes) || g.slotMinutes < 30 || g.slotMinutes > 600 || g.slotMinutes % 30 !== 0) {
@@ -107,6 +120,7 @@ export function slotGroupErrors(g: { name: string; slotMinutes: number; firstSta
   else if ((g.defaultFor ?? []).some((t) => !g.jobTypes.includes(t))) {
     errors.push({ field: 'defaultFor', message: 'A slot group can only be the default for job types it is used for.' });
   }
+  if (g.siteTypes && !g.siteTypes.length) errors.push({ field: 'siteTypes', message: 'Pick the sites this slot group is for.' });
   return errors;
 }
 
@@ -118,7 +132,7 @@ export interface BookingCheck {
   date: string;
   today: string;
   person: { name: string; role: string; isActive: boolean; jobTypes: string; siteTypes: string };
-  group: SlotGroupDef & { name: string; jobTypes: string; isActive: boolean };
+  group: SlotGroupDef & { name: string; jobTypes: string; siteTypes: string; isActive: boolean };
   start: number;
   /** The person's other jobs that day (not cancelled), the job being moved left out. `end` is their busyEnd. */
   taken: { docNo: string; start: number; end: number }[];
@@ -132,9 +146,14 @@ export function bookingRefusal(b: BookingCheck): string | null {
   if (!goesTo(b.person.siteTypes, b.siteType)) return `${b.person.name} does not go to ${SITE_TYPE_LABEL[b.siteType as SiteType]?.toLowerCase() ?? b.siteType} sites.`;
   if (!b.group.isActive) return `The ${b.group.name} slot group is not in use.`;
   if (!b.group.jobTypes.split(',').includes(b.jobType)) return `The ${b.group.name} slot group is not for ${b.jobType.toLowerCase()} jobs.`;
+  if (b.siteType && !listOf(b.group.siteTypes).includes(b.siteType)) return groupSiteRefusal(b.group.name, b.siteType);
   const slot = slotsOf(b.group).find((s) => s.start === b.start);
   if (!slot) return `${timeLabel(b.start)} is not a start time of the ${b.group.name} slot group.`;
   const clash = b.taken.find((t) => overlaps(t, slot));
   if (clash) return `${b.person.name} already has ${clash.docNo} at ${slotLabel(clash.start, clash.end)} that day.`;
   return null;
 }
+
+/** "The Hacking / ceiling slot group is not for landed house sites." */
+export const groupSiteRefusal = (groupName: string, siteType: string) =>
+  `The ${groupName} slot group is not for ${SITE_TYPE_LABEL[siteType as SiteType]?.toLowerCase() ?? siteType} sites.`;

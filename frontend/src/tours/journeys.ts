@@ -156,7 +156,7 @@ export const ORDER_TO_AFTER_SALES: Tour = {
       target: 'svc:pick',
       page: { code: 'V02' },
       title: '3 · Office: how long it takes',
-      text: 'The slot group picked first suits the job type, such as Standard for installations: that is the time the job is expected to take. Pick another if this one needs longer.',
+      text: "The slot group is the job category: only those for this job's type and kind of site are listed, and the usual one is picked first. Its length is the time the job is expected to take. Pick another if this one needs longer.",
       placement: 'right',
     },
     {

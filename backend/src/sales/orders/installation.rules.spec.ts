@@ -1,4 +1,4 @@
-import { INSTALL_DATE_REQUIRED, installationErrors, installationFields, installationText, releaseInstallation } from './installation.rules';
+import { deliveryAreaFields, INSTALL_DATE_REQUIRED, installationErrors, installationFields, installationText, releaseInstallation } from './installation.rules';
 
 describe('installationFields', () => {
   it('keeps nothing while the company does not ask', () => {
@@ -51,5 +51,18 @@ describe('installationText', () => {
     expect(installationText({ installOption: 'INSTALLATION', installDate: null, afterStock: true })).toBe('After stock arrives');
     expect(installationText({ installOption: 'COLLECT', installDate: null, afterStock: false })).toBe('Collect');
     expect(installationText({ installOption: null, installDate: null, afterStock: false })).toBeNull();
+  });
+});
+
+describe('deliveryAreaFields: the postcode and state of the install address', () => {
+  it('keeps nothing when the company does not ask for installation', () => {
+    expect(deliveryAreaFields(false, { postcode: '40000', state: 'Selangor' })).toEqual({ deliveryPostcode: null, deliveryState: null });
+  });
+  it('keeps what is typed, keeps what was there when left out, and clears on empty', () => {
+    expect(deliveryAreaFields(true, { postcode: '40000', state: 'Selangor' })).toEqual({ deliveryPostcode: '40000', deliveryState: 'Selangor' });
+    const was = { postcode: '40000', state: 'Selangor' };
+    expect(deliveryAreaFields(true, {}, was)).toEqual({ deliveryPostcode: '40000', deliveryState: 'Selangor' });
+    expect(deliveryAreaFields(true, { postcode: '', state: null }, was)).toEqual({ deliveryPostcode: null, deliveryState: null });
+    expect(deliveryAreaFields(true, { state: 'Johor' }, was)).toEqual({ deliveryPostcode: '40000', deliveryState: 'Johor' });
   });
 });

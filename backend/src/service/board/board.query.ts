@@ -3,7 +3,7 @@ import type { SvcJob } from '@prisma/client';
 import { ClockService } from '../../platform/clock/clock.service';
 import type { RequestContext } from '../../platform/context/request-context';
 import { PrismaService } from '../../platform/prisma/prisma.service';
-import { JOB_STAGE_LABEL, JOB_TYPE_LABEL, shortDay, waitingText, type JobStage, type JobType } from '../jobs/jobs.rules';
+import { bookingNeeds, JOB_STAGE_LABEL, JOB_TYPE_LABEL, shortDay, waitingText, type JobStage, type JobType } from '../jobs/jobs.rules';
 import { businessNow, momentText, overdueOf, type BusinessNow } from '../jobs/timing.rules';
 import { personView, ServiceSettingsService, slotGroupView } from '../settings/settings.service';
 import { busyEnd, SITE_TYPE_LABEL, slotLabel, timeLabel, type SiteType } from './booking.rules';
@@ -74,6 +74,7 @@ export class BoardQuery {
         /** The customer asks for the day on the board. */
         asksForThisDay: iso(j.preferredDate) === on,
         ...timingView(j, now),
+        ...bookingNeeds(j),
       })),
     };
   }

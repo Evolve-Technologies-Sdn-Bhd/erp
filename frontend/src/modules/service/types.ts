@@ -66,6 +66,11 @@ export interface JobDetail extends JobRow {
   contactName: string | null
   phone: string | null
   siteAddress: string | null
+  postcode: string | null
+  state: string | null
+  /** What the office needs before booking and the job lacks: warned, never blocking. */
+  missingForBooking: string[]
+  missingText: string | null
   preferredDate: string | null
   afterStock: boolean
   note: string | null
@@ -123,6 +128,8 @@ export interface JobInput {
   contactName?: string
   phone?: string
   siteAddress?: string
+  postcode?: string
+  state?: string
   area?: string
   preferredDate?: string | null
   note?: string
@@ -170,6 +177,9 @@ export interface SlotGroup {
   jobTypes: JobType[]
   /** The job types the board picks this group for first. */
   defaultFor: JobType[]
+  /** The sites the group is for: a category such as hacking or ceiling work may suit only some. */
+  siteTypes: SiteType[]
+  sitesText: string
   isActive: boolean
   version: number
   slots: { start: number; end: number; label: string }[]
@@ -216,6 +226,8 @@ export interface BoardWaiting extends JobTimingView {
   whenText: string
   version: number
   asksForThisDay: boolean
+  missingForBooking: string[]
+  missingText: string | null
 }
 
 export interface Board {

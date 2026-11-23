@@ -1,4 +1,4 @@
-import { allowedJobActions, manualJobErrors, readReleasedOrder, shortDay, waitingText } from './jobs.rules';
+import { allowedJobActions, bookingNeeds, manualJobErrors, missingForBooking, missingText, readReleasedOrder, shortDay, waitingText } from './jobs.rules';
 
 // SO-0009 in FIELD_SALES_SEED_DATA.md, as Sales publishes it when released (F1 part 5).
 const released = {
@@ -12,9 +12,14 @@ describe('readReleasedOrder', () => {
   it('reads an order with installation', () => {
     expect(readReleasedOrder(released)).toEqual({
       soNo: 'SO-0009', branchCode: 'HQ', customerCode: 'C-0078', customerName: 'Klinik Sihat Jaya', contactName: 'Dr. Nurul Huda',
-      deliveryAddress: 'No. 12, Jalan Sihat 3, 40000 Shah Alam', preferredDate: '2026-10-01', afterStock: false,
+      deliveryAddress: 'No. 12, Jalan Sihat 3, 40000 Shah Alam', postcode: null, state: null, preferredDate: '2026-10-01', afterStock: false,
       lines: [{ itemCode: 'TB-DIN-06', uomCode: 'PCS', qty: '1.0000' }, { itemCode: 'CH-DIN-01', uomCode: 'PCS', qty: '6.0000' }],
     });
+  });
+
+  it('reads the postcode and state the order keeps with the installation', () => {
+    expect(readReleasedOrder({ ...released, deliveryPostcode: '40000', deliveryState: 'Selangor' })).toMatchObject({ postcode: '40000', state: 'Selangor' });
+    expect(readReleasedOrder({ ...released, deliveryPostcode: '', deliveryState: null })).toMatchObject({ postcode: null, state: null });
   });
 
   it('makes no job for delivery only, collect, a company that does not ask, or a payload it cannot read', () => {
@@ -62,5 +67,25 @@ describe('manualJobErrors', () => {
       { field: 'siteAddress', message: 'Type the address the installer goes to.' },
       { field: 'preferredDate', message: 'The preferred date cannot be in the past.' },
     ]);
+  });
+});
+
+describe('what the office needs before booking (warned, never blocked)', () => {
+  const full = { customerName: 'Klinik Sihat Jaya', phone: '012-345 6789', siteAddress: 'No. 12, Jalan Sihat 3, Shah Alam', postcode: '40000', state: 'Selangor' };
+  it('names what is missing, in the order the office fills it in', () => {
+    expect(missingForBooking(full)).toEqual([]);
+    expect(missingForBooking({ ...full, postcode: null, state: ' ' })).toEqual(['postcode', 'state']);
+    expect(missingForBooking({ customerName: '', phone: null, siteAddress: null, postcode: null, state: null })).toEqual(['customer name', 'contact number', 'install address', 'postcode', 'state']);
+  });
+  it('says it in one line', () => {
+    expect(missingText([])).toBeNull();
+    expect(missingText(['state'])).toBe('Missing before booking: state.');
+    expect(missingText(['contact number', 'postcode', 'state'])).toBe('Missing before booking: contact number, postcode and state.');
+  });
+  it('asks only while the job waits to be booked or is booked', () => {
+    const lacking = { ...full, postcode: null };
+    expect(bookingNeeds({ ...lacking, stage: 'NOT_BOOKED' })).toEqual({ missingForBooking: ['postcode'], missingText: 'Missing before booking: postcode.' });
+    expect(bookingNeeds({ ...lacking, stage: 'BOOKED' }).missingForBooking).toEqual(['postcode']);
+    expect(bookingNeeds({ ...lacking, stage: 'DONE' })).toEqual({ missingForBooking: [], missingText: null });
   });
 });

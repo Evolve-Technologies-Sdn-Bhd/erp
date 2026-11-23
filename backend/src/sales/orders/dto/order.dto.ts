@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { MY_STATES, POSTCODE_MESSAGE, POSTCODE_OR_EMPTY, STATE_MESSAGE } from '../../../platform/address/address';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
 
 const DECIMAL_4 = /^\d{1,14}(\.\d{1,4})?$/;
@@ -136,6 +137,15 @@ class OrderFieldsDto {
   @IsOptional()
   @Matches(DATE_ONLY, { message: 'Preferred date must look like 2026-10-01.' })
   installDate?: string | null;
+
+  /** Phase 5: the delivery address's postcode and state, kept with the installation option. Empty clears them. */
+  @IsOptional()
+  @Matches(POSTCODE_OR_EMPTY, { message: POSTCODE_MESSAGE })
+  deliveryPostcode?: string | null;
+
+  @IsOptional()
+  @IsIn(['', ...MY_STATES], { message: STATE_MESSAGE })
+  deliveryState?: string | null;
 
   @IsOptional()
   @IsString()

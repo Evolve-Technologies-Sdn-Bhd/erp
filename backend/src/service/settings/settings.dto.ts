@@ -78,6 +78,12 @@ export class SlotGroupDto {
   @IsIn([...JOB_TYPES], { each: true })
   defaultFor?: string[];
 
+  /** The sites the group is for. Left out: every site on a new group, kept on an update. */
+  @IsOptional()
+  @IsArray()
+  @IsIn([...SITE_TYPES], { each: true, message: 'Pick site types from the list.' })
+  siteTypes?: string[];
+
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;

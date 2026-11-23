@@ -17,7 +17,7 @@ import { visitErrors, visitText } from './visit.rules';
 import { reminderJobNote, remindersFrom } from '../reminders/reminder.rules';
 import type { SvcReminder } from '@prisma/client';
 import type { JobWithItems } from './jobs.query';
-import { bookingRefusal, busyEnd, goesTo, SITE_TYPE_LABEL, slotLabel, timeLabel, type SiteType } from '../board/booking.rules';
+import { bookingRefusal, busyEnd, goesTo, listOf, SITE_TYPE_LABEL, slotLabel, timeLabel, type SiteType } from '../board/booking.rules';
 import { ServiceSettingsService } from '../settings/settings.service';
 import { allowedJobActions, JOB_STAGE_LABEL, JOB_TYPE_LABEL, manualJobErrors, shortDay, type JobAction, type JobStage, type JobType, type ReleasedOrder } from './jobs.rules';
 import { JobsQuery } from './jobs.query';
@@ -65,7 +65,8 @@ export class JobsService {
       const job = await this.insert(tx, ctx, {
         jobType: dto.jobType as JobType, branchCode, customerCode: customer.code, customerName: customer.name,
         contactName: dto.contactName?.trim() || customer.contactName, phone: dto.phone?.trim() || customer.phone,
-        siteAddress, area: dto.area?.trim() || customer.area, source: 'MANUAL', preferredDate, note: dto.note?.trim() || null, siteType: dto.siteType || null,
+        siteAddress, postcode: dto.postcode || null, state: dto.state || null,
+        area: dto.area?.trim() || customer.area, source: 'MANUAL', preferredDate, note: dto.note?.trim() || null, siteType: dto.siteType || null,
       }, [], `Added by ${ctx.user.name}`);
       return job;
     });
@@ -87,7 +88,7 @@ export class JobsService {
     return this.insert(tx, ctx, {
       jobType: 'INSTALLATION', branchCode: order.branchCode, customerCode: order.customerCode, customerName: order.customerName,
       contactName: order.contactName ?? customer?.contactName ?? null, phone: customer?.phone ?? null,
-      siteAddress: order.deliveryAddress ?? customer?.deliveryAddress ?? null, area: customer?.area ?? null,
+      siteAddress: order.deliveryAddress ?? customer?.deliveryAddress ?? null, postcode: order.postcode, state: order.state, area: customer?.area ?? null,
       source: 'SALES_ORDER', salesOrderId, salesOrderNo: order.soNo, preferredDate: order.preferredDate, afterStock: order.afterStock, note: null,
     }, lines, `Created from ${order.soNo}`);
   }
@@ -105,11 +106,18 @@ export class JobsService {
       if (person && !goesTo(person.siteTypes, siteType)) {
         throw new BusinessRuleError('SITE_NOT_SUITED', `${person.name}, who is booked, does not go to ${SITE_TYPE_LABEL[siteType as SiteType].toLowerCase()} sites. Move the job to someone who does first.`);
       }
+      // Nor to one its slot group is not for: hacking or ceiling work may suit only some sites.
+      const group = job.slotGroupCode ? await this.prisma.svcSlotGroup.findFirst({ where: { tenantId: ctx.tenantId, code: job.slotGroupCode } }) : null;
+      if (group && !listOf(group.siteTypes).includes(siteType)) {
+        throw new BusinessRuleError('SITE_NOT_SUITED', `${job.docNo} is booked in the ${group.name} slot group, which is not for ${SITE_TYPE_LABEL[siteType as SiteType].toLowerCase()} sites. Move the job to another slot group first.`);
+      }
     }
     const data: Prisma.SvcJobUpdateManyMutationInput = {
       ...(dto.contactName !== undefined && { contactName: trimOrNull(dto.contactName) }),
       ...(dto.phone !== undefined && { phone: trimOrNull(dto.phone) }),
       ...(dto.siteAddress !== undefined && { siteAddress: dto.siteAddress.trim() }),
+      ...(dto.postcode !== undefined && { postcode: dto.postcode || null }),
+      ...(dto.state !== undefined && { state: dto.state || null }),
       ...(dto.area !== undefined && { area: trimOrNull(dto.area) }),
       ...(preferredDate !== undefined && { preferredDate: preferredDate ? day(preferredDate) : null, ...(preferredDate && { afterStock: false }) }),
       ...(dto.note !== undefined && { note: trimOrNull(dto.note) }),
@@ -298,7 +306,7 @@ export class JobsService {
     const made = await this.prisma.$transaction(async (tx) => {
       const next = await this.insert(tx, ctx, {
         jobType: job.jobType as JobType, branchCode: job.branchCode, customerCode: job.customerCode, customerName: job.customerName,
-        contactName: job.contactName, phone: job.phone, siteAddress: job.siteAddress, area: job.area, source: 'MANUAL',
+        contactName: job.contactName, phone: job.phone, siteAddress: job.siteAddress, postcode: job.postcode, state: job.state, area: job.area, source: 'MANUAL',
         salesOrderId: undefined, salesOrderNo: job.salesOrderNo ?? undefined, preferredDate: null,
         note: `Follow-up of ${job.docNo}: ${job.resultReason ?? 'finish the work'}`, followUpOfId: job.id, followUpOfNo: job.docNo, siteType: job.siteType,
       }, job.items.map((i) => ({ itemCode: i.itemCode, itemName: i.itemName, qty: i.qty.toString(), uomCode: i.uomCode })), `Follow-up of ${job.docNo}, added by ${ctx.user.name}`);
@@ -323,9 +331,9 @@ export class JobsService {
   /** The service job a due reminder makes (RemindersService), in its transaction: Not booked, asking for the due day. */
   async createFromReminder(tx: Tx, ctx: RequestContext, r: SvcReminder, today: string): Promise<{ id: string; docNo: string }> {
     // The service visit goes to the site the item was installed at, so it keeps that job's site type.
-    const from = await tx.svcJob.findFirst({ where: { tenantId: ctx.tenantId, id: r.fromJobId }, select: { siteType: true } });
+    const from = await tx.svcJob.findFirst({ where: { tenantId: ctx.tenantId, id: r.fromJobId }, select: { siteType: true, postcode: true, state: true } });
     return this.insert(tx, ctx, {
-      siteType: from?.siteType ?? null,
+      siteType: from?.siteType ?? null, postcode: from?.postcode ?? null, state: from?.state ?? null,
       jobType: 'SERVICE', branchCode: r.branchCode, customerCode: r.customerCode, customerName: r.customerName,
       contactName: r.contactName, phone: r.phone, siteAddress: r.siteAddress, area: r.area, source: 'MANUAL',
       preferredDate: isoDay(r.dueOn) < today ? today : isoDay(r.dueOn),
@@ -357,7 +365,7 @@ export class JobsService {
     ctx: RequestContext,
     j: {
       jobType: JobType; branchCode: string; customerCode: string; customerName: string; contactName: string | null; phone: string | null;
-      siteAddress: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
+      siteAddress: string | null; postcode?: string | null; state?: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
       preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string; reminderId?: string;
       siteType?: string | null;
     },
@@ -369,8 +377,8 @@ export class JobsService {
     const job = await tx.svcJob.create({
       data: {
         tenantId: ctx.tenantId, docNo, jobType: j.jobType, stage: 'NOT_BOOKED', branchCode: j.branchCode,
-        customerCode: j.customerCode, customerName: j.customerName, contactName: j.contactName, phone: j.phone, siteAddress: j.siteAddress, area: j.area,
-        source: j.source, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
+        customerCode: j.customerCode, customerName: j.customerName, contactName: j.contactName, phone: j.phone, siteAddress: j.siteAddress,
+        postcode: j.postcode ?? null, state: j.state ?? null, area: j.area, source: j.source, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
         preferredDate: j.preferredDate ? day(j.preferredDate) : null, afterStock: j.afterStock ?? false, note: j.note,
         followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null, siteType: j.siteType ?? null,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,

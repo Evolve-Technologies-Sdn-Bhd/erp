@@ -93,7 +93,7 @@ const BOARD: Tour = {
       page: { code: 'V02' },
       optional: true,
       title: 'The slot group',
-      text: 'The group picked first suits the job type, such as Standard for installations. Pick another when the job needs longer or shorter slots.',
+      text: "Only the groups for this job's type and kind of site are listed, and the job type's usual one is picked first. Pick another when the job needs longer or shorter slots. A yellow note here says what the job still lacks; you can book anyway.",
       placement: 'right',
     },
     {

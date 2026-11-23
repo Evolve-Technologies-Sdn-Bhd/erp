@@ -226,6 +226,8 @@ export class OrdersQuery {
       customerPoRef: order.customerPoRef,
       project: order.project,
       deliveryAddress: order.deliveryAddress,
+      deliveryPostcode: order.deliveryPostcode,
+      deliveryState: order.deliveryState,
       installation: {
         asked: Boolean(setting?.askInstallation),
         option: order.installOption,

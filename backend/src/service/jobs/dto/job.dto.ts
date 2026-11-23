@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { MY_STATES, POSTCODE_MESSAGE, POSTCODE_OR_EMPTY, STATE_MESSAGE } from '../../../platform/address/address';
 import { SITE_TYPES } from '../../board/booking.rules';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
 import { JOB_TYPES } from '../jobs.rules';
@@ -38,6 +39,15 @@ class JobFieldsDto {
   @IsString()
   @MaxLength(300)
   siteAddress?: string;
+
+  /** The site address's postcode and state: needed before booking, warned only. Empty clears them. */
+  @IsOptional()
+  @Matches(POSTCODE_OR_EMPTY, { message: POSTCODE_MESSAGE })
+  postcode?: string | null;
+
+  @IsOptional()
+  @IsIn(['', ...MY_STATES], { message: STATE_MESSAGE })
+  state?: string | null;
 
   @IsOptional()
   @IsString()

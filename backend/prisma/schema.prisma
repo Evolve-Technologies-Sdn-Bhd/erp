@@ -2146,6 +2146,8 @@ model SalSalesOrder {
   customerPoRef     String?             @db.VarChar(50)
   project           String?             @db.VarChar(100)
   deliveryAddress   String?             @db.VarChar(300)
+  deliveryPostcode  String?             @db.VarChar(10) // phase 5: kept with the installation option, for the installer's address
+  deliveryState     String?             @db.VarChar(40)
   installOption     String?             @db.VarChar(12) // INSTALLATION, DELIVERY, COLLECT; null when the company does not ask (phase 5)
   installDate       DateTime?           @db.Date // the customer's preferred installation date; the office books the slot
   installAfterStock Boolean             @default(false) // released with items short: installation is arranged when stock arrives
@@ -2972,6 +2974,8 @@ model SvcJob {
   contactName    String?      @db.VarChar(100)
   phone          String?      @db.VarChar(40)
   siteAddress    String?      @db.VarChar(300)
+  postcode       String?      @db.VarChar(10) // of the site address: needed before booking, warned only
+  state          String?      @db.VarChar(40)
   area           String?      @db.VarChar(60)
   source         String       @default("MANUAL") @db.VarChar(12) // SALES_ORDER, MANUAL
   salesOrderId   String?      @db.Char(36) // from the event; Service never reads sal_ tables
@@ -3083,6 +3087,7 @@ model SvcSlotGroup {
   lastEnd     Int
   jobTypes    String   @db.VarChar(60) // INSTALLATION,SERVICE …
   defaultFor  String   @default("") @db.VarChar(60) // the job types the board picks this group for first (F3 part 4)
+  siteTypes   String   @default("LANDED,CONDO,COMMERCIAL") @db.VarChar(60) // the sites the group is for: a job category that only suits some sites
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   version     Int      @default(1)

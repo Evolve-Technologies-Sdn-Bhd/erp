@@ -14,7 +14,8 @@ import { JOB_TYPE_OPTIONS, SITE_TYPE_OPTIONS } from './stages'
 
 /**
  * V05 · Slots and Stages (SvcSettings.html, kept simple): the people the office books, with the jobs they take and the
- * sites they go to, the slot groups the Planning Board offers with the one it picks first per job type, and the stages.
+ * sites they go to, the slot groups the Planning Board offers (each for some job types and sites, a company's job
+ * categories) with the one it picks first per job type, and the stages.
  */
 const toast = useToast()
 const { can } = useSession()
@@ -74,7 +75,7 @@ async function savePerson() {
 
 // ── Slot groups ──────────────────────────────────────────────────────────────
 const groupOpen = ref(false)
-const group = reactive({ id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: [] as string[], defaultFor: [] as string[], isActive: true, version: 0 })
+const group = reactive({ id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: [] as string[], defaultFor: [] as string[], siteTypes: [] as string[], isActive: true, version: 0 })
 const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const toMinutes = (t: string) => {
   const [h = '0', m = '0'] = t.split(':')
@@ -82,17 +83,21 @@ const toMinutes = (t: string) => {
 }
 function openGroup(g: SlotGroup | null) {
   Object.assign(group, g
-    ? { id: g.id, name: g.name, hours: String(g.slotMinutes / 60), from: toTime(g.firstStart), to: toTime(g.lastEnd), jobTypes: [...g.jobTypes], defaultFor: [...g.defaultFor], isActive: g.isActive, version: g.version }
-    : { id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: ['INSTALLATION'], defaultFor: [], isActive: true, version: 0 })
+    ? { id: g.id, name: g.name, hours: String(g.slotMinutes / 60), from: toTime(g.firstStart), to: toTime(g.lastEnd), jobTypes: [...g.jobTypes], defaultFor: [...g.defaultFor], siteTypes: [...g.siteTypes], isActive: g.isActive, version: g.version }
+    : { id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: ['INSTALLATION'], defaultFor: [], siteTypes: [...ALL_SITES], isActive: true, version: 0 })
   errors.value = {}
   groupOpen.value = true
 }
 /** The group this job type uses first now, other than the one being edited. */
 const defaultElsewhere = (t: string) => data.value?.slotGroups.find((g) => g.id !== group.id && g.defaultFor.includes(t as JobType))?.name ?? null
 async function saveGroup() {
+  if (!group.siteTypes.length) {
+    errors.value = { siteTypes: 'Pick the sites this slot group is for.' }
+    return
+  }
   const body = {
     name: group.name, slotMinutes: Math.round(Number(group.hours) * 60), firstStart: toMinutes(group.from), lastEnd: toMinutes(group.to),
-    jobTypes: group.jobTypes, defaultFor: group.defaultFor.filter((t) => group.jobTypes.includes(t)), isActive: group.isActive,
+    jobTypes: group.jobTypes, defaultFor: group.defaultFor.filter((t) => group.jobTypes.includes(t)), siteTypes: group.siteTypes, isActive: group.isActive,
   }
   saving.value = true
   try {
@@ -142,20 +147,24 @@ async function saveGroup() {
         <button v-if="canManage" type="button" class="erp-btn erp-btn-secondary" @click="openGroup(null)"><Plus :size="14" aria-hidden="true" />Add slot group</button>
       </div>
       <table class="erp-table">
-        <thead><tr><th>Group</th><th>Slot length</th><th>Slots in a day</th><th>Used for</th><th>Picked first for</th><th>Status</th><th aria-label="Edit" /></tr></thead>
+        <thead><tr><th>Group</th><th>Slot length</th><th>Slots in a day</th><th>Used for</th><th>Sites</th><th>Picked first for</th><th>Status</th><th aria-label="Edit" /></tr></thead>
         <tbody>
           <tr v-for="g in data.slotGroups" :key="g.id">
             <td class="font-semibold">{{ g.name }}</td>
             <td>{{ g.slotMinutes % 60 ? `${g.slotMinutes} minutes` : `${g.slotMinutes / 60} hour${g.slotMinutes === 60 ? '' : 's'}` }}</td>
             <td>{{ g.slotsText }}</td>
             <td>{{ g.jobTypes.map(typeLabel).join(', ') }}</td>
+            <td>{{ g.sitesText === 'any site' ? 'Any site' : g.sitesText }}</td>
             <td>{{ g.defaultFor.map(typeLabel).join(', ') || '—' }}</td>
             <td><StatusChip :status="g.isActive ? 'DONE' : 'CANCELLED'" :label="g.isActive ? 'Active' : 'Not in use'" :group="g.isActive ? 'done' : 'draft'" /></td>
             <td class="text-right"><button v-if="canManage" type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-[13px] text-erp-link" @click="openGroup(g)">Edit</button></td>
           </tr>
         </tbody>
       </table>
-      <p class="m-0 text-xs text-erp-muted">The Planning Board picks the group shown for a job's type first; the office can still pick another. A change applies to new bookings: jobs already booked keep their times.</p>
+      <p class="m-0 text-xs text-erp-muted">
+        The Planning Board offers a job only the groups for its type and its kind of site, and picks the one shown for its type first; the office can still pick another.
+        A change applies to new bookings: jobs already booked keep their times.
+      </p>
     </section>
 
     <div class="grid grid-cols-[3fr_2fr] items-start gap-4">
@@ -230,6 +239,13 @@ async function saveGroup() {
         <fieldset class="col-span-3 m-0 flex flex-wrap gap-4 border-0 p-0 text-[13px]">
           <legend class="mb-1 text-xs font-medium text-erp-muted">Used for</legend>
           <label v-for="t in JOB_TYPE_OPTIONS" :key="t.value" class="flex items-center gap-1.5"><input v-model="group.jobTypes" type="checkbox" :value="t.value" />{{ t.label }}</label>
+        </fieldset>
+        <fieldset class="col-span-3 m-0 flex flex-col gap-1 border-0 p-0 text-[13px]">
+          <legend class="mb-1 text-xs font-medium text-erp-muted">For these sites</legend>
+          <div class="flex flex-wrap gap-4">
+            <label v-for="s in SITE_TYPE_OPTIONS" :key="s.value" class="flex items-center gap-1.5"><input v-model="group.siteTypes" type="checkbox" :value="s.value" />{{ s.label }}</label>
+          </div>
+          <span v-if="errors.siteTypes" class="text-xs text-note-error-text">{{ errors.siteTypes }}</span>
         </fieldset>
         <fieldset class="col-span-3 m-0 flex flex-col gap-1 border-0 p-0 text-[13px]">
           <legend class="mb-1 text-xs font-medium text-erp-muted">Picked first on the board for</legend>

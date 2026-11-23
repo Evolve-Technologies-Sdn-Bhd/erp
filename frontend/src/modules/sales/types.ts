@@ -232,6 +232,9 @@ export interface OrderDetail {
   customerPoRef: string | null
   project: string | null
   deliveryAddress: string | null
+  /** Phase 5: kept with the installation option, for the installer's address. */
+  deliveryPostcode: string | null
+  deliveryState: string | null
   orderTypeCode: string
   quotation: { id: string; no: string } | null
   enquiryNo: string | null
@@ -291,6 +294,8 @@ export interface OrderInput {
   vouchers?: { voucherNo: string; amount: string; description?: string; taxCode?: string | null }[]
   installOption?: InstallOption | null
   installDate?: string | null
+  deliveryPostcode?: string | null
+  deliveryState?: string | null
 }
 
 /** Phase 5: installation, delivery only or collect, asked when the company turns it on (S34). */

@@ -69,6 +69,8 @@ export interface ReleasedOrder {
   customerName: string;
   contactName: string | null;
   deliveryAddress: string | null;
+  postcode: string | null;
+  state: string | null;
   preferredDate: string | null;
   afterStock: boolean;
   lines: { itemCode: string; uomCode: string; qty: string }[];
@@ -87,6 +89,8 @@ export function readReleasedOrder(payload: unknown): ReleasedOrder | null {
     customerName: typeof p.customerName === 'string' ? p.customerName : p.customerCode,
     contactName: typeof p.contactName === 'string' ? p.contactName : null,
     deliveryAddress: typeof p.deliveryAddress === 'string' ? p.deliveryAddress : null,
+    postcode: typeof p.deliveryPostcode === 'string' && p.deliveryPostcode ? p.deliveryPostcode : null,
+    state: typeof p.deliveryState === 'string' && p.deliveryState ? p.deliveryState : null,
     preferredDate: typeof inst.preferredDate === 'string' ? inst.preferredDate : null,
     afterStock: inst.afterStock === true,
     lines: lines
@@ -103,4 +107,35 @@ export function manualJobErrors(j: { jobType: string; siteAddress: string | null
   if (!j.siteAddress?.trim()) errors.push({ field: 'siteAddress', message: 'Type the address the installer goes to.' });
   if (j.preferredDate && j.preferredDate < today) errors.push({ field: 'preferredDate', message: 'The preferred date cannot be in the past.' });
   return errors;
+}
+
+/**
+ * What the office needs before booking a job: the customer's name, a contact number, the install address, its
+ * postcode and its state. Missing ones are shown on the Planning Board and the job page; booking is never stopped
+ * (a company's Sales Admin asked for a warning, not a block).
+ */
+export const BOOKING_NEEDS = [
+  { key: 'customerName', label: 'customer name' },
+  { key: 'phone', label: 'contact number' },
+  { key: 'siteAddress', label: 'install address' },
+  { key: 'postcode', label: 'postcode' },
+  { key: 'state', label: 'state' },
+] as const;
+
+/** ["postcode", "state"]: what the job still lacks before booking, in the order the office fills it in. */
+export function missingForBooking(j: Record<(typeof BOOKING_NEEDS)[number]['key'], string | null>): string[] {
+  return BOOKING_NEEDS.filter((n) => !j[n.key]?.trim()).map((n) => n.label);
+}
+
+/** "Missing before booking: postcode and state." */
+export function missingText(missing: string[]): string | null {
+  if (!missing.length) return null;
+  const list = missing.length === 1 ? missing[0] : `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}`;
+  return `Missing before booking: ${list}.`;
+}
+
+/** What a job not booked yet, or booked, still lacks for the office; nothing once the visit is done. */
+export function bookingNeeds(j: { stage: string } & Parameters<typeof missingForBooking>[0]): { missingForBooking: string[]; missingText: string | null } {
+  const missing = j.stage === 'NOT_BOOKED' || j.stage === 'BOOKED' ? missingForBooking(j) : [];
+  return { missingForBooking: missing, missingText: missingText(missing) };
 }

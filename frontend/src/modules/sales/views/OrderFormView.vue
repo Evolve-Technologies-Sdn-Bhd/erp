@@ -20,6 +20,7 @@ import { notifyApprovalsChanged } from '@/composables/useApprovalsCount'
 import { usePageCrumb } from '@/composables/usePageCrumb'
 import { roleLabel, useSession } from '@/composables/useSession'
 import { formatDate, formatDateTime, formatMoney, formatPrice, formatQty, formatRm } from '@/utils/format'
+import { MY_STATES, postcodeError } from '@/utils/address'
 import { isPositiveDecimal, previewSaleLine, sumMoney } from '@/utils/money'
 import { salesDeliveriesApi, salesLookupsApi, salesOrdersApi, salesProformasApi } from '../api/sales'
 import ItemPickerDialog from '../components/ItemPickerDialog.vue'
@@ -106,6 +107,8 @@ const form = reactive({
   customerPoRef: '',
   project: '',
   deliveryAddress: '',
+  deliveryPostcode: '',
+  deliveryState: '',
   installOption: 'INSTALLATION' as InstallOption,
   installDate: '',
   lines: [] as FormLine[],
@@ -152,6 +155,8 @@ function fillForm(o: OrderDetail | null) {
     form.customerPoRef = o.customerPoRef ?? ''
     form.project = o.project ?? ''
     form.deliveryAddress = o.deliveryAddress ?? ''
+    form.deliveryPostcode = o.deliveryPostcode ?? ''
+    form.deliveryState = o.deliveryState ?? ''
     form.installOption = o.installation.option ?? 'INSTALLATION'
     form.installDate = o.installation.preferredDate ?? ''
     form.lines = toFormLines(o.lines)
@@ -164,6 +169,8 @@ function fillForm(o: OrderDetail | null) {
     form.customerPoRef = ''
     form.project = ''
     form.deliveryAddress = ''
+    form.deliveryPostcode = ''
+    form.deliveryState = ''
     form.installOption = 'INSTALLATION'
     form.installDate = ''
     form.lines = []
@@ -263,6 +270,8 @@ function onCustomerAdded(c: CustomerOption) {
   form.customer = c
   form.contactName = c.contactName ?? ''
   form.deliveryAddress = c.deliveryAddress ?? ''
+  form.deliveryPostcode = ''
+  form.deliveryState = ''
   errors.value = { ...errors.value, customerCode: '' }
 }
 
@@ -421,6 +430,7 @@ function validate(): boolean {
     if (!MONEY.test(v.amount) || !(Number(v.amount) > 0)) e[`vouchers[${i}].amount`] = 'Amount more than 0, like 50.00.'
     if (!voucherTax(v) && lineTaxes.value.size > 1) e[`vouchers[${i}].taxCode`] = 'Pick which tax the voucher lowers.'
   })
+  if (askInstallation.value && postcodeError(form.deliveryPostcode.trim())) e.deliveryPostcode = postcodeError(form.deliveryPostcode.trim())
   errors.value = e
   return Object.keys(e).length === 0
 }
@@ -440,7 +450,12 @@ async function save(): Promise<OrderDetail | null> {
       customerPoRef: form.customerPoRef,
       project: form.project,
       deliveryAddress: form.deliveryAddress,
-      ...(askInstallation.value && { installOption: form.installOption, installDate: form.installOption === 'INSTALLATION' ? form.installDate || null : null }),
+      ...(askInstallation.value && {
+        installOption: form.installOption,
+        installDate: form.installOption === 'INSTALLATION' ? form.installDate || null : null,
+        deliveryPostcode: form.deliveryPostcode.trim(),
+        deliveryState: form.deliveryState,
+      }),
       lines: form.lines.map((l) =>
         l.kind === 'package'
           ? { packageCode: l.code, qty: l.qty.trim(), giftItemCode: l.giftItemCode }
@@ -747,6 +762,18 @@ const viewRows = computed<ViewRow[]>(() => {
           </FormField>
 
           <template v-if="askInstallation">
+            <FormField label="Postcode" :error="errors.deliveryPostcode" for="so-postcode">
+              <input v-if="editable" id="so-postcode" v-model="form.deliveryPostcode" class="erp-input" inputmode="numeric" maxlength="5" placeholder="e.g. 40150" />
+              <div v-else class="erp-input-ro">{{ form.deliveryPostcode || '—' }}</div>
+            </FormField>
+            <FormField label="State" :error="errors.deliveryState" for="so-state">
+              <select v-if="editable" id="so-state" v-model="form.deliveryState" class="erp-input">
+                <option value="">—</option>
+                <option v-for="s in MY_STATES" :key="s" :value="s">{{ s }}</option>
+              </select>
+              <div v-else class="erp-input-ro">{{ form.deliveryState || '—' }}</div>
+            </FormField>
+            <p class="col-span-2 m-0 self-end pb-2 text-xs text-erp-muted">The office needs the postcode and state before booking the installer.</p>
             <FormField data-tour="so:installation" label="Installation" for="so-install">
               <select v-if="editable" id="so-install" v-model="form.installOption" class="erp-input">
                 <option v-for="o in INSTALL_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
