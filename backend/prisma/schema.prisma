@@ -3129,6 +3129,7 @@ model SvcPerson {
   role      String   @db.VarChar(12) // INSTALLER, TECHNICIAN, WARRANTY: a label; it sets the job types a new person starts with
   jobTypes  String   @default("") @db.VarChar(60) // INSTALLATION,WARRANTY …: the jobs this person takes (F3 part 4)
   siteTypes String   @default("LANDED,CONDO,COMMERCIAL") @db.VarChar(60) // the sites this person goes to
+  claimsFees Boolean @default(false) // claims a fee per job with their own invoice (F5): installers yes, technicians no
   phone     String?  @db.VarChar(40)
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)
@@ -3154,6 +3155,7 @@ model SvcSlotGroup {
   jobTypes    String   @db.VarChar(60) // INSTALLATION,SERVICE …
   defaultFor  String   @default("") @db.VarChar(60) // the job types the board picks this group for first (F3 part 4)
   siteTypes   String   @default("LANDED,CONDO,COMMERCIAL") @db.VarChar(60) // the sites the group is for: a job category that only suits some sites
+  feeAmount   Decimal? @db.Decimal(18, 2) // the installer's reference fee for a job of this category (F5); empty: not set yet
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0)
   version     Int      @default(1)
@@ -3162,6 +3164,76 @@ model SvcSlotGroup {
 
   @@unique([tenantId, code])
   @@map("svc_slot_group")
+}
+
+/// An installer's claim for the jobs they finished in one claim period (F5): 1st–15th, paid on the 25th; 16th to the
+/// month end, paid on the 10th of the next month. Account checks it against the jobs and the installer's invoice.
+model SvcClaim {
+  id              String         @id @default(uuid()) @db.Char(36)
+  tenantId        String         @db.Char(36)
+  docNo           String         @db.VarChar(30) // CL-0001
+  branchCode      String         @db.VarChar(10)
+  personId        String         @db.Char(36)
+  personName      String         @db.VarChar(100)
+  periodStart     DateTime       @db.Date
+  periodEnd       DateTime       @db.Date
+  payOn           DateTime       @db.Date
+  status          SvcClaimStatus @default(DRAFT)
+  invoiceNo       String?        @db.VarChar(40) // the installer's own invoice
+  selfBilled      Boolean        @default(false) // Account makes the invoice for the installer
+  total           Decimal        @default(0) @db.Decimal(18, 2)
+  note            String?        @db.VarChar(500)
+  submittedAt     DateTime?      @db.DateTime(3)
+  submittedBy     String?        @db.VarChar(20)
+  submittedByName String?        @db.VarChar(100)
+  decidedAt       DateTime?      @db.DateTime(3)
+  decidedByName   String?        @db.VarChar(100)
+  returnReason    String?        @db.VarChar(300)
+  paidOn          DateTime?      @db.Date
+  paymentRef      String?        @db.VarChar(40) // the payment voucher (PV) number
+  version         Int            @default(1)
+  createdAt       DateTime       @default(now()) @db.DateTime(3)
+  createdBy       String         @db.VarChar(20)
+  updatedAt       DateTime       @updatedAt @db.DateTime(3)
+  updatedBy       String         @db.VarChar(20)
+  lines           SvcClaimLine[]
+
+  @@unique([tenantId, docNo])
+  @@index([tenantId, status])
+  @@index([tenantId, personId, periodStart])
+  @@map("svc_claim")
+}
+
+enum SvcClaimStatus {
+  DRAFT
+  SUBMITTED // waiting for Account
+  RETURNED // sent back with a reason, to fix and submit again
+  APPROVED // to be paid on payOn
+  PAID
+  CANCELLED
+}
+
+/// One job on a claim, with the reference fee by rule and the amount claimed (another amount needs a reason).
+model SvcClaimLine {
+  id              String   @id @default(uuid()) @db.Char(36)
+  tenantId        String   @db.Char(36)
+  claimId         String   @db.Char(36)
+  jobId           String   @db.Char(36)
+  jobNo           String   @db.VarChar(30)
+  jobType         String   @db.VarChar(20)
+  customerName    String   @db.VarChar(150)
+  salesOrderNo    String?  @db.VarChar(30)
+  categoryName    String?  @db.VarChar(60)
+  doneOn          DateTime @db.Date
+  late            Boolean  @default(false) // updated more than 72 hours after the expected finish: no fee by rule
+  referenceAmount Decimal  @db.Decimal(18, 2)
+  amount          Decimal  @db.Decimal(18, 2)
+  reason          String?  @db.VarChar(300)
+  claim           SvcClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+
+  @@unique([claimId, jobId])
+  @@index([tenantId, jobId])
+  @@map("svc_claim_line")
 }
 
 /// A service reminder (F6): an item with a service interval, installed at a customer, is due for its next service.

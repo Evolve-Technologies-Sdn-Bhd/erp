@@ -171,6 +171,8 @@ export interface Person {
   siteTypes: SiteType[]
   takesText: string
   goesToText: string
+  /** Claims a fee per job with their own invoice (F5): installers, not technicians. */
+  claimsFees: boolean
 }
 
 export interface SlotGroup {
@@ -186,6 +188,8 @@ export interface SlotGroup {
   /** The sites the group is for: a category such as hacking or ceiling work may suit only some. */
   siteTypes: SiteType[]
   sitesText: string
+  /** The installer's reference fee for a job of this category (F5), or null when not set. */
+  feeAmount: string | null
   isActive: boolean
   version: number
   slots: { start: number; end: number; label: string }[]
@@ -280,4 +284,81 @@ export interface ReminderRow {
   jobNo: string | null
   dismissReason: string | null
   version: number
+}
+
+/** Installer claims (F5). */
+export type ClaimStatus = 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'APPROVED' | 'PAID' | 'CANCELLED'
+export type ClaimAction = 'edit' | 'submit' | 'cancel' | 'approve' | 'return' | 'pay'
+
+export interface ClaimPeriod {
+  start: string
+  end: string
+  payOn: string
+  text: string
+}
+
+/** A job as it would go on a claim: the fee by rule, late or not, and why it cannot be claimed. */
+export interface EligibleJob {
+  id: string
+  docNo: string
+  jobType: string
+  typeLabel: string
+  customerName: string
+  salesOrderNo: string | null
+  doneOn: string
+  categoryName: string | null
+  late: boolean
+  referenceAmount: string
+  claimable: boolean
+  why: string | null
+}
+
+export interface ClaimRow {
+  id: string
+  docNo: string
+  personName: string
+  periodText: string
+  payOn: string
+  jobs: number
+  total: string
+  invoiceNo: string | null
+  selfBilled: boolean
+  status: ClaimStatus
+  statusLabel: string
+  paymentRef: string | null
+}
+
+export interface ClaimDetail {
+  id: string
+  docNo: string
+  branchCode: string
+  personId: string
+  personName: string
+  period: ClaimPeriod
+  status: ClaimStatus
+  statusLabel: string
+  invoiceNo: string | null
+  selfBilled: boolean
+  note: string | null
+  total: string
+  submittedAt: string | null
+  submittedByName: string | null
+  decidedAt: string | null
+  decidedByName: string | null
+  returnReason: string | null
+  paidOn: string | null
+  paymentRef: string | null
+  lines: { id: string; jobId: string; jobNo: string; typeLabel: string; customerName: string; salesOrderNo: string | null; categoryName: string | null; doneOn: string; late: boolean; referenceAmount: string; amount: string; reason: string | null }[]
+  files: JobPhoto[]
+  activity: { id: string; action: string; message: string; comment: string | null; userName: string; at: string }[]
+  version: number
+  allowedActions: ClaimAction[]
+}
+
+export interface ClaimInput {
+  lines?: { jobId: string; amount?: string; reason?: string }[]
+  invoiceNo?: string
+  selfBilled?: boolean
+  note?: string
+  invoiceFileIds?: string[]
 }

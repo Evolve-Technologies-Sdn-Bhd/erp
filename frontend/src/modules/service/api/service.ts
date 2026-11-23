@@ -1,6 +1,9 @@
 import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
-import type { Board, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ReminderRow, ServiceCustomerOption, ServiceHome, ServiceSettings, VisitInput } from '../types'
+import type {
+  Board, ClaimDetail, ClaimInput, ClaimPeriod, ClaimRow, EligibleJob, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ReminderRow, ServiceCustomerOption, ServiceHome,
+  ServiceSettings, VisitInput,
+} from '../types'
 
 /** The Service module's API (phase 5, F3) — /api/v1/service. */
 export const serviceApi = {
@@ -20,6 +23,7 @@ export interface PersonInput {
   phone?: string
   jobTypes: string[]
   siteTypes: string[]
+  claimsFees?: boolean
 }
 
 export interface SlotGroupInput {
@@ -29,6 +33,9 @@ export interface SlotGroupInput {
   lastEnd: number
   jobTypes: string[]
   defaultFor: string[]
+  siteTypes?: string[]
+  /** The installer's reference fee (F5); empty clears it. */
+  feeAmount?: string | null
   isActive: boolean
 }
 
@@ -62,4 +69,26 @@ export const serviceRemindersApi = {
   list: (query: ListQuery) => api<ListResponse<ReminderRow> & { leadDays: number; makesUntil: string }>('/service/reminders', { query }),
   run: () => api<{ made: { jobId: string; jobNo: string; customerName: string; itemCode: string; dueOn: string }[] }>('/service/reminders/run', { method: 'POST' }),
   dismiss: (id: string, version: number, reason: string) => api<{ dismissed: boolean }>(`/service/reminders/${id}/dismiss`, { method: 'POST', body: { version, reason } }),
+}
+
+/** Installer claims (F5) — /api/v1/service/claims. */
+export const serviceClaimsApi = {
+  list: (query: ListQuery) => api<ListResponse<ClaimRow> & { sumTotal: string }>('/service/claims', { query }),
+  get: (id: string) => api<ClaimDetail>(`/service/claims/${id}`),
+  eligible: (personId: string, day: string, claimId?: string) =>
+    api<{ person: { id: string; name: string }; period: ClaimPeriod; jobs: EligibleJob[] }>('/service/claims/eligible', { query: { personId, day, claimId } }),
+  create: (body: ClaimInput & { personId: string; day: string }) => api<ClaimDetail>('/service/claims', { method: 'POST', body }),
+  update: (id: string, body: ClaimInput & { version: number }) => api<ClaimDetail>(`/service/claims/${id}`, { method: 'PATCH', body }),
+  submit: (id: string, version: number) => api<ClaimDetail>(`/service/claims/${id}/submit`, { method: 'POST', body: { version } }),
+  cancel: (id: string, version: number) => api<ClaimDetail>(`/service/claims/${id}/cancel`, { method: 'POST', body: { version } }),
+  approve: (id: string, version: number) => api<ClaimDetail>(`/service/claims/${id}/approve`, { method: 'POST', body: { version } }),
+  sendBack: (id: string, version: number, reason: string) => api<ClaimDetail>(`/service/claims/${id}/send-back`, { method: 'POST', body: { version, reason } }),
+  pay: (id: string, version: number, paymentRef: string, paidOn: string) => api<ClaimDetail>(`/service/claims/${id}/pay`, { method: 'POST', body: { version, paymentRef, paidOn } }),
+  /** The installer's invoice, uploaded first and kept with the claim when it is saved. */
+  uploadInvoice: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('kind', 'CLAIM_INVOICE')
+    return api<JobPhoto>('/attachments', { method: 'POST', body: form })
+  },
 }

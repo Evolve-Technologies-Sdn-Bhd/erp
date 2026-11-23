@@ -16,6 +16,10 @@ export const SERVICE_PERMISSIONS = {
   JOB_RECORD: 'service.job.record',
   /** People and slot groups (V05). */
   SETTINGS_MANAGE: 'service.settings.manage',
+  /** Key an installer's claim and submit it (F5); installers themselves with the phone app later. */
+  CLAIM_EDIT: 'service.claim.edit',
+  /** Account: approve or send back a claim, and record its payment. */
+  CLAIM_APPROVE: 'service.claim.approve',
 } as const;
 
 const P = SERVICE_PERMISSIONS;
@@ -30,6 +34,8 @@ export const SERVICE_PERMISSION_CATALOGUE: ModulePermissions = {
     { key: P.JOB_BOOK, object: 'Job', action: 'Book and close' },
     { key: P.JOB_RECORD, object: 'Job', action: 'Record the visit' },
     { key: P.SETTINGS_MANAGE, object: 'Service', action: 'People and slots' },
+    { key: P.CLAIM_EDIT, object: 'Installer claim', action: 'Key and submit' },
+    { key: P.CLAIM_APPROVE, object: 'Installer claim', action: 'Approve and pay' },
   ],
   starterGrants: {},
 };

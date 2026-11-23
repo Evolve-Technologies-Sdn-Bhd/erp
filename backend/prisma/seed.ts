@@ -62,6 +62,7 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.sysNotification.deleteMany({ where }),
 
     // Service (phase 5): the demo has no jobs, and job numbers start again at JB-0001.
+    prisma.svcClaim.deleteMany({ where }), // lines cascade
     prisma.svcReminder.deleteMany({ where }),
     prisma.svcJob.deleteMany({ where }), // items cascade
     prisma.svcPerson.deleteMany({ where }),

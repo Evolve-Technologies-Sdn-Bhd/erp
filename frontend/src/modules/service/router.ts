@@ -39,6 +39,18 @@ export const serviceRoutes: RouteRecordRaw[] = [
     meta: { code: 'V06', title: 'Reminders', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'reminders' },
   },
   {
+    path: '/service/claims',
+    name: 'service-claims',
+    component: () => import('./views/ClaimsView.vue'),
+    meta: { code: 'V07', title: 'Installer Claims', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'claims' },
+  },
+  {
+    path: '/service/claims/:id',
+    name: 'service-claim',
+    component: () => import('./views/ClaimFormView.vue'),
+    meta: { code: 'V08', title: 'Installer claim', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'claims', parent: { title: 'Installer Claims', to: '/service/claims' } },
+  },
+  {
     path: '/service/settings',
     name: 'service-settings',
     component: Settings,

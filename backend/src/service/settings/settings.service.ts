@@ -3,6 +3,7 @@ import type { SvcPerson, SvcSlotGroup } from '@prisma/client';
 import { ActivityService } from '../../platform/activity/activity.service';
 import type { RequestContext } from '../../platform/context/request-context';
 import { NotFoundError, StaleVersionError, ValidationFailedError } from '../../platform/http/errors';
+import { dec } from '../../platform/http/decimal';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { JOB_TYPE_LABEL, JOB_TYPES, type JobType } from '../jobs/jobs.rules';
 import {
@@ -62,7 +63,8 @@ export class ServiceSettingsService {
       const p = await tx.svcPerson.create({
         data: {
           tenantId: ctx.tenantId, name: dto.name.trim(), role: dto.role, phone: dto.phone?.trim() || null, jobTypes: jobTypes.join(','),
-          siteTypes: siteTypes.join(','), isActive: dto.isActive ?? true, sortOrder: count + 1, createdBy: ctx.user.code, updatedBy: ctx.user.code,
+          siteTypes: siteTypes.join(','), claimsFees: dto.claimsFees ?? dto.role === 'INSTALLER', isActive: dto.isActive ?? true, sortOrder: count + 1,
+          createdBy: ctx.user.code, updatedBy: ctx.user.code,
         },
       });
       await this.activity.log(tx, ctx, {
@@ -81,6 +83,7 @@ export class ServiceSettingsService {
       name: dto.name.trim(), role: dto.role, phone: dto.phone?.trim() || null, isActive: dto.isActive ?? before.isActive,
       jobTypes: dto.jobTypes ? ordered(dto.jobTypes, JOB_TYPES).join(',') : before.jobTypes,
       siteTypes: dto.siteTypes ? ordered(dto.siteTypes, SITE_TYPES).join(',') : before.siteTypes,
+      claimsFees: dto.claimsFees ?? before.claimsFees,
     };
     const errors = personErrors({ jobTypes: listOf(after.jobTypes), siteTypes: listOf(after.siteTypes) });
     if (errors.length) throw new ValidationFailedError(errors);
@@ -90,6 +93,7 @@ export class ServiceSettingsService {
       ['Takes', jobsText(before.jobTypes), jobsText(after.jobTypes)],
       ['Goes to', sitesText(before.siteTypes), sitesText(after.siteTypes)],
       ['Phone', before.phone ?? '—', after.phone ?? '—'],
+      ['Claims fees', before.claimsFees ? 'Yes' : 'No', after.claimsFees ? 'Yes' : 'No'],
       ['Active', before.isActive ? 'Yes' : 'No', after.isActive ? 'Yes' : 'No'],
     ]);
     await this.prisma.$transaction(async (tx) => {
@@ -114,6 +118,7 @@ export class ServiceSettingsService {
         data: {
           tenantId: ctx.tenantId, code, name: dto.name.trim(), slotMinutes: dto.slotMinutes, firstStart: dto.firstStart, lastEnd: dto.lastEnd,
           jobTypes: dto.jobTypes.join(','), defaultFor: defaultFor.join(','), siteTypes: siteTypes.join(','), isActive: dto.isActive ?? true, sortOrder: existing.length + 1, updatedBy: ctx.user.code,
+          feeAmount: dto.feeAmount ? dec(dto.feeAmount) : null,
         },
       });
       await this.activity.log(tx, ctx, { entityType: ENTITY.SLOT_GROUP, entityId: g.id, docNo: g.name, action: 'created', message: `Slot group ${g.name} added: ${describe(g)}`, comment: null });
@@ -132,6 +137,7 @@ export class ServiceSettingsService {
     const data = {
       name: dto.name.trim(), slotMinutes: dto.slotMinutes, firstStart: dto.firstStart, lastEnd: dto.lastEnd, jobTypes: dto.jobTypes.join(','),
       defaultFor: defaultFor.join(','), siteTypes: dto.siteTypes ? ordered(dto.siteTypes, SITE_TYPES).join(',') : before.siteTypes, isActive: dto.isActive ?? before.isActive,
+      feeAmount: dto.feeAmount === undefined ? before.feeAmount : dto.feeAmount ? dec(dto.feeAmount) : null,
     };
     await this.prisma.$transaction(async (tx) => {
       const r = await tx.svcSlotGroup.updateMany({ where: { id, tenantId: ctx.tenantId, version: dto.version }, data: { ...data, version: { increment: 1 }, updatedBy: ctx.user.code } });
@@ -176,10 +182,11 @@ const jobsText = (v: string) => listOf(v).map((t) => JOB_TYPE_LABEL[t as JobType
 /** "Landed house, Condo / apartment", or "any site" when every site type is ticked. */
 const sitesText = (v: string) => (listOf(v).length === SITE_TYPES.length ? 'any site' : listOf(v).map((t) => SITE_TYPE_LABEL[t as SiteType] ?? t).join(', ') || '—');
 
-function describe(g: Pick<SvcSlotGroup, 'slotMinutes' | 'firstStart' | 'lastEnd' | 'jobTypes' | 'defaultFor' | 'siteTypes' | 'isActive'>): string {
+function describe(g: Pick<SvcSlotGroup, 'slotMinutes' | 'firstStart' | 'lastEnd' | 'jobTypes' | 'defaultFor' | 'siteTypes' | 'isActive'> & { feeAmount?: SvcSlotGroup['feeAmount'] }): string {
   const defaults = listOf(g.defaultFor).length ? `, default for ${jobsText(g.defaultFor)}` : '';
   const sites = listOf(g.siteTypes).length === SITE_TYPES.length ? '' : `, at ${sitesText(g.siteTypes)}`;
-  return `${g.slotMinutes / 60} h slots, ${timeLabel(g.firstStart)} – ${timeLabel(g.lastEnd)}, for ${jobsText(g.jobTypes)}${sites}${defaults}${g.isActive ? '' : ' (not in use)'}`;
+  const fee = g.feeAmount ? `, installer's fee ${g.feeAmount.toFixed(2)}` : '';
+  return `${g.slotMinutes / 60} h slots, ${timeLabel(g.firstStart)} – ${timeLabel(g.lastEnd)}, for ${jobsText(g.jobTypes)}${sites}${defaults}${fee}${g.isActive ? '' : ' (not in use)'}`;
 }
 
 export function personView(p: SvcPerson) {
@@ -189,6 +196,8 @@ export function personView(p: SvcPerson) {
     jobTypes: listOf(p.jobTypes) as JobType[],
     siteTypes: listOf(p.siteTypes) as SiteType[],
     takesText: jobsText(p.jobTypes),
+    /** Claims a fee per job with their own invoice (F5). */
+    claimsFees: p.claimsFees,
     goesToText: sitesText(p.siteTypes),
   };
 }
@@ -201,6 +210,8 @@ export function slotGroupView(g: SvcSlotGroup) {
     /** The sites the group is for: a category such as hacking or ceiling work may suit only some. */
     siteTypes: listOf(g.siteTypes) as SiteType[],
     sitesText: sitesText(g.siteTypes),
+    /** The installer's reference fee for a job of this category (F5), or null when not set. */
+    feeAmount: g.feeAmount ? g.feeAmount.toFixed(2) : null,
     slots: slots.map((s) => ({ start: s.start, end: s.end, label: slotLabel(s.start, s.end) })),
     slotsText: slots.length <= 4 ? slots.map((s) => slotLabel(s.start, s.end)).join(' · ') : `${slots.length} slots, ${timeLabel(g.firstStart)} – ${timeLabel(g.lastEnd)}`,
   };

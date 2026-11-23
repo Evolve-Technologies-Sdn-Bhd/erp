@@ -7,6 +7,9 @@ import { ServiceBoardController, ServiceSettingsController } from './board/board
 import { BoardQuery } from './board/board.query';
 import { ServiceHomeController, ServiceJobsController } from './jobs/jobs.controller';
 import { ServiceSettingsService } from './settings/settings.service';
+import { ServiceClaimsController } from './claims/claims.controller';
+import { ClaimsQuery } from './claims/claims.query';
+import { ClaimsService } from './claims/claims.service';
 import { ServiceRemindersController } from './reminders/reminders.controller';
 import { RemindersService } from './reminders/reminders.service';
 import { JobsQuery } from './jobs/jobs.query';
@@ -25,8 +28,8 @@ import { SERVICE_SCOPE_RULES } from './service.scope';
  * server runs with SERVICE_MODULE=on: no permissions in the role editor, no listener, and its routes answer 404.
  */
 @Module({
-  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController],
-  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, BoardQuery, ServiceSettingsService, RemindersService, StockCheckService],
+  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController, ServiceClaimsController],
+  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, BoardQuery, ServiceSettingsService, RemindersService, StockCheckService, ClaimsQuery, ClaimsService],
 })
 export class ServiceModule implements OnModuleInit {
   constructor(

@@ -119,6 +119,8 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 | `service.job.done` | A visit recorded as complete or partly done | jobNo, jobType, personId, personName, date, result, paidStatus, salesOrderNo, customerCode | Fees and commission (F5) — later |
 | `service.job.extended` | The office gave a booked job longer (F3 part 4) | jobNo, personId, personName, date, from and to (minutes from midnight), reason, runsInto (the later jobs it now runs into) | Phone app — later |
 | `service.job.cancelled` | The office cancelled a job not done yet (a booked one frees its slot), or a revised order dropped installation | jobNo, jobType, customerCode, salesOrderId, salesOrderNo, reason | **Sales** (clears the booking) |
+| `service.claim.approved` | Account approved an installer's claim (F5) | claimNo, personId, personName, periodStart, periodEnd, payOn, invoiceNo, selfBilled, total, lines (jobNo, salesOrderNo, amount) | Finance — later |
+| `service.claim.paid` | Account recorded its payment voucher | claimNo, personId, personName, paidOn, paymentRef, total | Finance — later |
 
 ## Service listens to
 

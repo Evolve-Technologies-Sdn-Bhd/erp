@@ -37,19 +37,22 @@ const activePeople = computed(() => data.value?.people.filter((p) => p.isActive)
 
 // ── People ───────────────────────────────────────────────────────────────────
 const personOpen = ref(false)
-const person = reactive({ id: '', name: '', role: 'INSTALLER' as PersonRole, phone: '', jobTypes: [] as JobType[], siteTypes: [] as SiteType[], isActive: true, version: 0 })
+const person = reactive({ id: '', name: '', role: 'INSTALLER' as PersonRole, phone: '', jobTypes: [] as JobType[], siteTypes: [] as SiteType[], claimsFees: true, isActive: true, version: 0 })
 const ALL_SITES = SITE_TYPE_OPTIONS.map((s) => s.value as SiteType)
 const startingJobs = (role: PersonRole) => [...(data.value?.roles.find((r) => r.role === role)?.jobTypes ?? [])]
 function openPerson(p: Person | null) {
   Object.assign(person, p
-    ? { id: p.id, name: p.name, role: p.role, phone: p.phone ?? '', jobTypes: [...p.jobTypes], siteTypes: [...p.siteTypes], isActive: p.isActive, version: p.version }
-    : { id: '', name: '', role: 'INSTALLER', phone: '', jobTypes: startingJobs('INSTALLER'), siteTypes: [...ALL_SITES], isActive: true, version: 0 })
+    ? { id: p.id, name: p.name, role: p.role, phone: p.phone ?? '', jobTypes: [...p.jobTypes], siteTypes: [...p.siteTypes], claimsFees: p.claimsFees, isActive: p.isActive, version: p.version }
+    : { id: '', name: '', role: 'INSTALLER', phone: '', jobTypes: startingJobs('INSTALLER'), siteTypes: [...ALL_SITES], claimsFees: true, isActive: true, version: 0 })
   errors.value = {}
   personOpen.value = true
 }
 /** A new person starts with what their role takes; after that the ticks are theirs. */
 function onRole() {
-  if (!person.id) person.jobTypes = startingJobs(person.role)
+  if (!person.id) {
+    person.jobTypes = startingJobs(person.role)
+    person.claimsFees = person.role === 'INSTALLER'
+  }
 }
 async function savePerson() {
   const e: Record<string, string> = {}
@@ -60,7 +63,7 @@ async function savePerson() {
   if (Object.keys(e).length) return
   saving.value = true
   try {
-    const body = { name: person.name, role: person.role, phone: person.phone, jobTypes: person.jobTypes, siteTypes: person.siteTypes }
+    const body = { name: person.name, role: person.role, phone: person.phone, jobTypes: person.jobTypes, siteTypes: person.siteTypes, claimsFees: person.claimsFees }
     data.value = person.id
       ? await serviceApi.updatePerson(person.id, { ...body, isActive: person.isActive, version: person.version })
       : await serviceApi.addPerson(body)
@@ -75,7 +78,7 @@ async function savePerson() {
 
 // ── Slot groups ──────────────────────────────────────────────────────────────
 const groupOpen = ref(false)
-const group = reactive({ id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: [] as string[], defaultFor: [] as string[], siteTypes: [] as string[], isActive: true, version: 0 })
+const group = reactive({ id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: [] as string[], defaultFor: [] as string[], siteTypes: [] as string[], fee: '', isActive: true, version: 0 })
 const toTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const toMinutes = (t: string) => {
   const [h = '0', m = '0'] = t.split(':')
@@ -83,8 +86,8 @@ const toMinutes = (t: string) => {
 }
 function openGroup(g: SlotGroup | null) {
   Object.assign(group, g
-    ? { id: g.id, name: g.name, hours: String(g.slotMinutes / 60), from: toTime(g.firstStart), to: toTime(g.lastEnd), jobTypes: [...g.jobTypes], defaultFor: [...g.defaultFor], siteTypes: [...g.siteTypes], isActive: g.isActive, version: g.version }
-    : { id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: ['INSTALLATION'], defaultFor: [], siteTypes: [...ALL_SITES], isActive: true, version: 0 })
+    ? { id: g.id, name: g.name, hours: String(g.slotMinutes / 60), from: toTime(g.firstStart), to: toTime(g.lastEnd), jobTypes: [...g.jobTypes], defaultFor: [...g.defaultFor], siteTypes: [...g.siteTypes], fee: g.feeAmount ?? '', isActive: g.isActive, version: g.version }
+    : { id: '', name: '', hours: '2', from: '10:00', to: '18:00', jobTypes: ['INSTALLATION'], defaultFor: [], siteTypes: [...ALL_SITES], fee: '', isActive: true, version: 0 })
   errors.value = {}
   groupOpen.value = true
 }
@@ -97,7 +100,7 @@ async function saveGroup() {
   }
   const body = {
     name: group.name, slotMinutes: Math.round(Number(group.hours) * 60), firstStart: toMinutes(group.from), lastEnd: toMinutes(group.to),
-    jobTypes: group.jobTypes, defaultFor: group.defaultFor.filter((t) => group.jobTypes.includes(t)), siteTypes: group.siteTypes, isActive: group.isActive,
+    jobTypes: group.jobTypes, defaultFor: group.defaultFor.filter((t) => group.jobTypes.includes(t)), siteTypes: group.siteTypes, feeAmount: group.fee.trim() || null, isActive: group.isActive,
   }
   saving.value = true
   try {
@@ -125,13 +128,14 @@ async function saveGroup() {
       </div>
       <p v-if="!data.people.length" class="m-0 text-[13px] text-erp-muted">Nobody yet. Add your installers, technicians and warranty staff: the Planning Board shows a row for each.</p>
       <table v-else class="erp-table">
-        <thead><tr><th>Name</th><th>Role</th><th>Takes</th><th>Goes to</th><th>Phone</th><th>Status</th><th aria-label="Edit" /></tr></thead>
+        <thead><tr><th>Name</th><th>Role</th><th>Takes</th><th>Goes to</th><th>Claims fees</th><th>Phone</th><th>Status</th><th aria-label="Edit" /></tr></thead>
         <tbody>
           <tr v-for="p in data.people" :key="p.id">
             <td class="font-semibold">{{ p.name }}</td>
             <td>{{ p.roleLabel }}</td>
             <td>{{ p.takesText }}</td>
             <td>{{ p.goesToText }}</td>
+            <td>{{ p.claimsFees ? 'Yes' : 'No' }}</td>
             <td>{{ p.phone ?? '—' }}</td>
             <td><StatusChip :status="p.isActive ? 'DONE' : 'CANCELLED'" :label="p.isActive ? 'Active' : 'Not active'" :group="p.isActive ? 'done' : 'draft'" /></td>
             <td class="text-right"><button v-if="canManage" type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-[13px] text-erp-link" @click="openPerson(p)">Edit</button></td>
@@ -147,7 +151,7 @@ async function saveGroup() {
         <button v-if="canManage" type="button" class="erp-btn erp-btn-secondary" @click="openGroup(null)"><Plus :size="14" aria-hidden="true" />Add slot group</button>
       </div>
       <table class="erp-table">
-        <thead><tr><th>Group</th><th>Slot length</th><th>Slots in a day</th><th>Used for</th><th>Sites</th><th>Picked first for</th><th>Status</th><th aria-label="Edit" /></tr></thead>
+        <thead><tr><th>Group</th><th>Slot length</th><th>Slots in a day</th><th>Used for</th><th>Sites</th><th>Picked first for</th><th class="num">Installer's fee</th><th>Status</th><th aria-label="Edit" /></tr></thead>
         <tbody>
           <tr v-for="g in data.slotGroups" :key="g.id">
             <td class="font-semibold">{{ g.name }}</td>
@@ -156,6 +160,7 @@ async function saveGroup() {
             <td>{{ g.jobTypes.map(typeLabel).join(', ') }}</td>
             <td>{{ g.sitesText === 'any site' ? 'Any site' : g.sitesText }}</td>
             <td>{{ g.defaultFor.map(typeLabel).join(', ') || '—' }}</td>
+            <td class="num">{{ g.feeAmount ?? '—' }}</td>
             <td><StatusChip :status="g.isActive ? 'DONE' : 'CANCELLED'" :label="g.isActive ? 'Active' : 'Not in use'" :group="g.isActive ? 'done' : 'draft'" /></td>
             <td class="text-right"><button v-if="canManage" type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-[13px] text-erp-link" @click="openGroup(g)">Edit</button></td>
           </tr>
@@ -220,6 +225,7 @@ async function saveGroup() {
           </div>
           <span v-if="errors.siteTypes" class="text-xs text-note-error-text">{{ errors.siteTypes }}</span>
         </fieldset>
+        <label class="flex items-center gap-2 text-[13px]"><input v-model="person.claimsFees" type="checkbox" />Claims fees: bills a fee per job with their own invoice (installers)</label>
         <label v-if="person.id" class="flex items-center gap-2 text-[13px]"><input v-model="person.isActive" type="checkbox" />Active: shown on the Planning Board</label>
       </div>
       <template #footer>
@@ -259,6 +265,10 @@ async function saveGroup() {
           </span>
           <span v-if="errors.defaultFor" class="text-xs text-note-error-text">{{ errors.defaultFor }}</span>
         </fieldset>
+        <FormField label="Installer's fee per job (RM)" :error="errors.feeAmount" for="sg-fee">
+          <input id="sg-fee" v-model="group.fee" class="erp-input text-right" inputmode="decimal" placeholder="Not set" />
+        </FormField>
+        <p class="col-span-2 m-0 self-end pb-2 text-xs text-erp-muted">The fee by rule on an installer's claim for a job of this category. Another amount needs a reason.</p>
         <label v-if="group.id" class="col-span-3 flex items-center gap-2 text-[13px]"><input v-model="group.isActive" type="checkbox" />In use on the Planning Board</label>
       </div>
       <template #footer>

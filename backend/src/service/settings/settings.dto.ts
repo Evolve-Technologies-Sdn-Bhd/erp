@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { PERSON_ROLES, SITE_TYPES } from '../board/booking.rules';
 import { JOB_TYPES } from '../jobs/jobs.rules';
 
@@ -23,6 +23,11 @@ export class PersonDto {
   @IsArray()
   @IsIn([...JOB_TYPES], { each: true, message: 'Pick job types from the list.' })
   jobTypes?: string[];
+
+  /** Claims a fee per job with their own invoice (F5). Left out on a new person: installers do, others do not. */
+  @IsOptional()
+  @IsBoolean()
+  claimsFees?: boolean;
 
   /** The sites this person goes to. Left out on a new person: all of them. */
   @IsOptional()
@@ -77,6 +82,12 @@ export class SlotGroupDto {
   @IsArray()
   @IsIn([...JOB_TYPES], { each: true })
   defaultFor?: string[];
+
+  /** The installer's reference fee for a job of this category (F5); empty or null: not set. Kept when left out. */
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null && v !== '')
+  @Matches(/^\d{1,14}(\.\d{1,2})?$/, { message: 'Type a fee like 120.00.' })
+  feeAmount?: string | null;
 
   /** The sites the group is for. Left out: every site on a new group, kept on an update. */
   @IsOptional()
