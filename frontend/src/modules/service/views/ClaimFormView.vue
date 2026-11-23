@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import DatePicker from 'primevue/datepicker'
 import Dialog from 'primevue/dialog'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
@@ -42,6 +43,10 @@ const files = ref<JobPhoto[]>([])
 const added = ref<string[]>([])
 const errors = ref<Record<string, string>>({})
 const saving = ref(false)
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const isoToDate = (iso: string) => (iso ? new Date(`${iso}T00:00:00`) : null)
+const dateToIso = (value: unknown) => (value instanceof Date ? `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}` : '')
 
 const can = (a: ClaimAction) => (isNew.value ? a === 'edit' || a === 'submit' : Boolean(claim.value?.allowedActions.includes(a)))
 const editable = computed(() => can('edit'))
@@ -229,7 +234,9 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
             <option v-for="p in people" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </FormField>
-        <FormField label="Any day in the period" for="cl-day"><input id="cl-day" v-model="form.day" type="date" class="erp-input" /></FormField>
+        <FormField label="Any day in the period" for="cl-day">
+          <DatePicker input-id="cl-day" :model-value="isoToDate(form.day)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="form.day = dateToIso($event) || form.day" />
+        </FormField>
         <div class="self-end pb-2 text-[13px]">
           <template v-if="period"><strong>{{ period.text }}</strong> · paid on {{ formatDate(period.payOn) }}</template>
         </div>
@@ -327,7 +334,9 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
   <Dialog v-model:visible="payOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '420px' }" :header="`Record the payment of ${claim?.docNo}`">
     <div class="flex flex-col gap-3">
       <FormField label="Payment voucher (PV) number" :error="payError" for="cl-pv"><input id="cl-pv" v-model="pay.ref" class="erp-input" maxlength="40" /></FormField>
-      <FormField label="Paid on" for="cl-paid"><input id="cl-paid" v-model="pay.on" type="date" class="erp-input" /></FormField>
+      <FormField label="Paid on" for="cl-paid">
+        <DatePicker input-id="cl-paid" :model-value="isoToDate(pay.on)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="pay.on = dateToIso($event) || pay.on" />
+      </FormField>
     </div>
     <template #footer>
       <button type="button" class="erp-btn erp-btn-secondary" @click="payOpen = false">Cancel</button>
