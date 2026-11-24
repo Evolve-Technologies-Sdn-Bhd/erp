@@ -90,7 +90,7 @@ async function save() {
       <template #subtitle>Which steps your company uses. Everything here is on for a company that sells from the office with enquiries and quotations.</template>
       <template v-if="canManage" #actions>
         <button type="button" class="erp-btn erp-btn-secondary" :disabled="!dirty || saving" @click="reset">Cancel</button>
-        <button type="button" class="erp-btn erp-btn-add" :disabled="!dirty || saving" @click="save">Save changes</button>
+        <button type="button" data-tour="action:save-flow" class="erp-btn erp-btn-add" :disabled="!dirty || saving" @click="save">Save changes</button>
       </template>
     </PageHeader>
 
@@ -228,7 +228,7 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">The warehouse confirms each job in Service › Stock for Jobs (turned on in Service › Slots and Stages). The same delivery order follows the job when it is moved or postponed.</p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="flow:changes" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Recent changes</h2>
       <table class="erp-table">
         <thead><tr><th>When</th><th>Who</th><th>What changed</th></tr></thead>

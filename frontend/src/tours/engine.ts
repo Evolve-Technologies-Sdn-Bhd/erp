@@ -50,6 +50,7 @@ const OPTIONAL_MS = 1500
 const HOVER_MS = 450
 const FILL_MS = 600
 const SLOW_MS = 700
+const PASS_MS = 100
 
 export const SENSITIVE_NUDGE = 'The tour won’t press this: it changes records for real. Pause or exit the tour, then do it yourself.'
 export const OUTSIDE_NUDGE = 'The tour is showing the highlighted part. Use Next, or Pause to use the rest of the page.'
@@ -135,6 +136,8 @@ let deps: Deps | null = null
 
 let el: HTMLElement | null = null
 let startedAt = 0
+/** When the step came on screen: an outcome that is there at once was nothing to do */
+let armedAt = 0
 let raf = 0
 let stepCleanup: (() => void)[] = []
 let shownPath = ''
@@ -174,6 +177,26 @@ function writeJourney(kept: KeptJourney | null): void {
     else localStorage.removeItem(JOURNEY_KEY)
   } catch {
     /* private mode: the journey lasts until reload */
+  }
+}
+
+/** Documents the guides on this device made, for the guides that carry on with them. */
+const DOCS_KEY = 'zora.guides.docs'
+
+function readDocs(): Record<string, Memo> {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(DOCS_KEY) ?? '{}')
+    return v && typeof v === 'object' ? (v as Record<string, Memo>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function keepDoc(guide: string, key: string, memo: Memo): void {
+  try {
+    localStorage.setItem(DOCS_KEY, JSON.stringify({ ...readDocs(), [`${guide}:${key}`]: memo }))
+  } catch {
+    /* private mode: the next guide uses its neutral words */
   }
 }
 
@@ -281,11 +304,21 @@ function reveal(node: HTMLElement): void {
   node.scrollIntoView({ block: window.innerWidth < NARROW ? 'start' : 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
 }
 
-/** A menu the element has opened, inside it or beside it (the module switcher's). */
+/** A menu or a small panel the element has opened, inside it or beside it (the module switcher, Alerts). */
 function menuOf(node: HTMLElement): HTMLElement | null {
   const inside = node.querySelector<HTMLElement>('[role="menu"]')
   if (inside) return inside
-  return node.matches('[aria-haspopup="menu"][aria-expanded="true"]') ? (node.parentElement?.querySelector<HTMLElement>('[role="menu"]') ?? null) : null
+  return node.matches('[aria-haspopup][aria-expanded="true"]') ? (node.parentElement?.querySelector<HTMLElement>('[role="menu"], [role="dialog"]') ?? null) : null
+}
+
+/** The link or button inside the target that a step's `pick` names: a document's number, or the row or card it is in. */
+function pickIn(container: HTMLElement, words: string): HTMLElement | null {
+  if (!words) return null
+  const controls = [...container.querySelectorAll<HTMLElement>('a[href], button')].filter(visible)
+  const says = (n: HTMLElement) => (n.textContent ?? '').replace(/\s+/g, ' ').trim()
+  // In a list, the row's own document: its first link (a receipt's row also links its order).
+  const row = [...container.querySelectorAll<HTMLElement>('tr')].find((r) => visible(r) && says(r).includes(words))
+  return row?.querySelector<HTMLElement>('a[href]') ?? controls.find((c) => says(c) === words) ?? controls.find((c) => says(c).includes(words)) ?? null
 }
 
 /** The element, and a menu it has opened (the person menu, a dropdown list): both stay lit. */
@@ -449,6 +482,15 @@ function frame(): void {
     }
   }
 
+  // A step that names one link or card in its target lights that one, once it is there (a list still loading, or redrawn).
+  if (step.pick && el) {
+    const container = findTarget(step.target!)
+    const one = container ? pickIn(container, stepText(step.pick)) : null
+    if (one && one !== el) {
+      el = one
+      reveal(one)
+    }
+  }
   if (el) updateHole(el)
   // A menu the element opened is part of the highlight, so the box is already beside it and stays readable.
   const dropdown = run.interactive ? document.querySelector<HTMLElement>(DROPDOWNS) : null
@@ -460,7 +502,7 @@ function frame(): void {
   // Also once the button itself is gone: Release leaves the page as soon as the document is released.
   const wait = waitOf(step)
   const doing = run.status === 'showing' || (run.status === 'finding' && run.interactive)
-  if (doing && !step.handover && (wait.kind === 'appear' || wait.kind === 'gone') && outcomeMet(step)) return next()
+  if (doing && !step.handover && (wait.kind === 'appear' || wait.kind === 'gone') && outcomeMet(step)) return now - armedAt < PASS_MS ? pass() : next()
   loop()
 }
 
@@ -501,9 +543,15 @@ function inRefused(target: Element): boolean {
   return !!target.closest(INVALID) || !!target.closest(DROPDOWNS) || !!target.closest('div:has(> [role="alert"])')
 }
 
+/** A step with nothing to do: on to the next one, left out of Back. */
+function pass(): void {
+  if (run.tour && isRunning()) goTo(run.index + 1)
+}
+
 /** The step is on screen: decide what the person may use, and start waiting for them. */
 function arm(step: TourStep): void {
   run.status = 'showing'
+  armedAt = performance.now()
   run.slow = false
   run.offPage = false
   navSkipped = false
@@ -521,14 +569,17 @@ function arm(step: TourStep): void {
   run.userOk = userFits(step)
   if (step.remember) {
     const title = document.querySelector('[data-tour="page-header"] h1')?.textContent ?? ''
-    run.memory[step.remember] = { path: here().fullPath, label: docNoIn(title), branch: deps?.me()?.branchCode ?? '' }
+    const memo = { path: here().fullPath, label: docNoIn(title), branch: deps?.me()?.branchCode ?? '' }
+    run.memory[step.remember] = memo
+    if (run.tour?.guide) keepDoc(run.tour.id, step.remember, memo)
     record(false, shownPath)
   }
 
   const wait = waitOf(step)
   const node = el
-  if (wait.kind === 'page' && !step.handover && pageMatches(wait.to, here())) {
-    queueMicrotask(next)
+  // Nothing left to do here: on that page already, or (in a guide) the right person already.
+  if ((wait.kind === 'page' && !step.handover && pageMatches(wait.to, here())) || (wait.kind === 'user' && run.userOk && run.tour?.guide)) {
+    queueMicrotask(pass)
     return
   }
   if (!node || !run.interactive) {
@@ -645,7 +696,14 @@ export function startTour(id: string): void {
   resetRun()
   if (tour.journey) writeJourney(null)
   run.tour = tour
-  if (tour.guide) run.made = madeWords(new Date(), Math.random)
+  if (tour.guide) {
+    run.made = madeWords(new Date(), Math.random)
+    const docs = readDocs()
+    for (const [word, at] of Object.entries(tour.guide.from ?? {})) {
+      const memo = docs[`${at.guide}:${at.key}`]
+      if (memo) run.memory[word] = memo
+    }
+  }
   if (tour.startAt && here().path !== tour.startAt) void deps.router.push(tour.startAt)
   show(0)
 }

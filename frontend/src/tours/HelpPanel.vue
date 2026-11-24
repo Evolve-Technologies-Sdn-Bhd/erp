@@ -136,7 +136,7 @@ function onKey(e: KeyboardEvent) {
                   <span class="tour-letter" :class="{ done: isDone(t) }" aria-hidden="true">{{ t.guide!.letter }}</span>
                   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                     <p class="m-0 text-[13px] leading-snug font-semibold">{{ t.title }}</p>
-                    <p class="m-0 text-[11px] leading-relaxed text-erp-muted">{{ t.guide!.cast }} · {{ t.guide!.rows }} steps<template v-if="isDone(t)"> · <span class="text-chip-done-text">Done</span></template></p>
+                    <p class="m-0 text-[11px] leading-relaxed text-erp-muted">{{ t.guide!.cast }} · {{ t.guide!.rows }} steps<template v-if="t.guide!.after"> · after {{ t.guide!.after.join(', ') }}</template><template v-if="isDone(t)"> · <span class="text-chip-done-text">Done</span></template></p>
                   </div>
                   <button type="button" class="erp-btn tour-btn-sm shrink-0" :class="isDone(t) || isPaused(t) ? 'erp-btn-secondary' : 'tour-btn-primary'" :aria-label="`${isDone(t) ? 'Take again' : 'Start'}: ${t.guide!.book} ${t.guide!.letter}, ${t.title}`" @click="startTour(t.id)">
                     {{ isPaused(t) ? 'Start again' : isDone(t) ? 'Again' : 'Start' }}

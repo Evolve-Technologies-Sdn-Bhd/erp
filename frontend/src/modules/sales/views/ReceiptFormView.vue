@@ -114,9 +114,9 @@ function saved(x: ReceiptDetail) {
       <template #actions>
         <RouterLink to="/sales/receipts?status=waiting" class="erp-btn erp-btn-secondary">Back</RouterLink>
         <button v-if="can('cancel')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelOpen = true">Cancel receipt</button>
-        <button v-if="can('edit')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="editOpen = true">{{ r.status === 'RETURNED' ? 'Correct and send again' : 'Correct' }}</button>
-        <button v-if="can('sendBack')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="backOpen = true">Send back</button>
-        <button v-if="can('verify')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="openVerify">Verify</button>
+        <button v-if="can('edit')" type="button" data-tour="action:correct-receipt" class="erp-btn erp-btn-secondary" :disabled="saving" @click="editOpen = true">{{ r.status === 'RETURNED' ? 'Correct and send again' : 'Correct' }}</button>
+        <button v-if="can('sendBack')" type="button" data-tour="action:send-back" class="erp-btn erp-btn-secondary" :disabled="saving" @click="backOpen = true">Send back</button>
+        <button v-if="can('verify')" type="button" data-tour="action:verify-receipt" class="erp-btn erp-btn-primary" :disabled="saving" @click="openVerify">Verify</button>
       </template>
     </PageHeader>
 
@@ -154,7 +154,7 @@ function saved(x: ReceiptDetail) {
       </div>
 
       <aside class="flex flex-col gap-4">
-        <SideCard v-if="r.order" title="Sales order">
+        <SideCard v-if="r.order" data-tour="rc:order" title="Sales order">
           <div class="flex flex-col gap-1.5 text-[13px]">
             <div class="flex justify-between gap-3"><RouterLink :to="`/sales/orders/${r.order.id}`" class="erp-link font-semibold">{{ r.order.docNo }}</RouterLink><StatusChip :status="r.order.payment" :label="r.order.paymentLabel" :group="PAYMENT_GROUP[r.order.payment]" /></div>
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Order total</span><span>RM {{ formatMoney(r.order.total) }}</span></div>
@@ -166,7 +166,7 @@ function saved(x: ReceiptDetail) {
       </aside>
     </div>
 
-    <Dialog v-model:visible="verifyOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="`Verify ${r.docNo}`">
+    <Dialog v-model:visible="verifyOpen" data-tour="rc:verify" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="`Verify ${r.docNo}`">
       <div class="flex flex-col gap-3 text-[13px]">
         <p class="m-0">RM {{ formatMoney(r.amount) }} by {{ r.methodLabel.toLowerCase() }}, received {{ formatDate(r.docDate) }}. Once verified it counts as paid and can no longer be changed.</p>
         <FormField label="Bank transaction or card settlement reference" :error="verifyError" for="rc-verify-ref">

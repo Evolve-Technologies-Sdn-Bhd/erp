@@ -67,7 +67,7 @@ onBeforeUnmount(() => pageStyle?.remove())
 
 <template>
   <div :data-module="module" class="flex min-h-screen flex-col bg-erp-bg text-erp-text print:block print:min-h-0 print:bg-white">
-    <div class="flex items-center gap-4 bg-erp-text px-5 py-2.5 text-white print:hidden">
+    <div data-tour="print:bar" class="flex items-center gap-4 bg-erp-text px-5 py-2.5 text-white print:hidden">
       <RouterLink :to="backTo" class="flex items-center gap-1 text-[13px] font-semibold whitespace-nowrap text-white no-underline">
         <ChevronLeft :size="14" aria-hidden="true" />Back to {{ backLabel }}
       </RouterLink>

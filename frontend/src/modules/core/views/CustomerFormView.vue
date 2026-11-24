@@ -265,7 +265,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
             >
               Mark as complete
             </button>
-            <button v-if="anyEditable" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !dirty" @click="save()">Save changes</button>
+            <button v-if="anyEditable" type="button" data-tour="action:save-customer" class="erp-btn erp-btn-primary" :disabled="saving || !dirty" @click="save()">Save changes</button>
             <RouterLink v-else to="/core/customers" class="erp-btn erp-btn-secondary">Back</RouterLink>
           </template>
         </template>
@@ -351,7 +351,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
             <FormField label="Email" for="email" :error="errors.email">
               <input id="email" v-model="form.email" class="erp-input" type="email" maxlength="150" :disabled="!detailsEditable" />
             </FormField>
-            <FormField label="Phone" for="phone" :error="errors.phone">
+            <FormField data-tour="core:phone" label="Phone" for="phone" :error="errors.phone">
               <input id="phone" v-model="form.phone" class="erp-input" maxlength="30" :disabled="!detailsEditable" />
             </FormField>
           </div>

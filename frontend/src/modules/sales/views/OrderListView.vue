@@ -210,7 +210,7 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
         @update:model-value="onDateRange"
         @clear-click="onDateRange(null)"
       />
-      <label v-if="salesFlow.preOrders || list.params.value.preOrder" class="flex items-center gap-2 text-[13px] whitespace-nowrap">
+      <label v-if="salesFlow.preOrders || list.params.value.preOrder" data-tour="sl:pre-orders" class="flex items-center gap-2 text-[13px] whitespace-nowrap">
         <input type="checkbox" :checked="list.params.value.preOrder === '1'" @change="list.setFilter('preOrder', ($event.target as HTMLInputElement).checked ? '1' : '')" />
         Pre-orders only
       </label>

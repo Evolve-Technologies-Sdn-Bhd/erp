@@ -324,7 +324,7 @@ const belowList = (l: EditLine) => Boolean(l.listPrice && l.unitPrice && Number(
           <RouterLink :to="`/sales/invoices/${inv.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
           <button v-if="released" type="button" class="erp-btn erp-btn-secondary" :disabled="!can('email')" @click="email">Email to customer</button>
           <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || !dirty" @click="save">Save draft</button>
-          <button v-if="inv.status === 'DRAFT'" type="button" class="erp-btn erp-btn-primary" :disabled="saving || (!can('release') && !dirty)" @click="release">Release</button>
+          <button v-if="inv.status === 'DRAFT'" type="button" data-tour="action:release-invoice" class="erp-btn erp-btn-primary" :disabled="saving || (!can('release') && !dirty)" @click="release">Release</button>
           <template v-if="released">
             <button type="button" class="erp-btn erp-btn-primary" @click="transferMenu?.toggle($event)">Transfer to <ChevronDown :size="14" aria-hidden="true" /></button>
             <Menu ref="transferMenu" :model="transferItems" popup />
@@ -461,7 +461,7 @@ const belowList = (l: EditLine) => Boolean(l.listPrice && l.unitPrice && Number(
           </div>
 
           <div v-if="inv" class="grid items-stretch gap-4 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-            <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+            <section data-tour="inv:payments" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
               <h2 class="m-0 text-[15px] font-bold">Payments received</h2>
               <div v-if="!inv.payments.length" class="flex grow flex-col items-center justify-center rounded-[10px] border-2 border-dashed border-erp-input px-4 py-10 text-center text-[13px]">
                 <strong>No payments yet</strong>
@@ -478,7 +478,7 @@ const belowList = (l: EditLine) => Boolean(l.listPrice && l.unitPrice && Number(
         </div>
 
         <aside class="flex flex-col gap-4">
-          <SideCard title="Amounts (MYR)">
+          <SideCard data-tour="inv:amounts" title="Amounts (MYR)">
             <div v-if="totals" class="flex flex-col text-[13px]">
               <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Subtotal</span><MoneyText :value="totals.subtotal" /></div>
               <div v-if="Number(totals.discountTotal)" class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Discount</span><span class="erp-num">− {{ formatMoney(totals.discountTotal) }}</span></div>

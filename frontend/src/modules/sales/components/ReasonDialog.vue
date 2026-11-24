@@ -32,7 +32,7 @@ function confirm() {
 </script>
 
 <template>
-  <Dialog v-model:visible="visible" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="title">
+  <Dialog v-model:visible="visible" data-tour="reason-dialog" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="title">
     <div class="flex flex-col gap-3">
       <p v-if="message" class="m-0 text-[13px] text-erp-subtle">{{ message }}</p>
       <label class="flex flex-col gap-1.5 text-xs font-medium text-erp-muted" for="reason-text">

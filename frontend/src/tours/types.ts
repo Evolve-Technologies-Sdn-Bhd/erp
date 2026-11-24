@@ -75,6 +75,11 @@ export interface TourStep {
   must?: boolean
   /** Guides: the Handbook's "You should see" */
   expect?: string
+  /**
+   * Guides: the link or button inside the target to highlight, by its words ("{order}"): a document's number in a list,
+   * a request's card. Left out of the screen, the whole target is highlighted.
+   */
+  pick?: string
   /** Guides: the Handbook step this starts (several clicks may make one step) */
   row?: number
   /** Remembers the page this step shows on (and its document number and branch) under this key */
@@ -89,6 +94,10 @@ export interface Guide {
   rows: number
   /** Who plays: 'Admin, Sales agent' */
   cast: string
+  /** Letters of the same book's guides that make what this one uses, as Help says it: "After A" */
+  after?: string[]
+  /** A document an earlier guide remembered on this device (its id and key); `values` has the words without it */
+  from?: Record<string, { guide: string; key: string }>
   values?: Record<string, string>
 }
 

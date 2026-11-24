@@ -35,6 +35,25 @@ export const openPage = (group: string, groupLabel: string, item: string, label:
   },
 ]
 
+/** From a module's home: the tile of a menu group, then the page. */
+export const openFromHome = (module: PageMatch['module'], tile: string, item: string, label: string, to: PageMatch): TourStep[] => [
+  {
+    target: 'home:tiles',
+    page: { module },
+    pick: tile,
+    wait: { kind: 'page', to: { module, layout: 'module' } },
+    title: `Open ${tile}`,
+    text: `Click the ${tile} tile.`,
+  },
+  {
+    target: `menu:${item}`,
+    placement: 'right',
+    wait: { kind: 'page', to },
+    title: `Open ${label}`,
+    text: `Click ${label}.`,
+  },
+]
+
 /** Another module, from the top icon of the menu rail. */
 export const openModule = (module: PageMatch['module'], label: string): TourStep => ({
   target: 'rail:switcher',
@@ -42,6 +61,17 @@ export const openModule = (module: PageMatch['module'], label: string): TourStep
   wait: { kind: 'page', to: { module } },
   title: `Go to ${label}`,
   text: `Click the top icon, then ${label}.`,
+})
+
+/** A document in a list, by the word that holds its number. */
+export const openDoc = (list: PageMatch, word: string, to: PageMatch, title: string, extra: Partial<TourStep> = {}): TourStep => ({
+  target: 'list',
+  page: list,
+  pick: `{${word}}`,
+  wait: { kind: 'page', to },
+  title,
+  text: `Click {${word}} in the list.`,
+  ...extra,
 })
 
 /** A document's status chip in its header: what a real button leads to. */

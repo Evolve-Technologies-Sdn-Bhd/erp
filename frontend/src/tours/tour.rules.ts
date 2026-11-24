@@ -121,6 +121,7 @@ export function tourProblems(tour: Tour): string[] {
     if (!tour.guide && !step.handover && isInteractive(step) && step.target && isSensitiveTargetId(step.target)) {
       problems.push(`${where}: "${step.target}" changes records; a tour may only explain it or hand it over, never wait for it to be pressed`)
     }
+    if (step.pick && !step.target) problems.push(`${where}: pick only makes sense with a target`)
     if (step.optional && !step.target) problems.push(`${where}: optional only makes sense with a target`)
     if (step.go?.startsWith('@') && !remembered.has(step.go.slice(1))) problems.push(`${where}: "${step.go}" is not remembered before this step`)
     if (step.go && !step.go.startsWith('@') && !step.go.startsWith('/')) problems.push(`${where}: go is a path or @remembered`)
@@ -140,10 +141,11 @@ function guideProblems(tour: Tour, guide: Guide): string[] {
   const wanted = Array.from({ length: guide.rows }, (_, i) => i + 1)
   if (rows.join() !== wanted.join()) problems.push(`${tour.id}: Handbook steps ${rows.join(', ') || 'none'}; they should be 1 to ${guide.rows}, once each, in order`)
   const known = new Set([...Object.keys(guide.values ?? {}), ...Object.keys(madeWords(new Date(0), () => 0))])
+  for (const word of Object.keys(guide.from ?? {})) if (!guide.values?.[word]) problems.push(`${tour.id}: {${word}} from another guide needs neutral words too`)
   tour.steps.forEach((step, i) => {
     if (step.handover) problems.push(`${tour.id} step ${i + 1}: a guide's button works as it is, so it has no hand-over`)
     const here = new Set([...known, ...(waitOf(step).kind === 'user' ? ['people'] : []), ...(step.remember ? [step.remember] : [])])
-    const texts = [step.title, step.text, step.why, step.waiting, step.expect, ...(step.type ?? []).flatMap((t) => [t.field, t.value])]
+    const texts = [step.title, step.text, step.why, step.waiting, step.expect, step.pick, ...(step.type ?? []).flatMap((t) => [t.field, t.value])]
     for (const text of texts) for (const m of (text ?? '').matchAll(/\{(\w+)\}/g)) if (!here.has(m[1]!)) problems.push(`${tour.id} step ${i + 1}: nothing fills in {${m[1]}}`)
     if (step.remember) known.add(step.remember)
   })

@@ -711,7 +711,7 @@ const viewRows = computed<ViewRow[]>(() => {
           <button v-if="!isNew && !showCreditFailed && !priceNeedsApproval && !revisionNeedsApproval" type="button" data-tour="action:release" class="erp-btn erp-btn-primary" :disabled="saving || !can('release')" @click="release">Release</button>
         </template>
         <template v-else-if="order && released">
-          <RouterLink :to="`/sales/orders/${order.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
+          <RouterLink :to="`/sales/orders/${order.id}/print`" data-tour="so:print" class="erp-btn erp-btn-secondary">Print</RouterLink>
           <button type="button" class="erp-btn erp-btn-secondary" @click="later('Email')">Email</button>
           <button v-if="order.share" type="button" data-tour="action:whatsapp" data-tour-sensitive class="erp-btn erp-btn-secondary" @click="shareOnWhatsapp">
             <MessageCircle :size="14" aria-hidden="true" />WhatsApp
@@ -967,11 +967,11 @@ const viewRows = computed<ViewRow[]>(() => {
                         <div class="font-bold whitespace-nowrap">{{ l.item.code }}</div>
                         <div class="text-xs text-erp-muted">{{ l.item.name }}</div>
                       </td>
-                      <td class="num w-[90px] min-w-[76px]">
+                      <td data-tour="so:qty" class="num w-[90px] min-w-[76px]">
                         <input v-model="l.qty" class="erp-cell min-w-[60px]" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].qty`])" :aria-label="`Quantity, line ${i + 1}`" />
                       </td>
                       <td>{{ l.item.uomCode }}</td>
-                      <td class="num w-[110px] min-w-[96px]">
+                      <td data-tour="so:price" class="num w-[110px] min-w-[96px]">
                         <input v-model="l.unitPrice" class="erp-cell min-w-[80px]" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" :aria-label="`Unit price, line ${i + 1}`" />
                       </td>
                       <td class="num w-[70px] min-w-[64px]">
@@ -987,7 +987,7 @@ const viewRows = computed<ViewRow[]>(() => {
                     </tr>
                     <tr>
                       <td />
-                      <td colspan="8" class="!pt-0 text-xs" :class="lineNote(l) ? 'text-attention' : 'text-erp-muted'">
+                      <td data-tour="so:line-note" colspan="8" class="!pt-0 text-xs" :class="lineNote(l) ? 'text-attention' : 'text-erp-muted'">
                         {{ lineHint(l) }}{{ lineNote(l) }}
                         <span v-for="m in lineErrors(i)" :key="m" class="ml-2 text-note-error-text">{{ m }}</span>
                       </td>
@@ -1099,7 +1099,7 @@ const viewRows = computed<ViewRow[]>(() => {
           <NoticeBanner v-else-if="order?.stock.releaseNote" kind="warning">
             {{ order.stock.releaseNote }}
           </NoticeBanner>
-          <NoticeBanner v-else-if="editable && order?.stock.draftWarning" kind="warning">
+          <NoticeBanner v-else-if="editable && order?.stock.draftWarning" kind="warning" data-tour="so:stock-note">
             Stock now: {{ order.stock.draftWarning }}.
             {{ order.preOrder.willBe ? 'The order will be released as a pre-order, as a whole.' : 'Short stock only warns; the order can still be released.' }}
           </NoticeBanner>
@@ -1154,13 +1154,13 @@ const viewRows = computed<ViewRow[]>(() => {
             <div class="flex justify-end gap-2">
               <button type="button" class="erp-btn erp-btn-secondary" @click="backToEdit">Back to edit</button>
               <button type="button" class="erp-btn erp-btn-secondary" @click="keepAsDraft">Keep as draft</button>
-              <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
+              <button type="button" data-tour="action:request-approval" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
             </div>
           </template>
         </section>
 
         <!-- The price range (phase 5): a price outside it needs the Sales Manager before release -->
-        <section v-if="showPricePanel && order" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
+        <section v-if="showPricePanel && order" data-tour="so:approval" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
           <div>
             <h2 class="m-0 text-[15px] font-bold text-note-warn-text">Price needs approval</h2>
             <p class="m-0 mt-0.5 text-xs text-erp-muted">
@@ -1174,13 +1174,13 @@ const viewRows = computed<ViewRow[]>(() => {
             </FormField>
             <div class="flex justify-end gap-2">
               <button type="button" class="erp-btn erp-btn-secondary" @click="backToEdit">Back to edit</button>
-              <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
+              <button type="button" data-tour="action:request-approval" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
             </div>
           </template>
         </section>
 
         <!-- A revision after booking or with a price change (phase 5) needs the Sales Manager before release -->
-        <section v-if="showRevisionPanel && order" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
+        <section v-if="showRevisionPanel && order" data-tour="so:approval" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
           <div>
             <h2 class="m-0 text-[15px] font-bold text-note-warn-text">Revision needs approval</h2>
             <p class="m-0 mt-0.5 text-xs text-erp-muted">{{ order.revisions.approvalReason }}. The Sales Manager approves it before the order goes out again.</p>
@@ -1191,7 +1191,7 @@ const viewRows = computed<ViewRow[]>(() => {
             </FormField>
             <div class="flex justify-end gap-2">
               <button type="button" class="erp-btn erp-btn-secondary" @click="backToEdit">Back to edit</button>
-              <button type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
+              <button type="button" data-tour="action:request-approval" class="erp-btn erp-btn-primary" :disabled="saving" @click="requestApproval">Request approval</button>
             </div>
           </template>
         </section>

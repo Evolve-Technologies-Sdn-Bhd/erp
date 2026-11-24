@@ -276,7 +276,7 @@ async function decide(decision: 'approve' | 'reject') {
           </label>
           <div data-tour="approvals:decide" class="grid grid-cols-2 gap-2">
             <button type="button" class="erp-btn erp-btn-danger h-10" :disabled="deciding" @click="decide('reject')">Reject</button>
-            <button type="button" class="erp-btn erp-btn-primary h-10" :disabled="deciding" @click="decide('approve')">Approve</button>
+            <button type="button" data-tour="approvals:approve" class="erp-btn erp-btn-primary h-10" :disabled="deciding" @click="decide('approve')">Approve</button>
           </div>
           <p class="m-0 text-xs text-erp-muted">{{ footnote }}</p>
         </template>

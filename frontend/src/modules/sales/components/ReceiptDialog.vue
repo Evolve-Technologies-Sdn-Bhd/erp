@@ -87,7 +87,7 @@ async function save() {
 </script>
 
 <template>
-  <Dialog v-model:visible="visible" modal :draggable="false" class="erp-dialog" :style="{ width: '560px' }" :header="header">
+  <Dialog v-model:visible="visible" data-tour="receipt-dialog" modal :draggable="false" class="erp-dialog" :style="{ width: '560px' }" :header="header">
     <div class="flex flex-col gap-3 text-[13px]">
       <p v-if="order && !receipt" class="m-0 text-erp-muted">{{ order.customerName }} · still owes RM {{ formatMoney(order.open) }}. Account checks it against the bank before it counts as paid.</p>
       <p v-if="receipt?.returnReason" class="m-0 rounded-lg border border-note-warn-border bg-note-warn-bg px-3 py-2 text-note-warn-text">Sent back by Account: “{{ receipt.returnReason }}”</p>
