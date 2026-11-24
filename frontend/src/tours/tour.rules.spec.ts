@@ -21,6 +21,7 @@ import {
   readTutorial,
   rowAt,
   stepLabel,
+  stepReady,
   tourProblems,
   toursFor,
 } from './tour.rules'
@@ -302,6 +303,18 @@ describe('guides: the Handbook on screen', () => {
     expect(tourProblems(guide({ steps: guide().steps.map((s) => ({ ...s, text: s.text.replace('{item}', '{itm}') })) })).join()).toContain('nothing fills in {itm}')
     // A document is known only from the step that remembers it.
     expect(tourProblems(guide({ steps: [{ title: 'Early', text: '{order}' }, ...guide().steps] })).join()).toContain('nothing fills in {order}')
+  })
+
+  it('keeps Next waiting until what the step asks for is filled in', () => {
+    const type = [{ field: 'No.', value: '1' }, { field: 'Amount', value: '2' }]
+    expect(stepReady({}, null, 0, 0)).toBe(true)
+    expect(stepReady({ type }, null, 1, 3)).toBe(false)
+    expect(stepReady({ type }, null, 2, 2)).toBe(true)
+    // A part that says itself whether it is filled in decides (a voucher row whose description is filled already).
+    expect(stepReady({ type }, false, 3, 3)).toBe(false)
+    expect(stepReady({ type }, true, 0, 0)).toBe(true)
+    expect(stepReady({ must: true }, null, 0, 1)).toBe(true)
+    expect(stepReady({ must: true }, null, 0, 0)).toBe(false)
   })
 
   it('counts the Handbook steps, not the clicks', () => {

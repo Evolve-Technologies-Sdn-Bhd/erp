@@ -175,6 +175,16 @@ export function guideWords(tour: Tour, company: Record<string, Record<string, st
   return { ...tour.guide?.values, ...made, ...company.common, ...company[tour.id] }
 }
 
+/**
+ * Whether what a step asks for is there, so Next may be clicked. A field that marks itself (data-filled) says so; else
+ * as many typed fields as the step names, or one for a step that only says to pick something.
+ */
+export function stepReady(step: Pick<TourStep, 'type' | 'must'>, marked: boolean | null, filledTexts: number, filledAny: number): boolean {
+  if (!step.type?.length && !step.must) return true
+  if (marked !== null) return marked
+  return step.type?.length ? filledTexts >= step.type.length : filledAny > 0
+}
+
 /** The Handbook step a click belongs to: 0 before the first. */
 export function rowAt(tour: Tour, index: number): number {
   for (let i = Math.min(index, tour.steps.length - 1); i >= 0; i--) if (tour.steps[i]!.row) return tour.steps[i]!.row!

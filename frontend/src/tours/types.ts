@@ -41,7 +41,7 @@ export type StepWait =
   | { kind: 'user'; role: string; sameBranchAs?: string; as?: string }
   /** something on screen goes away after it was there (a picked job once it is booked) */
   | { kind: 'gone'; selector: string }
-  /** uses the highlighted part (types, picks, looks around in it), then clicks Next */
+  /** uses the highlighted part (types, picks, looks around in it), then clicks Next; with `type` or `must`, Next waits until it is filled in */
   | { kind: 'use' }
 
 export type Placement = 'auto' | 'top' | 'bottom' | 'left' | 'right'
@@ -71,6 +71,8 @@ export interface TourStep {
   go?: string
   /** Guides: what to type, shown as rows with a copy button */
   type?: { field: string; value: string }[]
+  /** Guides: Next waits until the highlighted field is filled in (a step with `type` always does) */
+  must?: boolean
   /** Guides: the Handbook's "You should see" */
   expect?: string
   /** Guides: the Handbook step this starts (several clicks may make one step) */

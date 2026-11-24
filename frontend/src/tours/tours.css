@@ -31,6 +31,10 @@
   .tour-hole-raised {
     z-index: 1500;
   }
+  /* The ERP refused a guide's button: the page is lit again, so the fields in red can be seen and corrected */
+  .tour-hole-clear {
+    box-shadow: 0 0 0 2px var(--tour-accent);
+  }
   /* A step that waits for the person: the ring breathes */
   .tour-hole-live::after {
     content: '';
@@ -176,6 +180,24 @@
   .tour-note-see {
     background: var(--chip-done-bg);
     color: var(--chip-done-text);
+  }
+  .tour-note-refused {
+    background: var(--note-error-bg);
+    color: var(--note-error-text);
+  }
+  .tour-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .tour-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .tour-note-real {
     background: var(--erp-head-bg);

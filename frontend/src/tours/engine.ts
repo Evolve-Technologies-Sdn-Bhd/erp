@@ -18,6 +18,7 @@ import {
   madeWords,
   pageMatches,
   peopleFor,
+  stepReady,
   waitOf,
   type Person,
   type TutorialState,
@@ -53,6 +54,10 @@ const SLOW_MS = 700
 export const SENSITIVE_NUDGE = 'The tour won’t press this: it changes records for real. Pause or exit the tour, then do it yourself.'
 export const OUTSIDE_NUDGE = 'The tour is showing the highlighted part. Use Next, or Pause to use the rest of the page.'
 
+/** Fields a form has refused, and the message it shows. */
+const INVALID = '[aria-invalid="true"], .p-invalid'
+const ERROR_TOAST = '.erp-toast-body[data-tone="cancelled"]'
+
 export const run = reactive({
   tour: null as Tour | null,
   index: 0,
@@ -73,6 +78,10 @@ export const run = reactive({
   interactive: false,
   /** A guide's highlighted button does something real, and works */
   real: false,
+  /** What a guide's step asks to fill in is there (Next waits for it) */
+  ready: true,
+  /** A guide's button was pressed and the ERP refused: fields in red, or only a message. The person may fix it. */
+  refused: '' as '' | 'fields' | 'message',
   /** The highlighted element itself does something real: the tour only shows it */
   guarded: false,
   /** The element is inside a dialog, which sits above the page: the highlight goes above it too */
@@ -234,6 +243,8 @@ export function stepText(text: string | undefined): string {
 
 /** Whether a hand-over's outcome is there (or a "gone" wait's element has gone, after it was seen). */
 let goneSeen = false
+/** The person pressed the highlighted part of a guide's step */
+let pressed = false
 function outcomeMet(step: TourStep): boolean {
   const wait = waitOf(step)
   if (wait.kind === 'page') return pageMatches(wait.to, here())
@@ -335,6 +346,9 @@ function stopStep(keepHole = false): void {
   run.interactive = false
   run.guarded = false
   run.real = false
+  run.ready = true
+  run.refused = ''
+  pressed = false
   run.raised = false
   run.dropdownOpen = false
   run.dialog = null
@@ -442,11 +456,49 @@ function frame(): void {
   if (run.dropdownOpen !== dropdownOpen) run.dropdownOpen = dropdownOpen
   if (run.interactive) trackDialog()
   else if (run.dialog) run.dialog = null
+  if (live() && run.status === 'showing') watchLive(step)
   // Also once the button itself is gone: Release leaves the page as soon as the document is released.
   const wait = waitOf(step)
   const doing = run.status === 'showing' || (run.status === 'finding' && run.interactive)
   if (doing && !step.handover && (wait.kind === 'appear' || wait.kind === 'gone') && outcomeMet(step)) return next()
   loop()
+}
+
+/** A guide's step while the person does it: is it filled in, and did the ERP refuse it? */
+function watchLive(step: TourStep): void {
+  if (el && run.interactive) {
+    const marked = el.matches('[data-filled]') ? el : el.querySelector('[data-filled]')
+    const filled = (sel: string) => [...el!.querySelectorAll<HTMLInputElement>(sel), ...(el!.matches(sel) ? [el as HTMLInputElement] : [])].filter((f) => f.value?.trim()).length
+    const ready = stepReady(step, marked ? marked.getAttribute('data-filled') === 'true' : null, filled('input:not([type="checkbox"]):not([type="radio"]), textarea'), filled('input, textarea, select'))
+    if (run.ready !== ready) run.ready = ready
+  }
+  if (!pressed) return
+  const now = invalidField() ? 'fields' : document.querySelector(ERROR_TOAST) ? 'message' : run.refused === 'message' ? 'message' : ''
+  if (run.refused !== now) run.refused = now
+}
+
+function invalidField(): HTMLElement | null {
+  return [...document.querySelectorAll<HTMLElement>(INVALID)].find((f) => visible(f) && !f.closest('[data-tour-ui]')) ?? null
+}
+
+/** "Show me": the first field in red. */
+export function showInvalid(): void {
+  const field = invalidField()
+  if (!field) return
+  field.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
+  const input = field.matches('input, select, textarea') ? field : field.querySelector<HTMLElement>('input, select, textarea')
+  input?.focus({ preventScroll: true })
+}
+
+/** "Back to the button", after correcting them. */
+export function showButton(): void {
+  el?.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
+}
+
+/** After a refusal in a guide, the fields in red are the person's to correct (with the list one of them opens). */
+function inRefused(target: Element): boolean {
+  if (!live() || run.refused !== 'fields') return false
+  return !!target.closest(INVALID) || !!target.closest(DROPDOWNS) || !!target.closest('div:has(> [role="alert"])')
 }
 
 /** The step is on screen: decide what the person may use, and start waiting for them. */
@@ -771,7 +823,13 @@ function onClick(e: MouseEvent): void {
   const inside = run.status === 'showing' && run.interactive && !!el && (el.contains(target) || inOpened(target))
   // In a guide the highlighted part works, with the dialog it opens; elsewhere a real action is always stopped.
   const sensitive = !!control && isSensitiveElement(control) && !(inside && live())
+  if (!inside && inRefused(target)) return
   if (!inside || sensitive) return nudge(e, sensitive ? SENSITIVE_NUDGE : OUTSIDE_NUDGE)
+  run.nudgeText = ''
+  if (live()) {
+    pressed = true
+    run.refused = ''
+  }
   const step = current()
   if (step && waitOf(step).kind === 'click' && el?.contains(target)) window.setTimeout(next, 0)
 }

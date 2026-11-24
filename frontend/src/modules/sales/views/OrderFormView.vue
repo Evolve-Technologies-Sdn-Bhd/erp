@@ -995,7 +995,7 @@ const viewRows = computed<ViewRow[]>(() => {
                     </template>
                   </template>
                   <template v-for="(v, i) in form.vouchers" :key="v.key">
-                    <tr data-tour="so:voucher">
+                    <tr data-tour="so:voucher" :data-filled="v.voucherNo.trim() && Number(v.amount) > 0 ? 'true' : 'false'">
                       <td class="text-erp-muted">{{ form.lines.length + i + 1 }}</td>
                       <td>
                         <div class="flex items-center gap-2"><StatusChip status="DRAFT" label="Voucher" group="draft" /><input v-model="v.description" class="erp-cell min-w-[220px] text-left!" maxlength="100" :aria-label="`Voucher description, line ${form.lines.length + i + 1}`" /></div>
@@ -1004,7 +1004,7 @@ const viewRows = computed<ViewRow[]>(() => {
                       <td class="num">1</td>
                       <td />
                       <td class="num w-[110px] min-w-[96px]">
-                        <input v-model="v.amount" class="erp-cell min-w-[80px]" inputmode="decimal" placeholder="50.00" :aria-invalid="Boolean(errors[`vouchers[${i}].amount`])" :aria-label="`Voucher amount, line ${form.lines.length + i + 1}`" />
+                        <input v-model="v.amount" class="erp-cell min-w-[80px]" inputmode="decimal" placeholder="Amount" :aria-invalid="Boolean(errors[`vouchers[${i}].amount`])" :aria-label="`Voucher amount, line ${form.lines.length + i + 1}`" />
                       </td>
                       <td class="num text-erp-muted">—</td>
                       <td class="whitespace-nowrap">

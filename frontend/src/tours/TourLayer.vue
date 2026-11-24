@@ -155,7 +155,7 @@ const pillText = computed(() => {
 <template>
   <Teleport to="body">
     <Transition name="tour-fade">
-      <div v-if="dimmed && run.hole && run.status !== 'missing'" class="tour-hole" :class="{ 'tour-hole-live': run.interactive && run.status === 'showing', 'tour-hole-guarded': run.guarded, 'tour-hole-raised': run.raised }" :style="holeStyle" aria-hidden="true" />
+      <div v-if="dimmed && run.hole && run.status !== 'missing'" class="tour-hole" :class="{ 'tour-hole-live': run.interactive && run.status === 'showing', 'tour-hole-guarded': run.guarded, 'tour-hole-raised': run.raised, 'tour-hole-clear': run.refused === 'fields' }" :style="holeStyle" aria-hidden="true" />
       <div v-else-if="dimmed" class="tour-scrim" aria-hidden="true" />
     </Transition>
 
