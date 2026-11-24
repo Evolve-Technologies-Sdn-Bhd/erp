@@ -112,7 +112,7 @@ export const ORDER_TO_AFTER_SALES: Tour = {
       wait: { kind: 'appear', selector: `${HEADER} [data-status="RELEASED"]` },
       title: '2 · Submit: release the order',
       text: 'Press Release and confirm. The order is submitted and locked, and an installation job is made for the office.',
-      why: 'Not built yet: stock reserved on submission, and the separate pre-order when nothing is in stock. Short stock only warns for now.',
+      why: 'Short stock never stops an order. Where the company makes pre-orders, it marks the whole order a pre-order until the stock arrives. Not built yet: stock reserved on submission.',
     },
     {
       target: 'action:record-payment',
@@ -124,6 +124,21 @@ export const ORDER_TO_AFTER_SALES: Tour = {
       text: 'Press Record payment: Deposit, how it was paid, the amount and the day, and add a photo of the slip. It gets an OR number and waits for Account.',
       why: 'Only receipts Account has verified count as paid.',
       placement: 'left',
+    },
+    {
+      target: 'action:whatsapp',
+      page: { path: ORDER_PAGE },
+      optional: true,
+      title: '1 · Sales: send it to the customer',
+      text: 'WhatsApp opens a chat with the customer, the order’s summary already written. The ERP sends nothing by itself: the salesperson reads it and presses Send there.',
+    },
+    {
+      target: 'action:revise',
+      page: { path: ORDER_PAGE },
+      optional: true,
+      title: '1 · Sales: a change after submitting',
+      text: 'Where the company allows it, the salesperson can still revise the order until it is delivered: products, address, contact or price. The number stays, and the earlier version is kept to look at.',
+      why: 'After the installer is booked, or when a price changes, the Sales Manager approves the revision.',
     },
 
     /* Stage 3 · Office: review and scheduling */
@@ -182,7 +197,7 @@ export const ORDER_TO_AFTER_SALES: Tour = {
       wait: { kind: 'user', role: 'SALES_STORE', sameBranchAs: 'order' },
       title: '4 · Warehouse: be the store',
       text: 'Switch to {people}: they make and confirm delivery orders at the order’s branch.',
-      why: 'Not built yet: the delivery order made by itself 24 hours before the installation, which then locks the order; transfers between branches with approval; the At Risk flag.',
+      why: 'If the stock is not there 24 hours before the installation, the job is marked At risk, and the office and the salesperson get an alert. Not built yet: the delivery order made by itself at that point, which then locks the order; transfers between branches with approval.',
     },
     {
       target: 'dl:waiting',
@@ -271,7 +286,7 @@ export const ORDER_TO_AFTER_SALES: Tour = {
       wait: { kind: 'appear', selector: `${HEADER} [data-status="VERIFIED"]` },
       title: '6 · Account: verify it',
       text: 'Press Verify and type the bank transaction or settlement reference. Or Send back with what is wrong.',
-      why: 'Whoever recorded a receipt can never verify it. Not built yet: installer claims with their invoice, checked by Account.',
+      why: 'Whoever recorded a receipt can never verify it.',
     },
 
     /* Stage 7 · After-sales */
@@ -293,6 +308,15 @@ export const ORDER_TO_AFTER_SALES: Tour = {
     },
     {
       target: 'list',
+      go: '/service/claims',
+      page: { code: 'V07' },
+      title: '7 · The installer’s claim',
+      text: 'Installers claim a fee for each complete, fully paid job, twice a month, with their own invoice. The office keys the claim, Account checks and approves it, then records the payment.',
+      why: 'Whoever submitted a claim can never approve it. A job recorded more than 72 hours after its expected finish gets no fee, unless someone enters an amount with a reason.',
+      placement: 'top',
+    },
+    {
+      target: 'list',
       go: '/service/reminders',
       page: { code: 'V06' },
       title: '7 · After-sales: service reminders',
@@ -307,8 +331,8 @@ export const ORDER_TO_AFTER_SALES: Tour = {
       go: '/service',
       page: { code: 'V01' },
       title: '8 · Management: keeping watch',
-      text: 'The Overdue card counts booked jobs past their expected finish with no visit recorded. Every change on the way is in each document’s activity and the audit trail.',
-      why: 'Not built yet: order changes after submission by role, cancellation after the delivery order by Management, and the unsigned delivery order exception.',
+      text: 'The Overdue card counts booked jobs past their expected finish with no visit recorded. Alerts in the top bar tell the right people about postponed and moved jobs, and stock that is not ready. Every change is in each document’s activity and the audit trail.',
+      why: 'Not built yet: cancellation after the delivery order by Management, and the unsigned delivery order exception.',
     },
     {
       title: 'Done: one order, every department',
