@@ -18,7 +18,13 @@ import { SalesMailService } from '../shared/sales-mail.service';
 import { SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_LINK, SAL_ROLE } from '../shared/sales.constants';
 import { DeliveriesQuery, type DeliveryWithLines, type OrderWithLines } from './deliveries.query';
 import { deliverProblems, DO_LOCKED_MESSAGE, openToDeliver, orderStatusAfterDelivery, type DeliveryAction } from './delivery.rules';
-import type { DeliveryApprovalDto, UpdateDeliveryDto } from './dto/delivery.dto';
+import { refuseErrors, signErrors } from './signed-delivery.rules';
+import { AttachmentsService } from '../../platform/attachments/attachments.service';
+import { NotificationsService } from '../../platform/notifications/notifications.service';
+import type { DeliveryApprovalDto, DeliveryNoteDto, RefuseDeliveryDto, SignDeliveryDto, UpdateDeliveryDto } from './dto/delivery.dto';
+
+export const SIGNED_DO_KIND = 'SIGNED_DO';
+export const REFUSED_DO_KIND = 'REFUSED_DO';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const qtyText = (lines: { qty: Prisma.Decimal; uomCode: string }[]) =>
@@ -41,6 +47,8 @@ export class DeliveriesService {
     private readonly docs: SalesDocumentLines,
     private readonly permissions: PermissionRegistry,
     private readonly clock: ClockService,
+    private readonly attachments: AttachmentsService,
+    private readonly notifications: NotificationsService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -186,17 +194,35 @@ export class DeliveriesService {
    */
   async confirm(ctx: RequestContext, id: string, version: number) {
     const d = await this.query.load(ctx.tenantId, id);
+    if (d.status === 'DRAFT' && (await this.query.signed(ctx.tenantId, d))) {
+      throw new BusinessRuleError('SIGNATURE_NEEDED', `${d.docNo} is delivered when the customer signs it. Mark it collected first, then record the signature.`);
+    }
+    const credit = await this.checkLeaving(ctx, d, 'confirm');
+    await this.deliver(ctx, d, version, credit, { by: 'store' });
+    return this.query.detail(ctx, id);
+  }
+
+  /** What must hold before goods leave the store: credit, the deposit, and the action itself. */
+  private async checkLeaving(ctx: RequestContext, d: DeliveryWithLines, action: DeliveryAction) {
     if (!d.salesOrder) throw new BusinessRuleError('ORDER_MISSING', `${d.docNo} has no sales order to deliver.`);
     const credit = await this.query.liveCredit(ctx, d);
     if (d.status === 'DRAFT' && credit && !d.approvedAt) {
       if (credit.check.action === 'BLOCK') throw new BusinessRuleError('CREDIT_BLOCKED', `${creditActivityText(credit.input, credit.check)}. The delivery cannot be confirmed.`);
       if (credit.check.action === 'APPROVAL') throw new BusinessRuleError('CREDIT_APPROVAL_REQUIRED', `${creditActivityText(credit.input, credit.check)}. Type a reason and request approval.`);
     }
-    await this.requireAction(ctx, d, 'confirm', this.lockedMessage(d));
+    await this.requireAction(ctx, d, action, this.lockedMessage(d));
     const hold = (await this.query.unpaidProformas(ctx.tenantId, [d.salesOrder.id])).get(d.salesOrder.id);
     if (hold) {
       throw new BusinessRuleError('DEPOSIT_UNPAID', `Delivery of ${d.salesOrderNo} is on hold until the deposit on ${hold.docNo} (${toRmText(hold.amount)}) is paid.`);
     }
+    return credit;
+  }
+
+  /** The goods are the customer's: the order's delivered quantity goes up and Inventory is told, in one transaction. */
+  private async deliver(
+    ctx: RequestContext, d: DeliveryWithLines, version: number, credit: Awaited<ReturnType<DeliveriesQuery['liveCredit']>>,
+    how: { by: 'store' } | { by: 'signature'; signerName: string; fileIds: string[] } | { by: 'management'; note: string | null },
+  ) {
     const customer = await this.masterData.findCustomer(ctx.tenantId, d.customerCode);
     const now = this.clock.now();
 
@@ -215,8 +241,11 @@ export class DeliveriesService {
 
       await this.bump(tx, ctx, d.id, version, {
         status: 'CONFIRMED', confirmedAt: now, confirmedByCode: ctx.user.code, confirmedByName: ctx.user.name,
+        ...(how.by === 'signature' && { signedAt: now, signerName: how.signerName, refusedAt: null, refusedByCode: null, refusedByName: null, refuseReason: null, refuseReturned: null }),
+        ...(how.by === 'management' && { unsignedByName: ctx.user.name }),
         ...(credit && !d.approvedAt && { creditResult: credit.check.result, creditSnapshot: credit.snapshot }),
       }, 'DRAFT');
+      if (how.by === 'signature') await this.attachments.attach(tx, ctx, how.fileIds, SAL_ENTITY.DELIVERY, d.id);
       for (const c of counted) {
         if (c.line.qty.eq(0)) {
           await tx.salDeliveryLine.delete({ where: { id: c.line.id } });
@@ -235,7 +264,8 @@ export class DeliveriesService {
       const delivered = qtyText(counted.map((c) => ({ qty: c.line.qty, uomCode: c.line.uomCode })));
       const balance = after.reduce((s, l) => s.add(openToDeliver(l)), dec(0));
       if (credit?.check.action === 'WARN') await this.log(tx, ctx, d.id, d.docNo, 'credit_check', creditActivityText(credit.input, credit.check));
-      await this.log(tx, ctx, d.id, d.docNo, 'confirmed', `Confirmed by ${ctx.user.name} · ${delivered} delivered${d.driver ? `, driver ${d.driver}` : ''} · event saved for Inventory`, null, 1);
+      const said = how.by === 'signature' ? `Signed by ${how.signerName}, recorded by ${ctx.user.name}` : how.by === 'management' ? `Accepted without a signature by ${ctx.user.name}` : `Confirmed by ${ctx.user.name}`;
+      await this.log(tx, ctx, d.id, d.docNo, 'confirmed', `${said} · ${delivered} delivered${d.driver ? `, driver ${d.driver}` : ''} · event saved for Inventory`, how.by === 'management' ? how.note : null, 1);
       await this.activity.log(tx, ctx, {
         entityType: SAL_ENTITY.ORDER, entityId: order.id, docNo: order.docNo, action: 'delivered',
         message: `${d.docNo} confirmed: ${delivered} delivered, balance ${toQty(balance).replace(/\.0+$/, '')}`, comment: null,
@@ -248,6 +278,12 @@ export class DeliveriesService {
           lines: counted.filter((c) => c.line.qty.gt(0)).map((c) => ({ lineNo: c.line.lineNo, soLineNo: c.so.lineNo, itemCode: c.line.itemCode, uomCode: c.line.uomCode, qty: toQty(c.line.qty) })),
         },
       }]);
+      if (order.installOption === 'INSTALLATION') {
+        await this.outbox.publish(tx, ctx, [{
+          name: SAL_EVENT.DELIVERY_DELIVERED, aggregateType: SAL_ENTITY.DELIVERY, aggregateId: d.id,
+          payload: { doNo: d.docNo, doId: d.id, salesOrderId: order.id, salesOrderNo: order.docNo, how: how.by === 'signature' ? 'SIGNED' : how.by === 'management' ? 'UNSIGNED' : 'CONFIRMED', signerName: how.by === 'signature' ? how.signerName : null },
+        }]);
+      }
       if (customer?.email) {
         await this.mail.send(tx, ctx, {
           templateKey: 'DELIVERY_NOTICE', entityType: SAL_ENTITY.DELIVERY, entityId: d.id, docNo: d.docNo, to: customer.email,
@@ -255,7 +291,96 @@ export class DeliveriesService {
         });
       }
     });
+  }
+
+  // ── The signed delivery order (phase 5) ───────────────────────────────────
+
+  /** The installer collected the goods: from here they only change by signature, refusal or checking them back in. */
+  async collect(ctx: RequestContext, id: string, version: number) {
+    const d = await this.query.load(ctx.tenantId, id);
+    const credit = await this.checkLeaving(ctx, d, 'collect');
+    const problems = deliverProblems(this.query.linesOf(d).map((x) => ({ qty: x.line.qty, balance: x.balance })));
+    if (problems.length) throw new ValidationFailedError(problems, 'Check the quantities before the goods leave.');
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, d.id, version, { collectedAt: this.clock.now(), collectedByName: ctx.user.name, ...(credit && !d.approvedAt && { creditResult: credit.check.result, creditSnapshot: credit.snapshot }) }, 'DRAFT');
+      await this.log(tx, ctx, d.id, d.docNo, 'collected', `Collected${d.driver ? ` by ${d.driver}` : ''}, recorded by ${ctx.user.name}`);
+    });
     return this.query.detail(ctx, id);
+  }
+
+  /** The goods came back unused, such as when the job is postponed: the same delivery order waits to be collected again. */
+  async checkIn(ctx: RequestContext, id: string, dto: DeliveryNoteDto) {
+    const d = await this.query.load(ctx.tenantId, id);
+    await this.requireAction(ctx, d, 'checkIn', this.lockedMessage(d));
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, d.id, dto.version, { collectedAt: null, collectedByName: null }, 'DRAFT');
+      await this.log(tx, ctx, d.id, d.docNo, 'checked_in', `Goods checked back in by ${ctx.user.name}`, dto.note?.trim() || null);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /** The customer signed: delivered. Their signed delivery order is uploaded first and kept with it. */
+  async sign(ctx: RequestContext, id: string, dto: SignDeliveryDto) {
+    const d = await this.query.load(ctx.tenantId, id);
+    await this.requireAction(ctx, d, 'sign', d.collectedAt || d.status !== 'DRAFT' ? this.lockedMessage(d) : `${d.docNo} must be collected before the customer signs it.`);
+    const errors = signErrors({ signerName: dto.signerName, files: await this.files(ctx, d.id, SIGNED_DO_KIND, dto.fileIds) });
+    if (errors.length) throw new ValidationFailedError(errors);
+    await this.deliver(ctx, d, dto.version, null, { by: 'signature', signerName: dto.signerName!.trim(), fileIds: dto.fileIds ?? [] });
+    return this.query.detail(ctx, id);
+  }
+
+  async refuse(ctx: RequestContext, id: string, dto: RefuseDeliveryDto) {
+    const d = await this.query.load(ctx.tenantId, id);
+    await this.requireAction(ctx, d, 'refuse', d.collectedAt ? this.lockedMessage(d) : `${d.docNo} must be collected before the customer is asked to sign.`);
+    const errors = refuseErrors({ reason: dto.reason, files: await this.files(ctx, d.id, REFUSED_DO_KIND, dto.fileIds) });
+    if (errors.length) throw new ValidationFailedError(errors);
+    const reason = dto.reason!.trim();
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, d.id, dto.version, { refusedAt: this.clock.now(), refusedByCode: ctx.user.code, refusedByName: ctx.user.name, refuseReason: reason, refuseReturned: null }, 'DRAFT');
+      await this.attachments.attach(tx, ctx, dto.fileIds ?? [], SAL_ENTITY.DELIVERY, d.id);
+      await this.log(tx, ctx, d.id, d.docNo, 'refused', `The customer did not sign, recorded by ${ctx.user.name}; waiting for Management`, reason);
+      await this.notifications.send(tx, ctx, {
+        to: await this.notifications.whoCan(ctx.tenantId, P.EXCEPTION_APPROVE, d.branchCode), kind: 'sales.delivery.refused', link: `/sales/deliveries/${d.id}`,
+        title: `${d.docNo} not signed`, body: `${d.customerName} (${d.salesOrderNo}) did not sign: ${reason}. Accept it unsigned, or send it back.`, entityType: SAL_ENTITY.DELIVERY, entityId: d.id,
+      });
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /** Management accepts it without a signature: delivered. Never by whoever recorded the refusal. */
+  async acceptUnsigned(ctx: RequestContext, id: string, dto: DeliveryNoteDto) {
+    const d = await this.query.load(ctx.tenantId, id);
+    this.notOwnRefusal(ctx, d);
+    await this.requireAction(ctx, d, 'acceptUnsigned', this.lockedMessage(d));
+    await this.deliver(ctx, d, dto.version, null, { by: 'management', note: dto.note?.trim() || null });
+    return this.query.detail(ctx, id);
+  }
+
+  async returnRefusal(ctx: RequestContext, id: string, dto: DeliveryNoteDto) {
+    const d = await this.query.load(ctx.tenantId, id);
+    this.notOwnRefusal(ctx, d);
+    await this.requireAction(ctx, d, 'returnRefusal', this.lockedMessage(d));
+    const why = dto.note?.trim();
+    if (!why) throw ValidationFailedError.field('note', 'Type why it goes back.');
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, d.id, dto.version, { refusedAt: null, refuseReturned: why }, 'DRAFT');
+      await this.log(tx, ctx, d.id, d.docNo, 'refusal_returned', `Sent back by ${ctx.user.name}: get the signature`, why);
+      await this.notifications.send(tx, ctx, {
+        to: [d.refusedByCode ?? ''], kind: 'sales.delivery.refusal_returned', link: `/sales/deliveries/${d.id}`, title: `${d.docNo} sent back`,
+        body: `${d.customerName}: ${why}`, entityType: SAL_ENTITY.DELIVERY, entityId: d.id,
+      });
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  private notOwnRefusal(ctx: RequestContext, d: DeliveryWithLines) {
+    if (d.refusedAt && d.refusedByCode === ctx.user.code) throw new BusinessRuleError('OWN_REFUSAL', `You recorded that ${d.customerName} did not sign ${d.docNo}, so someone else in Management decides.`);
+  }
+
+  /** Files of a kind: those already on the delivery order and those sent with the request. */
+  private async files(ctx: RequestContext, id: string, kind: string, sent: string[] | undefined): Promise<number> {
+    const kept = (await this.attachments.listFor(ctx.tenantId, SAL_ENTITY.DELIVERY, id)).filter((f) => f.kind === kind).map((f) => f.id);
+    return new Set([...kept, ...(sent ?? [])]).size;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -263,14 +388,16 @@ export class DeliveriesService {
   private lockedMessage(d: DeliveryWithLines): string {
     if (d.isMigrated) return 'Migrated delivery orders cannot be changed.';
     if (d.status === 'CONFIRMED') return DO_LOCKED_MESSAGE;
+    if (d.refusedAt) return `The customer did not sign ${d.docNo}; it waits for Management.`;
+    if (d.collectedAt) return `The goods of ${d.docNo} are with the installer. Record the signature, or check them back in.`;
     return `${d.docNo} is waiting for credit approval and is locked.`;
   }
 
   private async requireAction(ctx: RequestContext, d: DeliveryWithLines, action: DeliveryAction, message: string) {
     const [credit, approvals] = await Promise.all([this.query.liveCredit(ctx, d), this.approvals.listForEntity(ctx.tenantId, SAL_ENTITY.DELIVERY, d.id)]);
-    const actions = this.query.actions(ctx, d, credit, approvals[0]?.status === 'PENDING');
+    const actions = this.query.actions(ctx, d, credit, approvals[0]?.status === 'PENDING', await this.query.signed(ctx.tenantId, d));
     if (!actions.includes(action)) {
-      const canEdit = this.permissions.has(ctx.user.roles, P.DELIVERY_EDIT) || this.permissions.has(ctx.user.roles, P.DELIVERY_CONFIRM);
+      const canEdit = [P.DELIVERY_EDIT, P.DELIVERY_CONFIRM, P.DELIVERY_SIGN, P.EXCEPTION_APPROVE].some((p) => this.permissions.has(ctx.user.roles, p));
       throw new BusinessRuleError('ACTION_NOT_ALLOWED', canEdit ? message : 'Only the store team can change delivery orders.');
     }
   }

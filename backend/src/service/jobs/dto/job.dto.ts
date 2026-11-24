@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 import { MY_STATES, POSTCODE_MESSAGE, POSTCODE_OR_EMPTY, STATE_MESSAGE } from '../../../platform/address/address';
 import { SITE_TYPES } from '../../board/booking.rules';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
@@ -140,7 +140,25 @@ export class ExtendJobDto extends VersionDto {
 }
 
 /** What happened at the visit (F3 part 3). Photos are uploaded first, to /attachments with entity SVC_JOB. */
+/** A part the installer brings back (phase 5). Checked in returns.rules.ts. */
+export class ReturnLineDto {
+  @IsString()
+  @MaxLength(30)
+  itemCode!: string;
+
+  @IsString()
+  @MaxLength(20)
+  qty!: string;
+}
+
 export class RecordVisitDto extends VersionDto {
+  /** Parts coming back to the store (phase 5). */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReturnLineDto)
+  returns?: ReturnLineDto[];
+
   @IsIn([...RESULTS], { message: 'Pick complete, partly done or postponed.' })
   result!: VisitResult;
 

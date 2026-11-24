@@ -64,6 +64,7 @@ async function resetDemoData(tenantId: string): Promise<void> {
     // Service (phase 5): the demo has no jobs, and job numbers start again at JB-0001.
     prisma.svcClaim.deleteMany({ where }), // lines cascade
     prisma.svcReminder.deleteMany({ where }),
+    prisma.svcReturn.deleteMany({ where }),
     prisma.svcJob.deleteMany({ where }), // items cascade
     prisma.svcPerson.deleteMany({ where }),
     prisma.svcSlotGroup.deleteMany({ where }), // the starter groups are made again on first use

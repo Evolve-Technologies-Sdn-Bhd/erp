@@ -39,6 +39,12 @@ export const serviceRoutes: RouteRecordRaw[] = [
     meta: { code: 'V09', title: 'Stock for Jobs', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'stock' },
   },
   {
+    path: '/service/returns',
+    name: 'service-returns',
+    component: () => import('./views/ReturnsView.vue'),
+    meta: { code: 'V10', title: 'Returned Parts', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'returns' },
+  },
+  {
     path: '/service/reminders',
     name: 'service-reminders',
     component: () => import('./views/RemindersView.vue'),

@@ -16,6 +16,8 @@ import { SERVICE_PERMISSIONS as P } from '../service.permissions';
 import type { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
 import { extendErrors, momentText, parseTime, runsInto, stickyOverdue, type JobTiming } from './timing.rules';
 import { visitErrors, visitText } from './visit.rules';
+import { ReturnsService } from '../returns/returns.service';
+import { returnErrors } from '../returns/returns.rules';
 import { reminderJobNote, remindersFrom } from '../reminders/reminder.rules';
 import type { SvcReminder } from '@prisma/client';
 import type { JobWithItems } from './jobs.query';
@@ -53,6 +55,7 @@ export class JobsService {
     private readonly settings: ServiceSettingsService,
     private readonly attachments: AttachmentsService,
     private readonly notifications: NotificationsService,
+    private readonly returns: ReturnsService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -279,6 +282,9 @@ export class JobsService {
     const photos = (await this.attachments.listFor(ctx.tenantId, SVC_ENTITY.JOB, job.id)).filter((a) => a.mimeType.startsWith('image/')).length;
     const errors = visitErrors(dto, photos);
     if (dto.nextDate && dto.nextDate < this.clock.today()) errors.push({ field: 'nextDate', message: 'The new date cannot be in the past.' });
+    // Parts coming back (phase 5): of a visit that happened; a postponed job's goods are checked in on their delivery order.
+    const back = dto.result === 'POSTPONED' ? [] : (dto.returns ?? []);
+    errors.push(...returnErrors(back, job.items.map((i) => ({ itemCode: i.itemCode, qty: i.qty.toString() }))));
     if (errors.length) throw new ValidationFailedError(errors);
     const by = job.personName && job.personName !== ctx.user.name ? `${ctx.user.name} for ${job.personName}` : ctx.user.name;
     // Recording the visit ends the overdue flag; a done job keeps when it became overdue, so its page says it was late.
@@ -310,6 +316,8 @@ export class JobsService {
         recordedBy: by, recordedAt: this.clock.now(), overdueSince, atRiskSince: null, atRiskNote: null,
       }, 'BOOKED');
       await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}${overdueSince ? ` · late: overdue since ${momentText(overdueSince)}` : ''}`, dto.note?.trim() || reason);
+      const returned = await this.returns.add(tx, ctx, job, back);
+      if (returned) await this.log(tx, ctx, job.id, job.docNo, 'returns_listed', `Parts coming back to the store: ${returned}`);
       if (dto.result === 'COMPLETE') await this.startReminders(tx, ctx, job, intervals);
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_DONE, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,

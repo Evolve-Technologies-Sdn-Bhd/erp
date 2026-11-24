@@ -2,7 +2,7 @@ import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
 import type {
   Board, ClaimDetail, ClaimInput, ClaimPeriod, ClaimRow, EligibleJob, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ReminderRow, ServiceCustomerOption, ServiceHome,
-  ServiceSettings, StockDay, VisitInput,
+  ReturnedPart, ServiceSettings, StockDay, VisitInput,
 } from '../types'
 
 /** The Service module's API (phase 5, F3) — /api/v1/service. */
@@ -70,6 +70,12 @@ export const serviceStockApi = {
   day: (date?: string) => api<StockDay>('/service/stock', { query: { date } }),
   confirm: (id: string, version: number) => api<StockDay>(`/service/stock/${id}/confirm`, { method: 'POST', body: { version } }),
   undo: (id: string, version: number) => api<StockDay>(`/service/stock/${id}/undo`, { method: 'POST', body: { version } }),
+}
+
+/** Returned Parts (phase 5) — /api/v1/service/returns. */
+export const serviceReturnsApi = {
+  list: (query: ListQuery) => api<ListResponse<ReturnedPart>>('/service/returns', { query }),
+  receive: (id: string, body: { version: number; goodQty: string; damagedQty: string; note?: string }) => api<ReturnedPart>(`/service/returns/${id}/receive`, { method: 'POST', body }),
 }
 
 /** Service reminders (F6) — /api/v1/service/reminders. */

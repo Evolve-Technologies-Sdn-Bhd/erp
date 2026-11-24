@@ -5,6 +5,7 @@ import type { Env } from '../../config/env';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
 import { JobStockService } from '../stock/job-stock.service';
 import { notReady, shortText } from '../stock/stock.rules';
+import { unfinished } from '../returns/returns.rules';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ClockService } from '../../platform/clock/clock.service';
@@ -59,6 +60,7 @@ export class StockCheckService implements OnApplicationShutdown {
       const done = { atRisk: [] as string[], ready: [] as string[] };
       const today = this.clock.today();
       const now = businessNow(this.clock.now(), today);
+      await this.tellUnfinished(tenantId, today);
       const booked = await this.prisma.svcJob.findMany({
         where: { tenantId, stage: 'BOOKED', jobType: 'INSTALLATION', salesOrderId: { not: null }, jobDate: { gte: day(today), lte: day(addDays(today, 1)) } },
         include: { items: true },
@@ -99,6 +101,24 @@ export class StockCheckService implements OnApplicationShutdown {
       }
       return confirms ? { ...done, deliveries: asked } : done;
     });
+  }
+
+  /** Jobs of a past day whose visit is not recorded or whose delivery order is not signed (phase 5): the office is told once. */
+  private async tellUnfinished(tenantId: string, today: string): Promise<void> {
+    const past = await this.prisma.svcJob.findMany({
+      where: { tenantId, jobDate: { lt: day(today) }, unfinishedAt: null, OR: [{ stage: 'BOOKED' }, { stage: { in: ['DONE', 'CLOSED'] }, deliveryNo: { not: null }, deliveredAt: null }] },
+    });
+    if (!past.length) return;
+    const ctx = await this.systemCtx(tenantId);
+    for (const j of past) {
+      const why = unfinished({ stage: j.stage, jobDate: iso(j.jobDate!), deliveryNo: j.deliveryNo, delivered: Boolean(j.deliveredAt) }, today);
+      if (!why) continue;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.svcJob.update({ where: { id: j.id }, data: { unfinishedAt: this.clock.now() } });
+        await this.activity.log(tx, ctx, { entityType: SVC_ENTITY.JOB, entityId: j.id, docNo: j.docNo, action: 'unfinished', message: `Unfinished: ${why} (${shortDay(iso(j.jobDate!))}, ${j.personName})`, comment: null });
+        await this.jobs.alert(tx, ctx, { ...j, agentCode: null }, 'service.job.unfinished', `${j.personName} has an unfinished job: ${j.docNo}`, `${j.customerName}, ${shortDay(iso(j.jobDate!))}: ${why}. Finish it before giving ${j.personName} more jobs.`);
+      });
+    }
   }
 
   private async runForAll(): Promise<void> {

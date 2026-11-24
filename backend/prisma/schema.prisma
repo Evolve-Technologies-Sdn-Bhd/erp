@@ -2341,6 +2341,17 @@ model SalDelivery {
   confirmedAt     DateTime?         @db.DateTime(3)
   confirmedByCode String?           @db.VarChar(20)
   confirmedByName String?           @db.VarChar(100)
+  // The signed delivery order (phase 5): collected from the store, signed by the customer, or refused and accepted unsigned.
+  collectedAt     DateTime?         @db.DateTime(3)
+  collectedByName String?           @db.VarChar(100)
+  signedAt        DateTime?         @db.DateTime(3)
+  signerName      String?           @db.VarChar(100)
+  refusedAt       DateTime?         @db.DateTime(3)
+  refusedByCode   String?           @db.VarChar(20)
+  refusedByName   String?           @db.VarChar(100)
+  refuseReason    String?           @db.VarChar(300)
+  unsignedByName  String?           @db.VarChar(100) // Management accepted it without a signature
+  refuseReturned  String?           @db.VarChar(300) // Management sent it back, with why
   creditResult    String?           @db.VarChar(20) // PASSED, WARNED, OVER_LIMIT, APPROVED
   creditSnapshot  Json? // "Credit at save" for this delivery
   approvedAt      DateTime?         @db.DateTime(3) // credit approval (overdue limit → Sales Manager)
@@ -2884,6 +2895,7 @@ model SalSetting {
   autoCancelDays         Int      @default(60)
   preOrders              Boolean  @default(false) // on: an order released with any item short of stock is a pre-order as a whole (phase 5)
   holdStock              Boolean  @default(false) // on: stock of booked installations is held: other orders count what is left (phase 5)
+  signedDelivery         Boolean  @default(false) // on: a delivery order of an installation is collected, then delivered when the customer signs (phase 5)
   autoDelivery           Boolean  @default(false) // on: Service asks for the delivery order 24 hours before the installation, and Sales drafts it (phase 5)
   shareWhatsapp          Boolean  @default(false) // on: whoever keys orders opens WhatsApp with the released order's summary for the customer (phase 5)
   reviseOrders           Boolean  @default(false) // on: a released order is revised until it is delivered; after booking or for a price change the Sales Manager approves (phase 5)
@@ -3070,6 +3082,8 @@ model SvcJob {
   stockConfirmedBy String?     @db.VarChar(100)
   deliveryId     String?      @db.Char(36) // from Sales' events; Service never reads sal_ tables
   deliveryNo     String?      @db.VarChar(30)
+  deliveredAt    DateTime?    @db.DateTime(3) // signed, or accepted unsigned, or confirmed by the store
+  unfinishedAt   DateTime?    @db.DateTime(3) // the office was told this job is unfinished (visit or signature missing)
   // Stock not ready 24 hours before a booked installation: the office and the salesperson are alerted (phase 5).
   atRiskSince    DateTime?    @db.DateTime(3)
   atRiskNote     String?      @db.VarChar(300)
@@ -3110,6 +3124,34 @@ model SvcJob {
   @@index([tenantId, personId, jobDate])
   @@index([tenantId, jobDate])
   @@map("svc_job")
+}
+
+/// Parts an installer brings back from a job (phase 5): listed at the visit, received by the store as good or damaged.
+model SvcReturn {
+  id           String    @id @default(uuid()) @db.Char(36)
+  tenantId     String    @db.Char(36)
+  branchCode   String    @db.VarChar(10)
+  jobId        String    @db.Char(36)
+  jobNo        String    @db.VarChar(30)
+  customerName String    @db.VarChar(150)
+  personName   String?   @db.VarChar(100)
+  warehouseCode String?  @db.VarChar(20)
+  itemCode     String    @db.VarChar(30)
+  itemName     String    @db.VarChar(150)
+  uomCode      String    @db.VarChar(10)
+  qty          Decimal   @db.Decimal(18, 4) // what the installer says comes back
+  goodQty      Decimal?  @db.Decimal(18, 4)
+  damagedQty   Decimal?  @db.Decimal(18, 4)
+  note         String?   @db.VarChar(300)
+  receivedAt   DateTime? @db.DateTime(3)
+  receivedBy   String?   @db.VarChar(100)
+  version      Int       @default(1)
+  createdAt    DateTime  @default(now()) @db.DateTime(3)
+  createdBy    String    @db.VarChar(20)
+
+  @@unique([jobId, itemCode])
+  @@index([tenantId, receivedAt])
+  @@map("svc_return")
 }
 
 /// Service's own settings (phase 5). No row: the defaults.

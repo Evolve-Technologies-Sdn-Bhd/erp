@@ -232,6 +232,8 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
             <div class="flex flex-col justify-center border-r border-erp-border px-3 py-2">
               <span class="text-[13px] font-semibold">{{ p.name }}</span>
               <span class="text-xs text-erp-muted">{{ p.roleLabel }} · {{ p.jobs.length }} job{{ p.jobs.length === 1 ? '' : 's' }}</span>
+              <RouterLink v-for="u in p.unfinished.slice(0, 2)" :key="u.id" :to="`/service/jobs/${u.id}`" data-tour="svc:unfinished" class="text-xs font-semibold text-chip-cancelled-text no-underline hover:underline" :title="`${u.docNo}: ${u.why}`">Unfinished: {{ u.docNo }}</RouterLink>
+              <span v-if="p.unfinished.length > 2" class="text-xs text-chip-cancelled-text">and {{ p.unfinished.length - 2 }} more</span>
             </div>
             <div class="relative h-[64px]">
               <span v-for="h in hours" :key="h" class="absolute top-0 bottom-0 border-l border-erp-row" :style="{ left: `${pct(h)}%` }" aria-hidden="true" />

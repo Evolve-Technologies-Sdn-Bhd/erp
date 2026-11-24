@@ -107,6 +107,7 @@ Purchase and Sales read master data through `MasterDataPort` and keep no copy, s
 | Event | When | Main payload | Who listens |
 |---|---|---|---|
 | `sales.delivery.drafted`, `sales.delivery.removed` | A delivery order of an order with installation is drafted, or that draft is deleted (phase 5) | doNo, doId, salesOrderId, salesOrderNo | **Service** (the job's delivery order) |
+| `sales.delivery.delivered` | A delivery order of an order with installation is delivered (phase 5) | doNo, doId, salesOrderId, salesOrderNo, how (SIGNED, UNSIGNED, CONFIRMED), signerName | **Service** (the job is delivered) |
 | `sales.receipt.verified` | Account verified an official receipt against the bank or card settlement | orNo, receivedOn, kind (DEPOSIT, BALANCE), method, amount, verifiedRef, salesOrderId, salesOrderNo, customerCode, branchCode, order: { total, verified, status: UNPAID, DEPOSIT or FULLY_PAID } | Service (`service.job-payment`); Finance and the accounting system — later |
 
 ## Service publishes
@@ -118,6 +119,7 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 | `service.job.created` | A job made from a released order or added by the office | jobNo, jobType, typeLabel, branchCode, customerCode, salesOrderNo or null, preferredDate, afterStock | Phone app, Sales (the job on the order) — later |
 | `service.job.booked` | A job booked or moved on the Planning Board | jobNo, jobType, personId, personName, date, start and end (minutes from midnight), moved, salesOrderId, salesOrderNo, bookingText | **Sales** (the booking on the order); phone app — later |
 | `service.job.delivery_due` | A booked job from a sales order is within 24 hours and the warehouse has confirmed its stock; each hour until it has a delivery order | jobNo, salesOrderId, salesOrderNo, date, start, end, personName, bookingText | **Sales** (drafts the delivery order) |
+| `service.parts.returned` | The store received a part an installer brought back (phase 5) | jobNo, itemCode, uomCode, warehouseCode, goodQty, damagedQty | Inventory (later) |
 | `service.job.unbooked` | A booked job taken off the board, or its visit postponed | jobNo, salesOrderId, salesOrderNo, reason | **Sales** (clears the booking) |
 | `service.job.done` | A visit recorded as complete or partly done | jobNo, jobType, personId, personName, date, result, paidStatus, salesOrderNo, customerCode | Fees and commission (F5) — later |
 | `service.job.extended` | The office gave a booked job longer (F3 part 4) | jobNo, personId, personName, date, from and to (minutes from midnight), reason, runsInto (the later jobs it now runs into) | Phone app — later |
@@ -131,6 +133,8 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 |---|---|---|
 | `sales.order.released` | Sales | An order released with the Installation option makes an installation job, *Not booked*, with the customer's preferred date or *after stock arrives*, its items and the delivery address. Delivery only, collect, and companies whose Sales does not ask make none. Once per order (`svc_job` is unique on the order). A revised order released again (`revision` above 1) updates its job not done yet: items, contact, address and, while not booked, the preferred date; a revision without installation cancels the job |
 | `sales.delivery.drafted`, `sales.delivery.removed` | Sales | The order's job keeps, or drops, its delivery order's number (phase 5) |
+| `sales.delivery.delivered` | Sales | The order's job is delivered: no longer unfinished for a missing signature (phase 5) |
+| `sales.order.balance_cancelled` | Sales | When the order closed: its job, not done yet, is cancelled (phase 5) |
 | `sales.receipt.verified` | Sales | The order's jobs keep where its payment stands (Unpaid, Deposit paid, Fully paid, paid and total), with a line on each job's activity |
 
 ## Alerts are not events
@@ -157,7 +161,8 @@ Stored in `sys_event_handled.handler`. The seed marks its own history as handled
 | `sales.install-booked` | `service.job.booked` |
 | `sales.install-unbooked` | `service.job.unbooked` |
 | `sales.install-delivery` | `service.job.delivery_due` |
-| `service.job-delivery`, `service.job-delivery-removed` | `sales.delivery.drafted`, `sales.delivery.removed` (only with `SERVICE_MODULE=on`) |
+| `service.job-delivery`, `service.job-delivery-removed`, `service.job-delivered` | `sales.delivery.drafted`, `sales.delivery.removed`, `sales.delivery.delivered` (only with `SERVICE_MODULE=on`) |
+| `service.job-order-closed` | `sales.order.balance_cancelled` (only with `SERVICE_MODULE=on`) |
 | `sales.install-cancelled` | `service.job.cancelled` |
 | `service.job-from-order` | `sales.order.released` (only with `SERVICE_MODULE=on`) |
 | `service.job-payment` | `sales.receipt.verified` (only with `SERVICE_MODULE=on`) |

@@ -23,6 +23,10 @@ export const SALES_PERMISSIONS = {
   RETURN_RECEIVE: 'sales.return.receive',
   CANCEL_ORDER_EDIT: 'sales.cancel_order.edit',
   CANCEL_ORDER_RELEASE: 'sales.cancel_order.release',
+  /** Record the customer's signature on a delivery order, or that they refused (phase 5; the installer's app later). */
+  DELIVERY_SIGN: 'sales.delivery.sign',
+  /** Management: accept a delivery order the customer did not sign, and cancel an order after its delivery order (phase 5). No starter role. */
+  EXCEPTION_APPROVE: 'sales.exception.approve',
   MARGIN_VIEW: 'sales.margin.view',
   SETTINGS_MANAGE: 'sales.settings.manage',
   /** Record a customer payment as an official receipt, with its proof (phase 5). */
@@ -73,6 +77,8 @@ export const SALES_PERMISSION_CATALOGUE: ModulePermissions = {
     { key: P.RETURN_RECEIVE, object: 'Sales return', action: 'Receive goods' },
     { key: P.CANCEL_ORDER_EDIT, object: 'Cancel order', action: 'Edit' },
     { key: P.CANCEL_ORDER_RELEASE, object: 'Cancel order', action: 'Release' },
+    { key: P.DELIVERY_SIGN, object: 'Delivery order', action: 'Record the signature' },
+    { key: P.EXCEPTION_APPROVE, object: 'Management', action: 'Accept unsigned, cancel after the delivery order' },
     { key: P.RECEIPT_EDIT, object: 'Official receipt', action: 'Record' },
     { key: P.RECEIPT_VERIFY, object: 'Official receipt', action: 'Verify' },
     { key: P.SETTINGS_MANAGE, object: 'Operation policies', action: 'Manage' },

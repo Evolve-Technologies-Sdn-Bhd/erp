@@ -29,6 +29,7 @@ import {
   waitingState,
   type DoStatus,
 } from './delivery.rules';
+import { needsSignature, signActions, signLabel, signState } from './signed-delivery.rules';
 import type { DeliveryListQueryDto } from './dto/delivery.dto';
 
 export type OrderWithLines = SalSalesOrder & { lines: SalSalesOrderLine[] };
@@ -100,9 +101,15 @@ export class DeliveriesQuery {
     return this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.DELIVERY, thisDocument: toMoney(value), branchCode: d.branchCode, excludeOrderId: d.salesOrder.id });
   }
 
-  actions(ctx: RequestContext, d: DeliveryWithLines, credit: CreditOutcome | null, approvalPending: boolean) {
+  /** Whether this delivery order is signed by the customer (phase 5): the switch, and an order with installation. */
+  async signed(tenantId: string, d: DeliveryWithLines): Promise<boolean> {
+    const s = await this.prisma.salSetting.findUnique({ where: { tenantId }, select: { signedDelivery: true } });
+    return needsSignature(Boolean(s?.signedDelivery), d.salesOrder?.installOption);
+  }
+
+  actions(ctx: RequestContext, d: DeliveryWithLines, credit: CreditOutcome | null, approvalPending: boolean, signed = false) {
     const has = (p: string) => this.permissions.has(ctx.user.roles, p);
-    return allowedDeliveryActions({
+    const base = allowedDeliveryActions({
       status: d.status as DoStatus,
       isMigrated: d.isMigrated,
       approvalPending,
@@ -110,6 +117,10 @@ export class DeliveriesQuery {
       approved: Boolean(d.approvedAt),
       canEdit: has(P.DELIVERY_EDIT),
       canConfirm: has(P.DELIVERY_CONFIRM),
+    });
+    if (!signed) return base;
+    return signActions({ ...d, status: d.status as DoStatus }, base, {
+      store: has(P.DELIVERY_CONFIRM), sign: has(P.DELIVERY_SIGN), manage: has(P.EXCEPTION_APPROVE), isRefuser: d.refusedByCode === ctx.user.code,
     });
   }
 
@@ -217,7 +228,7 @@ export class DeliveriesQuery {
         driver: d.driver,
         consignmentNote: d.consignmentNote,
         status: d.status,
-        statusLabel: deliveryStatusLabel(d.status as DoStatus),
+        statusLabel: signLabel({ ...d, status: d.status as DoStatus }) ?? deliveryStatusLabel(d.status as DoStatus),
         isMigrated: d.isMigrated,
         version: d.version,
       })),
@@ -246,6 +257,7 @@ export class DeliveriesQuery {
     const decidedStep = latest?.steps.find((s) => s.decidedAt);
     const waitingStep = latest?.status === 'PENDING' ? latest.steps.find((s) => s.status === 'WAITING') : null;
     const lines = this.linesOf(d);
+    const signed = await this.signed(ctx.tenantId, d);
 
     // Order progress after this DO, over all the order's lines (not only the ones on this DO).
     const orderLines = order?.lines ?? [];
@@ -259,7 +271,15 @@ export class DeliveriesQuery {
       docNo: d.docNo,
       docDate: iso(d.docDate),
       status: d.status,
-      statusLabel: deliveryStatusLabel(d.status as DoStatus),
+      statusLabel: signLabel({ ...d, status: d.status as DoStatus }) ?? deliveryStatusLabel(d.status as DoStatus),
+      /** The customer's signature (phase 5); null where the steps do not apply. */
+      signature: signed || d.signedAt || d.unsignedByName
+        ? {
+            state: signState({ ...d, status: d.status as DoStatus }), collectedAt: d.collectedAt?.toISOString() ?? null, collectedByName: d.collectedByName,
+            signedAt: d.signedAt?.toISOString() ?? null, signerName: d.signerName, refusedAt: d.refusedAt?.toISOString() ?? null, refusedByName: d.refusedByName,
+            refuseReason: d.refuseReason, refuseReturned: d.refuseReturned, unsignedByName: d.unsignedByName,
+          }
+        : null,
       isMigrated: d.isMigrated,
       version: d.version,
       customer: { code: d.customerCode, name: d.customerName },
@@ -320,7 +340,7 @@ export class DeliveriesQuery {
       confirmedByName: d.confirmedByName,
       links,
       activity,
-      allowedActions: this.actions(ctx, d, credit, latest?.status === 'PENDING'),
+      allowedActions: this.actions(ctx, d, credit, latest?.status === 'PENDING', signed),
     };
   }
 }

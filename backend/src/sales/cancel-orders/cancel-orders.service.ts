@@ -9,6 +9,9 @@ import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { openToDeliver } from '../deliveries/delivery.rules';
+import { cancelAfterDelivery } from '../deliveries/signed-delivery.rules';
+import { PermissionRegistry } from '../../platform/context/permission.registry';
+import { SALES_PERMISSIONS as P } from '../sales.permissions';
 import { SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_LINK } from '../shared/sales.constants';
 import { cancelProblems, cancelSummary, CO_LOCKED_MESSAGE, orderAfterCancel, type CancelAction } from './cancel-order.rules';
 import { CancelOrdersQuery, type CancelWithLines } from './cancel-orders.query';
@@ -30,6 +33,7 @@ export class CancelOrdersService {
     private readonly activity: ActivityService,
     private readonly outbox: OutboxWriter,
     private readonly clock: ClockService,
+    private readonly permissions: PermissionRegistry,
   ) {}
 
   async create(ctx: RequestContext, dto: CreateCancelDto) {
@@ -108,6 +112,7 @@ export class CancelOrdersService {
       await tx.$queryRaw`SELECT id FROM sal_sales_order WHERE id = ${c.salesOrderId} FOR UPDATE`;
       const order = await tx.salSalesOrder.findUniqueOrThrow({ where: { id: c.salesOrderId! }, include: { lines: { orderBy: { lineNo: 'asc' } } } });
       if (!['RELEASED', 'PARTIAL'].includes(order.status)) throw new BusinessRuleError('ORDER_NOT_OPEN', `${order.docNo} has no open balance any more.`);
+      const drafts = await this.afterDelivery(tx, ctx, order);
       const counted = c.lines.map((l) => ({ line: l, so: order.lines.find((x) => x.id === l.soLineId)! }));
       const problems = cancelProblems(counted.map((x) => ({ qty: x.line.cancelQty, balance: openToDeliver(x.so) })));
       if (problems.length) throw new ValidationFailedError(problems, 'Something was delivered meanwhile. Check the quantities.');
@@ -120,6 +125,7 @@ export class CancelOrdersService {
       const next = orderAfterCancel(order.status as 'RELEASED' | 'PARTIAL', after);
       await tx.salSalesOrder.update({ where: { id: order.id }, data: { status: next.status, balanceCancelled: next.balanceCancelled, version: { increment: 1 }, updatedBy: ctx.user.code } });
       await this.bump(tx, ctx, c.id, version, { status: 'RELEASED', releasedAt: now, releasedByCode: ctx.user.code });
+      if (next.balanceCancelled && drafts.length) await this.dropDeliveries(tx, ctx, order, c.docNo, drafts);
 
       const qty = qtyText(c.lines.reduce((s, l) => s.add(l.cancelQty), dec(0)));
       const linkedPo = counted.filter((x) => x.so.isBuyToOrder && x.so.purchaseOrderNo).map((x) => x.so.purchaseOrderNo!);
@@ -132,7 +138,7 @@ export class CancelOrdersService {
         name: SAL_EVENT.ORDER_BALANCE_CANCELLED, aggregateType: SAL_ENTITY.CANCEL_ORDER, aggregateId: c.id,
         payload: {
           cancelNo: c.docNo, soNo: order.docNo, branchCode: order.branchCode, warehouseCode: order.warehouseCode, customerCode: order.customerCode,
-          reason: c.reason, orderClosed: next.balanceCancelled,
+          salesOrderId: order.id, reason: c.reason, orderClosed: next.balanceCancelled,
           lines: counted.filter((x) => x.line.cancelQty.gt(0)).map((x) => ({
             lineNo: x.so.lineNo, itemCode: x.so.itemCode, uomCode: x.so.uomCode, qty: toQty(x.line.cancelQty), isBuyToOrder: x.so.isBuyToOrder, purchaseOrderNo: x.so.purchaseOrderNo,
           })),
@@ -140,6 +146,31 @@ export class CancelOrdersService {
       }]);
     });
     return this.query.detail(ctx, id);
+  }
+
+  /**
+   * Cancelling after the delivery order (phase 5): with the automatic or the signed delivery order in use, an order with
+   * installation that has one not delivered yet is cancelled by Management only, and never while the goods are out.
+   */
+  private async afterDelivery(tx: Tx, ctx: RequestContext, order: { id: string; docNo: string; installOption: string | null }) {
+    const s = await tx.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { autoDelivery: true, signedDelivery: true } });
+    if (order.installOption !== 'INSTALLATION' || !(s?.autoDelivery || s?.signedDelivery)) return [];
+    const drafts = await tx.salDelivery.findMany({ where: { tenantId: ctx.tenantId, salesOrderId: order.id, status: 'DRAFT', isMigrated: false } });
+    const refusal = cancelAfterDelivery(drafts.map((d) => ({ docNo: d.docNo, collected: Boolean(d.collectedAt) })), this.permissions.has(ctx.user.roles, P.EXCEPTION_APPROVE), order.docNo);
+    if (refusal) throw new BusinessRuleError(refusal.code, refusal.message);
+    return drafts;
+  }
+
+  /** The order closed: its draft delivery orders go with it, and Service drops them from the job. */
+  private async dropDeliveries(tx: Tx, ctx: RequestContext, order: { id: string; docNo: string }, cancelNo: string, drafts: { id: string; docNo: string }[]) {
+    for (const d of drafts) {
+      await tx.salDelivery.delete({ where: { id: d.id } });
+      await tx.sysDocLink.deleteMany({ where: { tenantId: ctx.tenantId, toType: SAL_ENTITY.DELIVERY, toId: d.id } });
+      await this.activity.log(tx, ctx, { entityType: SAL_ENTITY.ORDER, entityId: order.id, docNo: order.docNo, action: 'delivery_dropped', message: `${d.docNo} removed with ${cancelNo}. It will not be used again.`, comment: null });
+      await this.outbox.publish(tx, ctx, [{
+        name: SAL_EVENT.DELIVERY_REMOVED, aggregateType: SAL_ENTITY.DELIVERY, aggregateId: d.id, payload: { doNo: d.docNo, doId: d.id, salesOrderId: order.id, salesOrderNo: order.docNo },
+      }]);
+    }
   }
 
   /**

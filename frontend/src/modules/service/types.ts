@@ -61,6 +61,8 @@ export interface VisitInput {
   notPaidReason?: string
   note?: string
   nextDate?: string
+  /** Parts coming back to the store (phase 5). */
+  returns?: { itemCode: string; qty: string }[]
 }
 
 export interface JobDetail extends JobRow {
@@ -105,7 +107,9 @@ export interface JobDetail extends JobRow {
   /** The stock the job needs, free once earlier jobs have theirs, and the warehouse's confirmation (phase 5). */
   stock: { confirms: boolean; items: JobStockItem[]; confirmedAt: string | null; confirmedBy: string | null }
   /** The delivery order Sales made for the job (phase 5). */
-  delivery: { id: string; docNo: string | null } | null
+  delivery: { id: string; docNo: string | null; delivered: boolean } | null
+  /** Parts the installer said come back (phase 5). */
+  returns: ReturnedPart[]
   doneAt: string | null
   doneNote: string | null
   closedAt: string | null
@@ -212,6 +216,28 @@ export interface JobStockItem {
   short: boolean
 }
 
+/** V10 · Returned Parts. */
+export interface ReturnedPart {
+  id: string
+  jobId: string
+  jobNo: string
+  customerName: string
+  personName: string | null
+  itemCode: string
+  itemName: string
+  uomCode: string
+  qty: string
+  goodQty: string | null
+  damagedQty: string | null
+  note: string | null
+  receivedAt: string | null
+  receivedBy: string | null
+  receivedText: string | null
+  createdAt: string
+  version: number
+  canReceive?: boolean
+}
+
 /** V09 · Stock for Jobs. */
 export interface StockJob {
   id: string
@@ -299,7 +325,7 @@ export interface Board {
   today: string
   /** Where the clock is, when the board shows today. */
   nowMinutes: number | null
-  people: (Person & { jobs: BoardJob[] })[]
+  people: (Person & { jobs: BoardJob[]; unfinished: { id: string; docNo: string; why: string }[] })[]
   slotGroups: SlotGroup[]
   notBooked: BoardWaiting[]
 }

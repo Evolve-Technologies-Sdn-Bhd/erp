@@ -81,4 +81,6 @@ export const SAL_EVENT = {
   DELIVERY_DRAFTED: 'sales.delivery.drafted',
   /** That draft was deleted again. */
   DELIVERY_REMOVED: 'sales.delivery.removed',
+  /** A delivery order of an order with installation is delivered: signed, accepted unsigned, or confirmed by the store. */
+  DELIVERY_DELIVERED: 'sales.delivery.delivered',
 } as const;

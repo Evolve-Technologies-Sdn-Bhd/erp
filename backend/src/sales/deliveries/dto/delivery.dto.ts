@@ -81,6 +81,39 @@ export class DeliveryVersionDto {
   version!: number;
 }
 
+/** The customer signed (phase 5): who, and the signed delivery order already uploaded (or on the delivery order). */
+export class SignDeliveryDto extends DeliveryVersionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  signerName?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  fileIds?: string[];
+}
+
+export class RefuseDeliveryDto extends DeliveryVersionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  reason?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  fileIds?: string[];
+}
+
+/** Management's decision on a delivery order the customer did not sign, or goods checked back in. */
+export class DeliveryNoteDto extends DeliveryVersionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string;
+}
+
 export class DeliveryApprovalDto extends DeliveryVersionDto {
   @IsString()
   @IsNotEmpty({ message: 'Type a reason for the approver.' })

@@ -6,7 +6,7 @@ import { dec, roundMoney, type DecimalInput } from '../../platform/http/decimal'
 export const DO_STATUSES = ['DRAFT', 'CONFIRMED'] as const;
 export type DoStatus = (typeof DO_STATUSES)[number];
 
-export type DeliveryAction = 'edit' | 'delete' | 'requestApproval' | 'confirm' | 'attach';
+export type DeliveryAction = 'edit' | 'delete' | 'requestApproval' | 'confirm' | 'attach' | 'collect' | 'checkIn' | 'sign' | 'refuse' | 'acceptUnsigned' | 'returnRefusal';
 
 export const DO_LOCKED_MESSAGE = 'A confirmed delivery order is locked. Mistakes are fixed with a sales return, not an edit.';
 

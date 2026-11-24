@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SvcJob, SvcJobItem, SvcJobStage } from '@prisma/client';
 import { JobStockService } from '../stock/job-stock.service';
+import { returnView } from '../returns/returns.service';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { AttachmentsService } from '../../platform/attachments/attachments.service';
 import { ActivityService } from '../../platform/activity/activity.service';
@@ -159,7 +160,9 @@ export class JobsQuery {
         confirmedAt: job.stockConfirmedAt?.toISOString() ?? null,
         confirmedBy: job.stockConfirmedBy,
       },
-      delivery: job.deliveryId ? { id: job.deliveryId, docNo: job.deliveryNo } : null,
+      delivery: job.deliveryId ? { id: job.deliveryId, docNo: job.deliveryNo, delivered: Boolean(job.deliveredAt) } : null,
+      /** Parts the installer said come back (phase 5). */
+      returns: (await this.prisma.svcReturn.findMany({ where: { tenantId: ctx.tenantId, jobId: job.id }, orderBy: { itemCode: 'asc' } })).map(returnView),
       doneAt: job.doneAt?.toISOString() ?? null,
       doneNote: job.doneNote,
       /** What the installer recorded (F3 part 3): null until the visit is recorded as complete or partly done. */

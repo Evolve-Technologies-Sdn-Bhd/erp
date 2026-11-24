@@ -226,10 +226,20 @@ const METHODS: { value: PaidMethod; label: string }[] = [
   { value: 'CHEQUE', label: 'Cheque' },
 ]
 const recordOpen = ref(false)
-const visit = reactive({ result: 'COMPLETE' as VisitResult, reason: '', arrivedAt: '', finishedAt: '', paidStatus: '' as PaidStatus | '', paidMethod: '' as PaidMethod | '', notPaidReason: '', note: '', nextDate: '' })
+const visit = reactive({ result: 'COMPLETE' as VisitResult, reason: '', arrivedAt: '', finishedAt: '', paidStatus: '' as PaidStatus | '', paidMethod: '' as PaidMethod | '', notPaidReason: '', note: '', nextDate: '', returns: {} as Record<string, string> })
 const visitErrors = ref<Record<string, string>>({})
+/** The job's items, each once, for the parts coming back (phase 5). */
+const returnItems = computed(() => {
+  const out = new Map<string, { itemCode: string; itemName: string; qty: string }>()
+  for (const i of job.value?.items ?? []) {
+    const before = out.get(i.itemCode)
+    out.set(i.itemCode, { itemCode: i.itemCode, itemName: i.itemName, qty: String(Number(before?.qty ?? 0) + Number(i.qty)) })
+  }
+  return [...out.values()]
+})
+const returnError = computed(() => Object.entries(visitErrors.value).find(([k]) => k.startsWith('returns'))?.[1] ?? '')
 function openRecord() {
-  Object.assign(visit, { result: 'COMPLETE', reason: '', arrivedAt: '', finishedAt: '', paidStatus: '', paidMethod: '', notPaidReason: '', note: '', nextDate: '' })
+  Object.assign(visit, { result: 'COMPLETE', reason: '', arrivedAt: '', finishedAt: '', paidStatus: '', paidMethod: '', notPaidReason: '', note: '', nextDate: '', returns: {} })
   visitErrors.value = {}
   recordOpen.value = true
 }
@@ -243,7 +253,7 @@ async function saveVisit() {
   try {
     const result = await serviceJobsApi.record(j.id, {
       version: j.version, result: visit.result, reason: visit.reason.trim() || undefined, arrivedAt: visit.arrivedAt || undefined, finishedAt: visit.finishedAt || undefined,
-      ...(visit.result !== 'POSTPONED' && { paidStatus: visit.paidStatus || undefined, paidMethod: visit.paidStatus === 'PAID' ? visit.paidMethod || undefined : undefined, notPaidReason: visit.paidStatus === 'NOT_PAID' ? visit.notPaidReason.trim() || undefined : undefined, note: visit.note.trim() || undefined }),
+      ...(visit.result !== 'POSTPONED' && { paidStatus: visit.paidStatus || undefined, paidMethod: visit.paidStatus === 'PAID' ? visit.paidMethod || undefined : undefined, notPaidReason: visit.paidStatus === 'NOT_PAID' ? visit.notPaidReason.trim() || undefined : undefined, note: visit.note.trim() || undefined, returns: Object.entries(visit.returns).filter(([, q]) => q.trim() && Number(q) !== 0).map(([itemCode, qty]) => ({ itemCode, qty: qty.trim() })) }),
       ...(visit.result === 'POSTPONED' && visit.nextDate && { nextDate: visit.nextDate }),
     })
     show(result)
@@ -479,7 +489,12 @@ const asksFor = computed(() => {
                 <span class="text-right" :class="job.stock.confirmedAt ? 'font-semibold text-chip-done-text' : 'text-attention'">{{ job.stock.confirmedAt ? `Confirmed by ${job.stock.confirmedBy}` : 'Not confirmed' }}</span>
               </div>
             </template>
-            <div v-if="job.delivery" class="flex justify-between gap-3"><span class="text-erp-muted">Delivery order</span><RouterLink :to="`/sales/deliveries/${job.delivery.id}`" class="erp-link font-semibold">{{ job.delivery.docNo }}</RouterLink></div>
+            <div v-if="job.delivery" class="flex justify-between gap-3"><span class="text-erp-muted">{{ job.delivery.delivered ? 'Delivered' : 'Delivery order' }}</span><RouterLink :to="`/sales/deliveries/${job.delivery.id}`" class="erp-link font-semibold">{{ job.delivery.docNo }}</RouterLink></div>
+          </div>
+        </SideCard>
+        <SideCard v-if="job?.returns.length" data-tour="svc:returns" title="Parts coming back">
+          <div v-for="r in job.returns" :key="r.id" class="flex justify-between gap-3 text-[13px]">
+            <span>{{ formatQty(r.qty) }} {{ r.itemCode }}</span><span class="text-right" :class="r.receivedAt ? 'text-chip-done-text' : 'text-attention'">{{ r.receivedText ?? 'Not received yet' }}</span>
           </div>
         </SideCard>
         <SideCard v-if="job?.doneAt" title="Done">
@@ -584,6 +599,14 @@ const asksFor = computed(() => {
           <FormField label="Work done (optional)" for="visit-note">
             <textarea id="visit-note" v-model="visit.note" rows="2" class="erp-input h-auto py-2" maxlength="500" />
           </FormField>
+          <fieldset v-if="job?.items.length" data-tour="svc:visit-returns" class="m-0 flex flex-col gap-1.5 border-0 p-0">
+            <legend class="mb-1 text-xs font-medium text-erp-muted">Parts coming back to the store (optional)</legend>
+            <label v-for="i in returnItems" :key="i.itemCode" class="flex items-center gap-2">
+              <input v-model="visit.returns[i.itemCode]" class="erp-input w-20 text-right" inputmode="decimal" placeholder="0" :aria-label="`${i.itemCode} coming back`" />
+              <span>of {{ formatQty(i.qty) }} {{ i.itemCode }} <span class="text-erp-muted">{{ i.itemName }}</span></span>
+            </label>
+            <span v-if="returnError" class="text-xs text-note-error-text">{{ returnError }}</span>
+          </fieldset>
           <p class="m-0 text-xs" :class="visitErrors.photos ? 'font-semibold text-note-error-text' : 'text-erp-muted'">
             {{ job?.photos.length ? `${job.photos.length} photo${job.photos.length === 1 ? '' : 's'} on the job.` : 'No photo yet: add one under Photos on the job page first.' }}
             <template v-if="visitErrors.photos"> {{ visitErrors.photos }}</template>

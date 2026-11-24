@@ -6,6 +6,7 @@ import { PrismaService } from '../../platform/prisma/prisma.service';
 import { bookingNeeds, JOB_STAGE_LABEL, JOB_TYPE_LABEL, shortDay, waitingText, type JobStage, type JobType } from '../jobs/jobs.rules';
 import { businessNow, momentText, overdueOf, type BusinessNow } from '../jobs/timing.rules';
 import { personView, ServiceSettingsService, slotGroupView } from '../settings/settings.service';
+import { unfinished } from '../returns/returns.rules';
 import { busyEnd, SITE_TYPE_LABEL, slotLabel, timeLabel, type SiteType } from './booking.rules';
 
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -43,11 +44,16 @@ export class BoardQuery {
     const today = this.clock.today();
     const now = businessNow(this.clock.now(), today);
     const on = date ?? today;
-    const [people, groups, booked, waiting] = await Promise.all([
+    const [people, groups, booked, waiting, left] = await Promise.all([
       this.prisma.svcPerson.findMany({ where: { tenantId: ctx.tenantId, isActive: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
       this.prisma.svcSlotGroup.findMany({ where: { tenantId: ctx.tenantId, isActive: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
       this.prisma.svcJob.findMany({ where: { tenantId: ctx.tenantId, jobDate: day(on), stage: { notIn: ['CANCELLED', 'NOT_BOOKED'] } }, orderBy: { slotStart: 'asc' } }),
       this.prisma.svcJob.findMany({ where: { tenantId: ctx.tenantId, stage: 'NOT_BOOKED' }, orderBy: [{ preferredDate: 'asc' }, { createdAt: 'asc' }] }),
+      // Unfinished jobs of past days (phase 5): warned on the person, never blocking.
+      this.prisma.svcJob.findMany({
+        where: { tenantId: ctx.tenantId, jobDate: { lt: day(today) }, personId: { not: null }, OR: [{ stage: 'BOOKED' }, { stage: { in: ['DONE', 'CLOSED'] }, deliveryNo: { not: null }, deliveredAt: null }] },
+        select: { id: true, docNo: true, personId: true, stage: true, jobDate: true, deliveryNo: true, deliveredAt: true }, orderBy: { jobDate: 'asc' },
+      }),
     ]);
     return {
       date: on,
@@ -57,6 +63,7 @@ export class BoardQuery {
       nowMinutes: on === today ? now.minutes : null,
       people: people.map((p) => ({
         ...personView(p),
+        unfinished: left.filter((j) => j.personId === p.id).map((j) => ({ id: j.id, docNo: j.docNo, why: unfinished({ stage: j.stage, jobDate: iso(j.jobDate), deliveryNo: j.deliveryNo, delivered: Boolean(j.deliveredAt) }, today)! })),
         jobs: booked.filter((j) => j.personId === p.id).map((j) => {
           const end = busyEnd({ slotEnd: j.slotEnd!, expectedEnd: j.expectedEnd });
           return {

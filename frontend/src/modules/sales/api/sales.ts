@@ -129,6 +129,9 @@ export const salesDeliveriesApi = {
   requestApproval: (id: string, version: number, reason: string) =>
     api<DeliveryDetail>(`/sales/deliveries/${id}/request-approval`, { method: 'POST', body: { version, reason } }),
   confirm: (id: string, version: number) => api<DeliveryDetail>(`/sales/deliveries/${id}/confirm`, { method: 'POST', body: { version } }),
+  /** The signed delivery order (phase 5): collect, check-in, sign, refuse, accept-unsigned, return-refusal. */
+  signStep: (id: string, step: string, body: { version: number; note?: string; signerName?: string; reason?: string; fileIds?: string[] }) =>
+    api<DeliveryDetail>(`/sales/deliveries/${id}/${step}`, { method: 'POST', body }),
 }
 
 export type InvoiceList = ListResponse<InvoiceListItem> & { kpis: InvoiceKpis }

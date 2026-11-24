@@ -619,7 +619,7 @@ export interface QuotationInput {
 
 // ── Delivery orders (S15, S16) ──────────────────────────────────────────────
 
-export type DeliveryAction = 'edit' | 'delete' | 'requestApproval' | 'confirm' | 'attach'
+export type DeliveryAction = 'edit' | 'delete' | 'requestApproval' | 'confirm' | 'attach' | 'collect' | 'checkIn' | 'sign' | 'refuse' | 'acceptUnsigned' | 'returnRefusal'
 export type WaitingState = 'READY' | 'NO_STOCK' | 'PURCHASE' | 'DEPOSIT'
 
 export interface DeliveryOverview {
@@ -674,6 +674,19 @@ export interface DeliveryDetail {
   docDate: string
   status: 'DRAFT' | 'CONFIRMED'
   statusLabel: string
+  /** The customer's signature (phase 5); null where the steps do not apply. */
+  signature: {
+    state: 'TO_COLLECT' | 'COLLECTED' | 'REFUSED' | 'DELIVERED'
+    collectedAt: string | null
+    collectedByName: string | null
+    signedAt: string | null
+    signerName: string | null
+    refusedAt: string | null
+    refusedByName: string | null
+    refuseReason: string | null
+    refuseReturned: string | null
+    unsignedByName: string | null
+  } | null
   isMigrated: boolean
   version: number
   customer: { code: string; name: string }
@@ -1307,6 +1320,8 @@ export interface SalesFlowSwitches {
   holdStock: boolean
   /** The delivery order is made 24 hours before the installation (phase 5). */
   autoDelivery: boolean
+  /** A delivery order of an installation is delivered when the customer signs (phase 5). */
+  signedDelivery: boolean
 }
 
 export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'

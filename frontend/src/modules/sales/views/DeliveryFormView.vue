@@ -2,10 +2,12 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
+import Dialog from 'primevue/dialog'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Lock } from '@lucide/vue'
 import { ApiError } from '@/api/http'
+import { useDeliverySigning } from '../composables/useDeliverySigning'
 import ActivityList from '@/components/erp/ActivityList.vue'
 import FileTiles from '@/components/erp/FileTiles.vue'
 import FormField from '@/components/erp/FormField.vue'
@@ -229,6 +231,10 @@ async function onBrowse(event: Event) {
   if (file) await upload(file)
 }
 
+// ── The signed delivery order (phase 5) ──────────────────────────────────────
+const signing = useDeliverySigning(delivery, show)
+const { step: signStep, form: signForm, files: signFiles, errors: signErrors, busy: signBusy } = signing
+
 const confirmed = computed(() => delivery.value?.status === 'CONFIRMED')
 const credit = computed(() => delivery.value?.credit.snapshot ?? null)
 const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.value && delivery.value.approval.state !== 'PENDING' && (delivery.value.credit.needsApproval || delivery.value.credit.blocked)))
@@ -239,7 +245,7 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
 
   <template v-else-if="delivery">
     <PageHeader :title="confirmed ? `Delivery order ${delivery.docNo}` : `Confirm delivery ${delivery.docNo}`" document :branch="delivery?.branchCode">
-      <template #chip><StatusChip :status="delivery.status" :label="delivery.statusLabel" :group="confirmed ? 'released' : 'draft'" /></template>
+      <template #chip><StatusChip :status="delivery.status" :label="delivery.statusLabel" :group="confirmed ? 'released' : delivery.signature?.state === 'REFUSED' ? 'cancelled' : delivery.signature?.state === 'COLLECTED' ? 'partial' : 'draft'" /></template>
       <template #subtitle>
         From
         <RouterLink v-if="delivery.order.id" :to="`/sales/orders/${delivery.order.id}`" class="erp-link">{{ delivery.order.no }}</RouterLink>
@@ -251,7 +257,13 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
         <button v-if="can('delete')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="deleteDraft">Delete draft</button>
         <RouterLink :to="`/sales/deliveries/${delivery.id}/print`" class="erp-btn erp-btn-secondary">Print DO</RouterLink>
         <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || !dirty" @click="save">Save draft</button>
-        <button v-if="!confirmed" type="button" data-tour="action:confirm-delivery" class="erp-btn erp-btn-primary" :disabled="saving || !can('confirm') || Boolean(delivery.depositHold)" @click="confirmDelivery">Confirm delivery</button>
+        <button v-if="can('checkIn')" type="button" class="erp-btn erp-btn-secondary" :disabled="signBusy" @click="signing.open('check-in')">Check in</button>
+        <button v-if="can('refuse')" type="button" class="erp-btn erp-btn-secondary" :disabled="signBusy" @click="signing.open('refuse')">Not signed</button>
+        <button v-if="can('returnRefusal')" type="button" class="erp-btn erp-btn-secondary" :disabled="signBusy" @click="signing.open('return-refusal')">Send back</button>
+        <button v-if="can('acceptUnsigned')" type="button" class="erp-btn erp-btn-primary" :disabled="signBusy" @click="signing.open('accept-unsigned')">Accept unsigned</button>
+        <button v-if="can('collect')" type="button" data-tour="action:collect" class="erp-btn erp-btn-primary" :disabled="signBusy || dirty || Boolean(delivery.depositHold)" :title="dirty ? 'Save the draft first.' : undefined" @click="signing.open('collect')">Mark collected</button>
+        <button v-if="can('sign')" type="button" data-tour="action:record-signature" class="erp-btn" :class="can('acceptUnsigned') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="signBusy" @click="signing.open('sign')">Record signature</button>
+        <button v-if="!confirmed && !delivery.signature" type="button" data-tour="action:confirm-delivery" class="erp-btn erp-btn-primary" :disabled="saving || !can('confirm') || Boolean(delivery.depositHold)" @click="confirmDelivery">Confirm delivery</button>
       </template>
     </PageHeader>
 
@@ -265,6 +277,18 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
           Delivered{{ delivery.confirmedAt ? ` ${formatDateTime(delivery.confirmedAt)}` : '' }}{{ delivery.confirmedByName ? ` by ${delivery.confirmedByName}` : '' }}. The DO is locked; mistakes are fixed with a sales return.
         </span>
       </NoticeBanner>
+      <template v-if="delivery.signature">
+        <NoticeBanner v-if="delivery.signature.state === 'TO_COLLECT'" data-tour="do:signature">Delivered when the customer signs. Mark it collected when the installer takes the goods.</NoticeBanner>
+        <NoticeBanner v-else-if="delivery.signature.state === 'COLLECTED'" data-tour="do:signature" :kind="delivery.signature.refuseReturned ? 'warning' : 'info'">
+          Collected{{ delivery.signature.collectedAt ? ` ${formatDateTime(delivery.signature.collectedAt)}` : '' }}: waiting for the customer’s signature.
+          <template v-if="delivery.signature.refuseReturned"> Management sent the refusal back: “{{ delivery.signature.refuseReturned }}”.</template>
+        </NoticeBanner>
+        <NoticeBanner v-else-if="delivery.signature.state === 'REFUSED'" data-tour="do:signature" kind="error">
+          <strong>The customer did not sign:</strong> “{{ delivery.signature.refuseReason }}” (recorded by {{ delivery.signature.refusedByName }}). Waiting for Management. Whoever recorded it does not decide it.
+        </NoticeBanner>
+        <NoticeBanner v-else-if="delivery.signature.signerName" data-tour="do:signature">Signed by <strong>{{ delivery.signature.signerName }}</strong>{{ delivery.signature.signedAt ? `, ${formatDateTime(delivery.signature.signedAt)}` : '' }}.</NoticeBanner>
+        <NoticeBanner v-else-if="delivery.signature.unsignedByName" data-tour="do:signature" kind="warning">Accepted without a signature by <strong>{{ delivery.signature.unsignedByName }}</strong>: “{{ delivery.signature.refuseReason }}”.</NoticeBanner>
+      </template>
       <NoticeBanner v-if="delivery.depositHold" kind="error">
         <strong>Delivery is on hold.</strong> The deposit on {{ delivery.depositHold.proformaNo }} ({{ formatRm(delivery.depositHold.amount) }}) is not paid yet. Confirm becomes possible once Finance records the payment.
       </NoticeBanner>
@@ -414,7 +438,7 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
         </div>
 
         <aside class="flex flex-col gap-4">
-          <NextSteps v-if="!confirmed" title="When you confirm">
+          <NextSteps v-if="!confirmed" :title="delivery.signature ? 'When the customer signs' : 'When you confirm'">
             <li>
               <span>
                 {{ delivery.order.no }} balance goes from {{ formatQty(String(balanceBefore)) }} to <strong>{{ formatQty(String(balanceAfter)) }}</strong>. Its status becomes
@@ -445,5 +469,23 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
         </aside>
       </div>
     </div>
+
+    <Dialog :visible="Boolean(signStep)" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="signing.title.value" @update:visible="signing.close()">
+      <div class="flex flex-col gap-3 text-[13px]">
+        <p class="m-0">{{ signing.text.value }}</p>
+        <FormField v-if="signStep === 'sign'" label="Signed by" :error="signErrors.signerName" for="do-signer"><input id="do-signer" v-model="signForm.signerName" class="erp-input" maxlength="100" /></FormField>
+        <FormField v-if="signStep === 'refuse'" label="Why did the customer not sign?" :error="signErrors.reason" for="do-refuse"><input id="do-refuse" v-model="signForm.reason" class="erp-input" maxlength="300" /></FormField>
+        <FormField v-if="signStep === 'check-in' || signStep === 'accept-unsigned' || signStep === 'return-refusal'" :label="signStep === 'return-refusal' ? 'Why it goes back' : 'Note (optional)'" :error="signErrors.note" for="do-signnote"><input id="do-signnote" v-model="signForm.note" class="erp-input" maxlength="300" /></FormField>
+        <div v-if="signStep === 'sign' || signStep === 'refuse'" class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-erp-muted">{{ signStep === 'sign' ? 'Signed delivery order (photo or PDF)' : 'Photo as proof' }}</span>
+          <FileTiles :files="signFiles" editable :add-label="signStep === 'sign' ? '+ Add the signed DO' : '+ Add photo'" :upload="signing.upload" />
+          <span v-if="signErrors.fileIds" class="text-xs text-note-error-text">{{ signErrors.fileIds }}</span>
+        </div>
+      </div>
+      <template #footer>
+        <button type="button" class="erp-btn erp-btn-secondary" @click="signing.close()">Cancel</button>
+        <button type="button" class="erp-btn erp-btn-primary" data-tour-sensitive :disabled="signBusy" @click="signing.send()">{{ signing.action.value }}</button>
+      </template>
+    </Dialog>
   </template>
 </template>

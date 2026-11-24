@@ -61,7 +61,7 @@ Each module's grants in code today (`purchase.permissions.ts`, `sales.permission
 
 | Code | Name | Users | Permissions | Sees | Two-factor |
 |---|---|---|---|---|---|
-| ADMIN | Administrator | 1 (ADM) | all 57 | Their branches | Required |
+| ADMIN | Administrator | 1 (ADM) | all 59 | Their branches | Required |
 | AP_CLERK | AP clerk | 1 (LMY) | 4 | Their branches | — |
 | AUDITOR | Auditor | 0 | 7 | Their branches | — |
 | SALES_BILLING | Billing | 3 (AR, FO, LWJ) | 7 | Their branches | — |

@@ -48,6 +48,7 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   autoCancel: 'A released order with no official receipt and no delivery order is cancelled by the system, with alerts a week before and on the day.',
   holdStock: 'Once the installer is booked, the order’s items are held: other orders see what is left. It warns, it never blocks.',
   autoDelivery: 'Once the warehouse has confirmed the stock. From then on the order can no longer be revised.',
+  signedDelivery: 'The store marks it collected; it is delivered when the customer signs. A customer who refuses goes to Management.',
   shareWhatsapp: 'A WhatsApp button on the released sales order, for whoever keys orders.',
 }
 
@@ -208,6 +209,11 @@ async function save() {
         <span><span class="block text-[13px] font-bold">{{ data.labels.autoDelivery }}</span><span class="text-xs text-erp-subtle">{{ HINT.autoDelivery }}</span></span>
         <SwitchToggle v-model="draft.autoDelivery" :label="data.labels.autoDelivery" :disabled="!canManage" />
       </div>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.signedDelivery }}</span><span class="text-xs text-erp-subtle">{{ HINT.signedDelivery }}</span></span>
+        <SwitchToggle v-model="draft.signedDelivery" :label="data.labels.signedDelivery" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">For orders with installation only. Management is whoever holds <em>Management: Accept unsigned, cancel after the delivery order</em> in Configuration › Roles; they also release a cancellation made after the delivery order.</p>
       <p class="m-0 text-xs text-erp-muted">The warehouse confirms each job in Service › Stock for Jobs (turned on in Service › Slots and Stages). The same delivery order follows the job when it is moved or postponed.</p>
     </section>
 

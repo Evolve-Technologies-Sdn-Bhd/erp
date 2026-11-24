@@ -9,7 +9,7 @@ import type { MenuGroup } from '../common/menu'
  * from here, so a step that is switched off disappears everywhere at once. Until the settings arrive (or if they
  * cannot be read) the standard flow shows, which is what every company has unless it changed it.
  */
-const STANDARD: SalesFlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false }
+const STANDARD: SalesFlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false, signedDelivery: false }
 const state = reactive<{ switches: SalesFlowSwitches; asked: boolean }>({ switches: { ...STANDARD }, asked: false })
 
 /** Menu items a switch hides when it is off. */
@@ -26,6 +26,7 @@ const HIDDEN_WHEN_OFF: Record<keyof SalesFlowSwitches, string[]> = {
   shareWhatsapp: [],
   holdStock: [],
   autoDelivery: [],
+  signedDelivery: [],
 }
 
 export const salesFlow = computed(() => state.switches)
