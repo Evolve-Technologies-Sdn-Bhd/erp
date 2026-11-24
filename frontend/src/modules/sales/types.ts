@@ -1322,6 +1322,10 @@ export interface SalesFlowSwitches {
   autoDelivery: boolean
   /** A delivery order of an installation is delivered when the customer signs (phase 5). */
   signedDelivery: boolean
+  /** A delivered installation drafts its invoice (phase 5). */
+  autoInvoice: boolean
+  /** Verified receipts lower the balance of their order's invoices (phase 5). */
+  receiptsPayInvoices: boolean
 }
 
 export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'

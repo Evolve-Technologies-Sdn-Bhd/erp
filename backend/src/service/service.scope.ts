@@ -8,5 +8,6 @@ export const SERVICE_SCOPE_RULES: readonly ScopeRule[] = [
   { model: 'SvcJob', module: 'service', branchField: 'branchCode', viewFilter: true },
   { model: 'SvcReminder', module: 'service', branchField: 'branchCode', viewFilter: true },
   { model: 'SvcReturn', module: 'service', branchField: 'branchCode', viewFilter: true },
+  { model: 'SvcWarranty', module: 'service', branchField: 'branchCode', viewFilter: true },
   { model: 'SvcClaim', module: 'service', branchField: 'branchCode', viewFilter: true },
 ];

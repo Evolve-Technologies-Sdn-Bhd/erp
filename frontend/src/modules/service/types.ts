@@ -63,6 +63,8 @@ export interface VisitInput {
   nextDate?: string
   /** Parts coming back to the store (phase 5). */
   returns?: { itemCode: string; qty: string }[]
+  /** Parts used on a service, warranty or repair job (phase 5). */
+  parts?: { itemCode: string; qty: string }[]
 }
 
 export interface JobDetail extends JobRow {
@@ -110,6 +112,10 @@ export interface JobDetail extends JobRow {
   delivery: { id: string; docNo: string | null; delivered: boolean } | null
   /** Parts the installer said come back (phase 5). */
   returns: ReturnedPart[]
+  /** Parts used on a service, warranty or repair job (phase 5). */
+  parts: { itemCode: string; itemName: string; uomCode: string; qty: string }[]
+  /** The warranty claim (phase 5); null on other jobs. */
+  warranty: { unit: Warranty | null; suggested: Assessment; assessment: Assessment | null; assessmentLabel: string | null; note: string | null; by: string | null; at: string | null; canAssess: boolean } | null
   doneAt: string | null
   doneNote: string | null
   closedAt: string | null
@@ -214,6 +220,35 @@ export interface JobStockItem {
   earlier: string
   free: string
   short: boolean
+}
+
+export type Assessment = 'COVERED' | 'CHARGEABLE' | 'REJECTED'
+export type WarrantyState = 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'VOID'
+
+/** V11 · Warranties (phase 5). */
+export interface Warranty {
+  id: string
+  customerCode: string
+  customerName: string
+  contactName: string | null
+  phone: string | null
+  siteAddress: string | null
+  salesOrderNo: string | null
+  jobId: string
+  jobNo: string
+  itemCode: string
+  itemName: string
+  uomCode: string
+  qty: string
+  serialNo: string | null
+  warrantyMonths: number
+  startOn: string
+  endOn: string
+  state: WarrantyState
+  stateLabel: string
+  voidReason: string | null
+  version: number
+  canEdit?: boolean
 }
 
 /** V10 · Returned Parts. */

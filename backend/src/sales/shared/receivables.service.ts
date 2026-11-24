@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma, SalInvoice } from '@prisma/client';
 import { dec } from '../../platform/http/decimal';
 import { PrismaService } from '../../platform/prisma/prisma.service';
+import { InvoicePayments } from './invoice-payments.service';
 import { invoiceBalance } from './totals.rules';
 
 export interface OpenInvoice {
@@ -15,11 +16,14 @@ const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 /**
  * What customers owe: released invoices with a balance, after returns, debit notes, deposits and the payments
- * Finance recorded (fin_receipt_stub until Finance is connected). Sales never changes a balance by hand.
+ * on them (InvoicePayments: Finance's, and verified official receipts). Sales never changes a balance by hand.
  */
 @Injectable()
 export class ReceivablesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly payments: InvoicePayments,
+  ) {}
 
   /** Released invoices that still have a balance, optionally for some customers only. */
   async openInvoices(tenantId: string, today: string, customerCodes?: string[]): Promise<OpenInvoice[]> {
@@ -31,15 +35,9 @@ export class ReceivablesService {
 
   /** The balance of each of these released invoices, paid ones included. */
   async withBalances(tenantId: string, invoices: SalInvoice[], today: string): Promise<OpenInvoice[]> {
-    const receipts = invoices.length
-      ? await this.prisma.finReceiptStub.groupBy({
-          by: ['appliesToNo'],
-          where: { tenantId, appliesToType: 'INVOICE', appliesToNo: { in: invoices.map((v) => v.docNo) } },
-          _sum: { amount: true },
-        })
-      : [];
+    const receipts = await this.payments.paid(tenantId, invoices.map((v) => v.docNo));
     return invoices.map((invoice) => {
-      const paid = receipts.find((r) => r.appliesToNo === invoice.docNo)?._sum.amount ?? dec(0);
+      const paid = receipts.get(invoice.docNo) ?? dec(0);
       const balance = invoiceBalance({ total: invoice.total, debited: invoice.debitedAmount, credited: invoice.creditedAmount, deposit: invoice.depositApplied, paid });
       return { invoice, paid: dec(paid), balance, overdue: Boolean(invoice.dueDate && iso(invoice.dueDate)! < today) };
     });

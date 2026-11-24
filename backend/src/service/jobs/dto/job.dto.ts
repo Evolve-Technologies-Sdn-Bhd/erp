@@ -159,6 +159,13 @@ export class RecordVisitDto extends VersionDto {
   @Type(() => ReturnLineDto)
   returns?: ReturnLineDto[];
 
+  /** Parts used on a service, warranty or repair job (phase 5). */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReturnLineDto)
+  parts?: ReturnLineDto[];
+
   @IsIn([...RESULTS], { message: 'Pick complete, partly done or postponed.' })
   result!: VisitResult;
 

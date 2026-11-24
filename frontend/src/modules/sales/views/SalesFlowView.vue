@@ -49,6 +49,8 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   holdStock: 'Once the installer is booked, the order’s items are held: other orders see what is left. It warns, it never blocks.',
   autoDelivery: 'Once the warehouse has confirmed the stock. From then on the order can no longer be revised.',
   signedDelivery: 'The store marks it collected; it is delivered when the customer signs. A customer who refuses goes to Management.',
+  autoInvoice: 'Billing checks it and releases it. Once per delivery order, for orders with installation.',
+  receiptsPayInvoices: 'The oldest receipt first, on the oldest invoice. A deposit waits for the invoice.',
   shareWhatsapp: 'A WhatsApp button on the released sales order, for whoever keys orders.',
 }
 
@@ -145,8 +147,13 @@ async function save() {
       </div>
       <p class="m-0 text-xs text-erp-muted">
         Each payment is a deposit or the balance, with a photo or PDF of the slip. Account verifies it against the bank or the card settlement slip; only verified
-        receipts count as paid, and whoever recorded a receipt never verifies it. Invoices and the books stay as they are.
+        receipts count as paid, and whoever recorded a receipt never verifies it.
       </p>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.receiptsPayInvoices }}</span><span class="text-xs text-erp-subtle">{{ HINT.receiptsPayInvoices }}</span></span>
+        <SwitchToggle v-model="draft.receiptsPayInvoices" :label="data.labels.receiptsPayInvoices" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">Off, invoice balances come from Finance only. What was counted stays counted when it is turned off again. The books stay in your accounting system.</p>
     </section>
 
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
@@ -212,6 +219,10 @@ async function save() {
       <div class="flex items-center justify-between gap-4 py-1">
         <span><span class="block text-[13px] font-bold">{{ data.labels.signedDelivery }}</span><span class="text-xs text-erp-subtle">{{ HINT.signedDelivery }}</span></span>
         <SwitchToggle v-model="draft.signedDelivery" :label="data.labels.signedDelivery" :disabled="!canManage" />
+      </div>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.autoInvoice }}</span><span class="text-xs text-erp-subtle">{{ HINT.autoInvoice }}</span></span>
+        <SwitchToggle v-model="draft.autoInvoice" :label="data.labels.autoInvoice" :disabled="!canManage" />
       </div>
       <p class="m-0 text-xs text-erp-muted">For orders with installation only. Management is whoever holds <em>Management: Accept unsigned, cancel after the delivery order</em> in Configuration › Roles; they also release a cancellation made after the delivery order.</p>
       <p class="m-0 text-xs text-erp-muted">The warehouse confirms each job in Service › Stock for Jobs (turned on in Service › Slots and Stages). The same delivery order follows the job when it is moved or postponed.</p>

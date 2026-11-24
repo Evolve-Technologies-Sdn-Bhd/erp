@@ -17,6 +17,9 @@ import type { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, RecordVisitD
 import { extendErrors, momentText, parseTime, runsInto, stickyOverdue, type JobTiming } from './timing.rules';
 import { visitErrors, visitText } from './visit.rules';
 import { ReturnsService } from '../returns/returns.service';
+import { WarrantyService } from '../warranty/warranty.service';
+import { ASSESSMENT_LABEL, assessErrors, claimRefusal, partErrors, WARRANTY_STATE_LABEL, type Assessment } from '../warranty/warranty.rules';
+import type { AssessJobDto, WarrantyJobDto } from '../warranty/warranty.dto';
 import { returnErrors } from '../returns/returns.rules';
 import { reminderJobNote, remindersFrom } from '../reminders/reminder.rules';
 import type { SvcReminder } from '@prisma/client';
@@ -56,6 +59,7 @@ export class JobsService {
     private readonly attachments: AttachmentsService,
     private readonly notifications: NotificationsService,
     private readonly returns: ReturnsService,
+    private readonly warranties: WarrantyService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -285,6 +289,10 @@ export class JobsService {
     // Parts coming back (phase 5): of a visit that happened; a postponed job's goods are checked in on their delivery order.
     const back = dto.result === 'POSTPONED' ? [] : (dto.returns ?? []);
     errors.push(...returnErrors(back, job.items.map((i) => ({ itemCode: i.itemCode, qty: i.qty.toString() }))));
+    // Parts used (phase 5): on service, warranty and repair jobs; recorded, not taken from stock.
+    const used = dto.result === 'POSTPONED' || job.jobType === 'INSTALLATION' ? [] : (dto.parts ?? []);
+    const usedItems = used.length ? await this.masterData.findItems(ctx.tenantId, [...new Set(used.map((u) => u.itemCode))]) : [];
+    errors.push(...partErrors(used, new Set(usedItems.map((i) => i.code))));
     if (errors.length) throw new ValidationFailedError(errors);
     const by = job.personName && job.personName !== ctx.user.name ? `${ctx.user.name} for ${job.personName}` : ctx.user.name;
     // Recording the visit ends the overdue flag; a done job keeps when it became overdue, so its page says it was late.
@@ -292,9 +300,8 @@ export class JobsService {
     const reason = dto.reason?.trim() || null;
     const text = visitText(dto);
     // Service reminders (F6): a complete visit starts one for each item with a service interval in Core.
-    const intervals = dto.result === 'COMPLETE' && job.items.length
-      ? new Map((await this.masterData.findItems(ctx.tenantId, [...new Set(job.items.map((i) => i.itemCode))])).map((i) => [i.code, i.serviceIntervalMonths]))
-      : new Map<string, number | null>();
+    const items = dto.result === 'COMPLETE' && job.items.length ? await this.masterData.findItems(ctx.tenantId, [...new Set(job.items.map((i) => i.itemCode))]) : [];
+    const intervals = new Map(items.map((i) => [i.code, i.serviceIntervalMonths]));
 
     await this.prisma.$transaction(async (tx) => {
       if (dto.result === 'POSTPONED') {
@@ -318,6 +325,20 @@ export class JobsService {
       await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}${overdueSince ? ` · late: overdue since ${momentText(overdueSince)}` : ''}`, dto.note?.trim() || reason);
       const returned = await this.returns.add(tx, ctx, job, back);
       if (returned) await this.log(tx, ctx, job.id, job.docNo, 'returns_listed', `Parts coming back to the store: ${returned}`);
+      if (used.length) {
+        await tx.svcJobPart.createMany({
+          data: used.map((u, i) => {
+            const item = usedItems.find((x) => x.code === u.itemCode)!;
+            return { tenantId: ctx.tenantId, jobId: job.id, lineNo: i + 1, itemCode: u.itemCode, itemName: item.name, uomCode: item.uomCode, qty: dec(u.qty) };
+          }),
+        });
+        await this.log(tx, ctx, job.id, job.docNo, 'parts_used', `Parts used: ${used.map((u) => `${dec(u.qty).toString()} ${u.itemCode}`).join(', ')}`);
+      }
+      // The warranty register (phase 5): a complete installation registers its units from the visit day.
+      if (dto.result === 'COMPLETE' && job.jobType === 'INSTALLATION') {
+        const registered = await this.warranties.register(tx, ctx, job, job.jobDate ? isoDay(job.jobDate) : this.clock.today(), new Map(items.map((i) => [i.code, i.warrantyMonths])));
+        if (registered) await this.log(tx, ctx, job.id, job.docNo, 'warranty_registered', `Warranty registered: ${registered}`);
+      }
       if (dto.result === 'COMPLETE') await this.startReminders(tx, ctx, job, intervals);
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_DONE, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
@@ -355,6 +376,49 @@ export class JobsService {
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, job.id, dto.version, { stage: 'CLOSED', closedAt: this.clock.now() }, 'DONE');
       await this.log(tx, ctx, job.id, job.docNo, 'closed', `Closed by ${ctx.user.name}`);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  // ── Warranty claims (phase 5) ─────────────────────────────────────────────
+
+  /** A claim on a registered unit: a warranty job at its site, not booked, with the problem as the note. */
+  async createFromWarranty(ctx: RequestContext, warrantyId: string, dto: WarrantyJobDto) {
+    const w = await this.warranties.find(ctx.tenantId, warrantyId);
+    const refusal = claimRefusal(w);
+    if (refusal) throw new BusinessRuleError('WARRANTY_VOID', refusal);
+    const problem = dto.problem.trim();
+    if (!problem) throw ValidationFailedError.field('problem', 'Type what is wrong.');
+    const preferredDate = dto.preferredDate || null;
+    if (preferredDate && preferredDate < this.clock.today()) throw ValidationFailedError.field('preferredDate', 'The preferred date cannot be in the past.');
+    const from = await this.prisma.svcJob.findFirst({ where: { tenantId: ctx.tenantId, id: w.jobId }, select: { siteType: true, postcode: true, state: true } });
+    const made = await this.prisma.$transaction(async (tx) => {
+      const j = await this.insert(tx, ctx, {
+        jobType: 'WARRANTY', branchCode: w.branchCode, customerCode: w.customerCode, customerName: w.customerName, contactName: w.contactName, phone: w.phone,
+        siteAddress: w.siteAddress, postcode: from?.postcode ?? null, state: from?.state ?? null, siteType: from?.siteType ?? null, area: w.area, source: 'MANUAL',
+        preferredDate, note: problem, warrantyId: w.id,
+      }, [{ itemCode: w.itemCode, itemName: w.itemName, qty: w.qty.toString(), uomCode: w.uomCode }], `Warranty claim on ${w.itemCode} (${WARRANTY_STATE_LABEL[this.warranties.stateOf(w)].toLowerCase()}), added by ${ctx.user.name}`);
+      if (w.serialNo) await tx.svcJobItem.updateMany({ where: { jobId: j.id }, data: { serialNo: w.serialNo } });
+      return j;
+    });
+    return this.query.detail(ctx, made.id);
+  }
+
+  /** The office's decision: covered, chargeable (a sales order follows), or rejected, which cancels the job. */
+  async assess(ctx: RequestContext, id: string, dto: AssessJobDto) {
+    const job = await this.query.load(ctx.tenantId, id);
+    if (job.jobType !== 'WARRANTY' || !['NOT_BOOKED', 'BOOKED'].includes(job.stage)) throw new BusinessRuleError('ACTION_NOT_ALLOWED', `${job.docNo} is not a warranty job waiting to be done.`);
+    const errors = assessErrors(dto);
+    if (errors.length) throw new ValidationFailedError(errors);
+    const result = dto.result as Assessment;
+    const note = dto.note?.trim() || null;
+    const rejected = result === 'REJECTED';
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, job.id, dto.version, {
+        assessment: result, assessNote: note, assessedBy: ctx.user.name, assessedAt: this.clock.now(),
+        ...(rejected && { stage: 'CANCELLED', cancelReason: `Warranty claim rejected: ${note}`.slice(0, 300), cancelledAt: this.clock.now(), ...FREE_SLOT }),
+      }, ['NOT_BOOKED', 'BOOKED']);
+      await this.log(tx, ctx, job.id, job.docNo, 'assessed', `${ASSESSMENT_LABEL[result]}, decided by ${ctx.user.name}${rejected ? '; the job is cancelled' : result === 'CHARGEABLE' ? '; a sales order is needed' : ''}`, note);
     });
     return this.query.detail(ctx, id);
   }
@@ -463,7 +527,7 @@ export class JobsService {
       jobType: JobType; branchCode: string; customerCode: string; customerName: string; contactName: string | null; phone: string | null;
       siteAddress: string | null; postcode?: string | null; state?: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
       preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string; reminderId?: string;
-      siteType?: string | null;
+      siteType?: string | null; warrantyId?: string | null;
       agentCode?: string | null; agentName?: string | null; warehouseCode?: string | null;
     },
     lines: { itemCode: string; itemName: string; qty: string; uomCode: string }[],
@@ -478,7 +542,7 @@ export class JobsService {
         postcode: j.postcode ?? null, state: j.state ?? null, area: j.area, source: j.source,
         agentCode: j.agentCode ?? null, agentName: j.agentName ?? null, warehouseCode: j.warehouseCode ?? null, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
         preferredDate: j.preferredDate ? day(j.preferredDate) : null, afterStock: j.afterStock ?? false, note: j.note,
-        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null, siteType: j.siteType ?? null,
+        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null, siteType: j.siteType ?? null, warrantyId: j.warrantyId ?? null,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
         items: { create: lines.map((l, i) => ({ tenantId: ctx.tenantId, lineNo: i + 1, itemCode: l.itemCode, itemName: l.itemName, qty: dec(l.qty), uomCode: l.uomCode })) },
       },

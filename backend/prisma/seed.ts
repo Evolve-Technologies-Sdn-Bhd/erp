@@ -65,6 +65,7 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.svcClaim.deleteMany({ where }), // lines cascade
     prisma.svcReminder.deleteMany({ where }),
     prisma.svcReturn.deleteMany({ where }),
+    prisma.svcWarranty.deleteMany({ where }),
     prisma.svcJob.deleteMany({ where }), // items cascade
     prisma.svcPerson.deleteMany({ where }),
     prisma.svcSlotGroup.deleteMany({ where }), // the starter groups are made again on first use
@@ -72,6 +73,7 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.sysNumberSequence.deleteMany({ where: { tenantId, module: 'service' } }),
 
     // Official receipts (phase 5): the demo has none, and OR numbers are made again on first use.
+    prisma.salReceiptAllocation.deleteMany({ where }),
     prisma.salReceipt.deleteMany({ where }),
     prisma.sysNumberSequence.deleteMany({ where: { tenantId, docType: 'OR' } }),
     prisma.salReturn.deleteMany({ where }), // lines cascade
@@ -129,7 +131,7 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.mdmCreditTerm.deleteMany({ where: madeInCore }),
     // Phase 5: package categories, and pictures (their files went with the upload folder above).
     prisma.mdmPackageCategory.deleteMany({ where }),
-    prisma.mdmItem.updateMany({ where, data: { pictureId: null } }),
+    prisma.mdmItem.updateMany({ where, data: { pictureId: null, serviceIntervalMonths: null, warrantyMonths: null } }),
   ]);
 }
 

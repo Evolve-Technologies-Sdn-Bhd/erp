@@ -37,6 +37,7 @@ export const ITEM_LABELS: Record<string, string> = {
   salesTaxCode: 'Sales tax',
   standardCost: 'Standard cost',
   serviceIntervalMonths: 'Service every (months)',
+  warrantyMonths: 'Warranty (months)',
   conversions: 'Conversions',
 };
 
@@ -149,6 +150,7 @@ export interface ItemRecord {
   salesTaxCode: string | null;
   standardCost: DecimalInput | null;
   serviceIntervalMonths: number | null;
+  warrantyMonths: number | null;
   status: string;
 }
 
@@ -187,6 +189,7 @@ export function itemSnapshot(item: ItemRecord, conversions: Conversion[]) {
     einvoiceClassification: item.einvoiceClassification,
     standardCost: qty(item.standardCost),
     serviceIntervalMonths: item.serviceIntervalMonths,
+    warrantyMonths: item.warrantyMonths,
     status: item.status,
     conversions: conversions.map((c) => ({ fromUom: c.fromUom, toUom: c.toUom, factor: dec(c.factor).toString() })),
   };

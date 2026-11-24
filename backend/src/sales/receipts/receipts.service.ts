@@ -8,6 +8,7 @@ import { dec, toMoney } from '../../platform/http/decimal';
 import { BusinessRuleError, StaleVersionError, ValidationFailedError, type FieldError } from '../../platform/http/errors';
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
+import { InvoicePayments } from '../shared/invoice-payments.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT } from '../shared/sales.constants';
 import type { CreateReceiptDto, ReceiptReasonDto, UpdateReceiptDto, VerifyReceiptDto } from './dto/receipt.dto';
@@ -27,6 +28,7 @@ const dateText = (iso: string) => `${Number(iso.slice(8, 10))} ${MONTHS[Number(i
 export class ReceiptsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly payments: InvoicePayments,
     private readonly query: ReceiptsQuery,
     private readonly numbering: NumberingService,
     private readonly activity: ActivityService,
@@ -122,6 +124,7 @@ export class ReceiptsService {
       await this.bump(tx, ctx, r.id, dto.version, { status: 'VERIFIED', verifiedRef: reference, verifiedAt: this.clock.now(), verifiedByCode: ctx.user.code, verifiedByName: ctx.user.name }, ['WAITING']);
       const all = await tx.salReceipt.findMany({ where: { tenantId: ctx.tenantId, salesOrderId: order.id }, select: { status: true, amount: true } });
       const pay = orderPayment(order.total, all);
+      await this.payments.allocateForOrder(tx, ctx, order.id);
       await this.log(tx, ctx, SAL_ENTITY.RECEIPT, r.id, r.docNo, 'verified', `Verified by ${ctx.user.name} against ${reference}`);
       await this.log(tx, ctx, SAL_ENTITY.ORDER, order.id, order.docNo, 'payment_verified',
         `${r.docNo} verified: ${receiptText(r)} · ${pay.label}, ${toRm(pay.verified)} of ${toRm(order.total)}`);

@@ -19,7 +19,7 @@ import { useSession } from '@/composables/useSession'
 import { MY_STATES, postcodeError } from '@/utils/address'
 import { formatDate, formatDateTime, formatMoney, formatQty } from '@/utils/format'
 import { serviceApi, serviceJobsApi } from '../api/service'
-import type { JobDetail, JobStage, JobType, PaidMethod, PaidStatus, ServiceCustomerOption, SiteType, VisitResult } from '../types'
+import type { Assessment, JobDetail, JobStage, JobType, PaidMethod, PaidStatus, ServiceCustomerOption, SiteType, VisitResult } from '../types'
 import { JOB_TYPE_OPTIONS, SITE_TYPE_OPTIONS, STAGE_GROUP } from './stages'
 
 /** V04 · Job (SvcJob.html), and a job the office adds by hand. Booking and the installer's part come in F3 parts 2 and 3. */
@@ -226,8 +226,44 @@ const METHODS: { value: PaidMethod; label: string }[] = [
   { value: 'CHEQUE', label: 'Cheque' },
 ]
 const recordOpen = ref(false)
-const visit = reactive({ result: 'COMPLETE' as VisitResult, reason: '', arrivedAt: '', finishedAt: '', paidStatus: '' as PaidStatus | '', paidMethod: '' as PaidMethod | '', notPaidReason: '', note: '', nextDate: '', returns: {} as Record<string, string> })
+const visit = reactive({ result: 'COMPLETE' as VisitResult, reason: '', arrivedAt: '', finishedAt: '', paidStatus: '' as PaidStatus | '', paidMethod: '' as PaidMethod | '', notPaidReason: '', note: '', nextDate: '', returns: {} as Record<string, string>, parts: [] as { itemCode: string; itemName: string; qty: string }[] })
 const visitErrors = ref<Record<string, string>>({})
+// ── Warranty claim and parts used (phase 5) ──────────────────────────────────
+const ASSESSMENTS: { value: Assessment; label: string; hint: string }[] = [
+  { value: 'COVERED', label: 'Covered', hint: 'Done free of charge.' },
+  { value: 'CHARGEABLE', label: 'Chargeable', hint: 'The customer pays: make a sales order.' },
+  { value: 'REJECTED', label: 'Rejected', hint: 'Not done: the job is cancelled.' },
+]
+const assessOpen = ref(false)
+const assess = reactive({ result: 'COVERED' as Assessment, note: '' })
+const assessErrors = ref<Record<string, string>>({})
+function openAssess() {
+  const w = job.value!.warranty!
+  Object.assign(assess, { result: w.assessment ?? w.suggested, note: w.note ?? '' })
+  assessErrors.value = {}
+  assessOpen.value = true
+}
+async function saveAssess() {
+  const j = job.value!
+  saving.value = true
+  try {
+    show(await serviceJobsApi.assess(j.id, { version: j.version, result: assess.result, note: assess.note.trim() || undefined }))
+    assessOpen.value = false
+    toast.add({ severity: 'success', summary: `${j.docNo}: ${job.value!.warranty?.assessmentLabel ?? 'decided'}`, life: 3000 })
+  } catch (error) {
+    if (error instanceof ApiError) assessErrors.value = error.fieldErrors
+  } finally {
+    saving.value = false
+  }
+}
+const partPick = ref<{ code: string; name: string; uomCode: string } | null>(null)
+const searchItems = async (q: string) => (await serviceApi.items(q)).items
+function addPart(i: { code: string; name: string; uomCode: string }) {
+  if (!visit.parts.some((p) => p.itemCode === i.code)) visit.parts.push({ itemCode: i.code, itemName: i.name, qty: '1' })
+  partPick.value = null
+}
+const partError = computed(() => Object.entries(visitErrors.value).find(([k]) => k.startsWith('parts'))?.[1] ?? '')
+
 /** The job's items, each once, for the parts coming back (phase 5). */
 const returnItems = computed(() => {
   const out = new Map<string, { itemCode: string; itemName: string; qty: string }>()
@@ -239,7 +275,7 @@ const returnItems = computed(() => {
 })
 const returnError = computed(() => Object.entries(visitErrors.value).find(([k]) => k.startsWith('returns'))?.[1] ?? '')
 function openRecord() {
-  Object.assign(visit, { result: 'COMPLETE', reason: '', arrivedAt: '', finishedAt: '', paidStatus: '', paidMethod: '', notPaidReason: '', note: '', nextDate: '', returns: {} })
+  Object.assign(visit, { result: 'COMPLETE', reason: '', arrivedAt: '', finishedAt: '', paidStatus: '', paidMethod: '', notPaidReason: '', note: '', nextDate: '', returns: {}, parts: [] })
   visitErrors.value = {}
   recordOpen.value = true
 }
@@ -253,7 +289,7 @@ async function saveVisit() {
   try {
     const result = await serviceJobsApi.record(j.id, {
       version: j.version, result: visit.result, reason: visit.reason.trim() || undefined, arrivedAt: visit.arrivedAt || undefined, finishedAt: visit.finishedAt || undefined,
-      ...(visit.result !== 'POSTPONED' && { paidStatus: visit.paidStatus || undefined, paidMethod: visit.paidStatus === 'PAID' ? visit.paidMethod || undefined : undefined, notPaidReason: visit.paidStatus === 'NOT_PAID' ? visit.notPaidReason.trim() || undefined : undefined, note: visit.note.trim() || undefined, returns: Object.entries(visit.returns).filter(([, q]) => q.trim() && Number(q) !== 0).map(([itemCode, qty]) => ({ itemCode, qty: qty.trim() })) }),
+      ...(visit.result !== 'POSTPONED' && { paidStatus: visit.paidStatus || undefined, paidMethod: visit.paidStatus === 'PAID' ? visit.paidMethod || undefined : undefined, notPaidReason: visit.paidStatus === 'NOT_PAID' ? visit.notPaidReason.trim() || undefined : undefined, note: visit.note.trim() || undefined, returns: Object.entries(visit.returns).filter(([, q]) => q.trim() && Number(q) !== 0).map(([itemCode, qty]) => ({ itemCode, qty: qty.trim() })), ...(visit.parts.length && { parts: visit.parts.map((p) => ({ itemCode: p.itemCode, qty: p.qty.trim() })) }) }),
       ...(visit.result === 'POSTPONED' && visit.nextDate && { nextDate: visit.nextDate }),
     })
     show(result)
@@ -492,6 +528,25 @@ const asksFor = computed(() => {
             <div v-if="job.delivery" class="flex justify-between gap-3"><span class="text-erp-muted">{{ job.delivery.delivered ? 'Delivered' : 'Delivery order' }}</span><RouterLink :to="`/sales/deliveries/${job.delivery.id}`" class="erp-link font-semibold">{{ job.delivery.docNo }}</RouterLink></div>
           </div>
         </SideCard>
+        <SideCard v-if="job?.warranty" data-tour="svc:warranty" title="Warranty">
+          <div class="flex flex-col gap-1.5 text-[13px]">
+            <template v-if="job.warranty.unit">
+              <div class="flex justify-between gap-3"><span class="font-semibold">{{ job.warranty.unit.itemCode }}</span><span :class="job.warranty.unit.state === 'ACTIVE' ? 'font-semibold text-chip-done-text' : 'font-semibold text-attention'">{{ job.warranty.unit.stateLabel }}</span></div>
+              <div class="flex justify-between gap-3"><span class="text-erp-muted">Covered</span><span class="text-right">{{ formatDate(job.warranty.unit.startOn) }} – {{ formatDate(job.warranty.unit.endOn) }}</span></div>
+              <div v-if="job.warranty.unit.serialNo" class="flex justify-between gap-3"><span class="text-erp-muted">Serial number</span><span>{{ job.warranty.unit.serialNo }}</span></div>
+              <div class="flex justify-between gap-3"><span class="text-erp-muted">Installed on</span><RouterLink :to="`/service/jobs/${job.warranty.unit.jobId}`" class="erp-link font-semibold">{{ job.warranty.unit.jobNo }}</RouterLink></div>
+            </template>
+            <p v-else class="m-0 text-xs text-erp-muted">Not linked to a registered unit. Start claims from Service › Warranties to see what is covered.</p>
+            <div class="flex justify-between gap-3"><span class="text-erp-muted">Decision</span><span class="text-right font-semibold">{{ job.warranty.assessmentLabel ?? 'Not decided yet' }}</span></div>
+            <p v-if="job.warranty.note" class="m-0 text-xs text-erp-muted">“{{ job.warranty.note }}” · {{ job.warranty.by }}</p>
+            <RouterLink v-if="job.warranty.assessment === 'CHARGEABLE'" to="/sales/orders/new" class="erp-link text-xs">Make the sales order for {{ job.customer.name }}</RouterLink>
+          </div>
+          <button v-if="job.warranty.canAssess" type="button" data-tour="action:assess" class="erp-btn erp-btn-secondary mt-1 justify-center" :disabled="saving" @click="openAssess">{{ job.warranty.assessment ? 'Change the decision' : 'Decide the claim' }}</button>
+        </SideCard>
+        <SideCard v-if="job?.parts.length" title="Parts used">
+          <div v-for="p in job.parts" :key="p.itemCode" class="flex justify-between gap-3 text-[13px]"><span>{{ p.itemCode }} <span class="text-xs text-erp-muted">{{ p.itemName }}</span></span><span>{{ formatQty(p.qty) }} {{ p.uomCode }}</span></div>
+          <p class="m-0 text-xs text-erp-muted">Recorded only: stock is not taken yet.</p>
+        </SideCard>
         <SideCard v-if="job?.returns.length" data-tour="svc:returns" title="Parts coming back">
           <div v-for="r in job.returns" :key="r.id" class="flex justify-between gap-3 text-[13px]">
             <span>{{ formatQty(r.qty) }} {{ r.itemCode }}</span><span class="text-right" :class="r.receivedAt ? 'text-chip-done-text' : 'text-attention'">{{ r.receivedText ?? 'Not received yet' }}</span>
@@ -534,6 +589,20 @@ const asksFor = computed(() => {
       <template #footer>
         <button type="button" class="erp-btn erp-btn-secondary" @click="cancelOpen = false">Keep the job</button>
         <button type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelJob">Cancel job</button>
+      </template>
+    </Dialog>
+
+    <Dialog v-model:visible="assessOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="`Decide the claim · ${job?.docNo}`">
+      <div class="flex flex-col gap-3 text-[13px]">
+        <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
+          <legend class="mb-1 text-xs font-medium text-erp-muted">Decision</legend>
+          <label v-for="a in ASSESSMENTS" :key="a.value" class="flex items-start gap-2"><input v-model="assess.result" type="radio" name="assess" :value="a.value" class="mt-0.5" /><span><span class="font-semibold">{{ a.label }}</span> <span class="text-erp-muted">· {{ a.hint }}</span></span></label>
+        </fieldset>
+        <FormField :label="assess.result === 'COVERED' ? 'Note (optional)' : 'Why'" :error="assessErrors.note" for="assess-note"><input id="assess-note" v-model="assess.note" class="erp-input" maxlength="300" /></FormField>
+      </div>
+      <template #footer>
+        <button type="button" class="erp-btn erp-btn-secondary" @click="assessOpen = false">Cancel</button>
+        <button type="button" class="erp-btn erp-btn-primary" data-tour-sensitive :disabled="saving" @click="saveAssess">Save the decision</button>
       </template>
     </Dialog>
 
@@ -599,6 +668,16 @@ const asksFor = computed(() => {
           <FormField label="Work done (optional)" for="visit-note">
             <textarea id="visit-note" v-model="visit.note" rows="2" class="erp-input h-auto py-2" maxlength="500" />
           </FormField>
+          <fieldset v-if="job && job.jobType !== 'INSTALLATION'" data-tour="svc:visit-parts" class="m-0 flex flex-col gap-1.5 border-0 p-0">
+            <legend class="mb-1 text-xs font-medium text-erp-muted">Parts used (optional)</legend>
+            <div v-for="(p, i) in visit.parts" :key="p.itemCode" class="flex items-center gap-2">
+              <input v-model="p.qty" class="erp-input w-20 text-right" inputmode="decimal" :aria-label="`${p.itemCode} used`" />
+              <span>{{ p.itemCode }} <span class="text-erp-muted">{{ p.itemName }}</span></span>
+              <button type="button" class="erp-link ml-auto cursor-pointer border-0 bg-transparent p-0 text-xs" @click="visit.parts.splice(i, 1)">Remove</button>
+            </div>
+            <MasterDataPicker v-model="partPick" input-id="visit-part" :search="searchItems" placeholder="Add a part: type a code or name" @picked="addPart" />
+            <span v-if="partError" class="text-xs text-note-error-text">{{ partError }}</span>
+          </fieldset>
           <fieldset v-if="job?.items.length" data-tour="svc:visit-returns" class="m-0 flex flex-col gap-1.5 border-0 p-0">
             <legend class="mb-1 text-xs font-medium text-erp-muted">Parts coming back to the store (optional)</legend>
             <label v-for="i in returnItems" :key="i.itemCode" class="flex items-center gap-2">

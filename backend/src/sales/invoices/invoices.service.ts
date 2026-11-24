@@ -9,6 +9,7 @@ import { dec, toMoney, toQty, toRmText } from '../../platform/http/decimal';
 import { BusinessRuleError, NotFoundError, StaleVersionError, ValidationFailedError } from '../../platform/http/errors';
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
+import { InvoicePayments } from '../shared/invoice-payments.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { breachText, creditActivityText } from '../shared/credit.rules';
 import { CreditService, type CreditOutcome } from '../shared/credit.service';
@@ -42,6 +43,7 @@ type BuiltLine = {
 export class InvoicesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly payments: InvoicePayments,
     private readonly query: InvoicesQuery,
     private readonly numbering: NumberingService,
     private readonly activity: ActivityService,
@@ -57,7 +59,7 @@ export class InvoicesService {
 
   // ── Create (S18 from an order, or a blank direct invoice) ─────────────────
 
-  async createFromOrder(ctx: RequestContext, dto: CreateFromOrderDto) {
+  async createFromOrder(ctx: RequestContext, dto: CreateFromOrderDto, message?: string) {
     const order = await this.prisma.salSalesOrder.findFirst({ where: { id: dto.salesOrderId, tenantId: ctx.tenantId }, include: { lines: { orderBy: { lineNo: 'asc' } } } });
     if (!order) throw ValidationFailedError.field('salesOrderId', 'Pick a sales order with something to invoice.');
     if (order.isMigrated || !['RELEASED', 'PARTIAL', 'DONE'].includes(order.status)) {
@@ -91,7 +93,7 @@ export class InvoicesService {
         await tx.sysDocLink.create({ data: { tenantId: ctx.tenantId, fromType: SAL_ENTITY.ORDER, fromId: order.id, fromNo: order.docNo, toType: SAL_ENTITY.INVOICE, toId: row.id, toNo: docNo, linkType: SAL_LINK.INVOICED } });
       }
       await this.takeVouchers(tx, ctx, row.id, docNo, vouchers);
-      await this.log(tx, ctx, row.id, docNo, 'created', `Created from ${order.docNo} by ${ctx.user.name}`);
+      await this.log(tx, ctx, row.id, docNo, 'created', message ?? `Created from ${order.docNo} by ${ctx.user.name}`);
       await this.log(tx, ctx, row.id, docNo, 'credit_check', invoiceCreditText(credit), null, 1);
       return row;
     });
@@ -255,6 +257,7 @@ export class InvoicesService {
       }, 'DRAFT');
       if (proforma && deposit.gt(0)) await this.useDeposit(tx, ctx, inv, proforma.proforma.id, proforma.proforma.docNo, deposit, now);
       await this.log(tx, ctx, inv.id, inv.docNo, 'released', `Released by ${ctx.user.name} · posting and e-Invoice queued`, null, 1);
+      if (inv.salesOrderId) await this.payments.allocateForOrder(tx, ctx, inv.salesOrderId);
       await this.outbox.publish(tx, ctx, [{
         name: SAL_EVENT.INVOICE_RELEASED, aggregateType: SAL_ENTITY.INVOICE, aggregateId: inv.id,
         payload: {

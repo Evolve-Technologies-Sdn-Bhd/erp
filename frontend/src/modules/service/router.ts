@@ -45,6 +45,12 @@ export const serviceRoutes: RouteRecordRaw[] = [
     meta: { code: 'V10', title: 'Returned Parts', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'returns' },
   },
   {
+    path: '/service/warranties',
+    name: 'service-warranties',
+    component: () => import('./views/WarrantiesView.vue'),
+    meta: { code: 'V11', title: 'Warranties', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'warranties' },
+  },
+  {
     path: '/service/reminders',
     name: 'service-reminders',
     component: () => import('./views/RemindersView.vue'),

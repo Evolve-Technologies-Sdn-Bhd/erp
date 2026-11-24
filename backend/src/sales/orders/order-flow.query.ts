@@ -6,6 +6,7 @@ import { PermissionRegistry } from '../../platform/context/permission.registry';
 import type { RequestContext } from '../../platform/context/request-context';
 import { dec, toQty } from '../../platform/http/decimal';
 import { NotFoundError } from '../../platform/http/errors';
+import { InvoicePayments } from '../shared/invoice-payments.service';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { paymentState, type InvStatus } from '../invoices/invoice.rules';
 import { SALES_PERMISSIONS as P } from '../sales.permissions';
@@ -43,6 +44,7 @@ const SO_GROUP: Record<SoStatus, NonNullable<Group>> = { DRAFT: 'draft', PENDING
 export class SalesOrderFlowQuery {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly payments: InvoicePayments,
     private readonly linked: SalesLinkedDocsService,
     private readonly activity: ActivityService,
     private readonly permissions: PermissionRegistry,
@@ -135,12 +137,10 @@ export class SalesOrderFlowQuery {
     }
 
     const today = this.clock.today();
-    const paid = invLines.length
-      ? await this.prisma.finReceiptStub.groupBy({ by: ['appliesToNo'], where: { tenantId, appliesToType: 'INVOICE', appliesToNo: { in: invLines.map((l) => l.invoice.docNo) } }, _sum: { amount: true } })
-      : [];
+    const paid = await this.payments.paid(tenantId, invLines.map((l) => l.invoice.docNo));
     for (const l of invLines.sort((a, b) => a.invoice.docNo.localeCompare(b.invoice.docNo))) {
       const inv = l.invoice;
-      const balance = invoiceBalance({ total: inv.total, debited: inv.debitedAmount, credited: inv.creditedAmount, deposit: inv.depositApplied, paid: paid.find((p) => p.appliesToNo === inv.docNo)?._sum.amount ?? 0 });
+      const balance = invoiceBalance({ total: inv.total, debited: inv.debitedAmount, credited: inv.creditedAmount, deposit: inv.depositApplied, paid: paid.get(inv.docNo) ?? 0 });
       const pay = paymentState({ status: inv.status as InvStatus, balance, credited: 0, dueDate: iso(inv.dueDate), today });
       rows.push({
         type: SAL_ENTITY.INVOICE, id: inv.isMigrated ? null : inv.id, docNo: inv.docNo, date: iso(inv.docDate),

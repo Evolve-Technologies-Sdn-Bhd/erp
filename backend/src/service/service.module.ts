@@ -19,6 +19,8 @@ import { JobStockService } from './stock/job-stock.service';
 import { ServiceStockController } from './stock/job-stock.controller';
 import { ReturnsService } from './returns/returns.service';
 import { ServiceReturnsController } from './returns/returns.controller';
+import { WarrantyService } from './warranty/warranty.service';
+import { ServiceWarrantiesController } from './warranty/warranty.controller';
 import { JobDeliveryListener } from './sales-link/job-delivery.listener';
 import { JobFromOrderListener } from './sales-link/job-from-order.listener';
 import { OrderPaymentListener } from './sales-link/order-payment.listener';
@@ -33,8 +35,8 @@ import { SERVICE_SCOPE_RULES } from './service.scope';
  * server runs with SERVICE_MODULE=on: no permissions in the role editor, no listener, and its routes answer 404.
  */
 @Module({
-  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController, ServiceClaimsController, ServiceStockController, ServiceReturnsController],
-  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, JobDeliveryListener, JobStockService, ReturnsService, BoardQuery, ServiceSettingsService, RemindersService, StockCheckService, ClaimsQuery, ClaimsService],
+  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController, ServiceClaimsController, ServiceStockController, ServiceReturnsController, ServiceWarrantiesController],
+  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, JobDeliveryListener, JobStockService, ReturnsService, WarrantyService, BoardQuery, ServiceSettingsService, RemindersService, StockCheckService, ClaimsQuery, ClaimsService],
 })
 export class ServiceModule implements OnModuleInit {
   constructor(

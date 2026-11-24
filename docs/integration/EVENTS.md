@@ -120,6 +120,7 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 | `service.job.booked` | A job booked or moved on the Planning Board | jobNo, jobType, personId, personName, date, start and end (minutes from midnight), moved, salesOrderId, salesOrderNo, bookingText | **Sales** (the booking on the order); phone app — later |
 | `service.job.delivery_due` | A booked job from a sales order is within 24 hours and the warehouse has confirmed its stock; each hour until it has a delivery order | jobNo, salesOrderId, salesOrderNo, date, start, end, personName, bookingText | **Sales** (drafts the delivery order) |
 | `service.parts.returned` | The store received a part an installer brought back (phase 5) | jobNo, itemCode, uomCode, warehouseCode, goodQty, damagedQty | Inventory (later) |
+| `service.warranty.registered` | A complete installation registered its units under warranty (phase 5) | jobNo, salesOrderNo, customerCode, units: itemCode, qty, startOn, endOn, status | None yet |
 | `service.job.unbooked` | A booked job taken off the board, or its visit postponed | jobNo, salesOrderId, salesOrderNo, reason | **Sales** (clears the booking) |
 | `service.job.done` | A visit recorded as complete or partly done | jobNo, jobType, personId, personName, date, result, paidStatus, salesOrderNo, customerCode | Fees and commission (F5) — later |
 | `service.job.extended` | The office gave a booked job longer (F3 part 4) | jobNo, personId, personName, date, from and to (minutes from midnight), reason, runsInto (the later jobs it now runs into) | Phone app — later |
@@ -163,6 +164,7 @@ Stored in `sys_event_handled.handler`. The seed marks its own history as handled
 | `sales.install-delivery` | `service.job.delivery_due` |
 | `service.job-delivery`, `service.job-delivery-removed`, `service.job-delivered` | `sales.delivery.drafted`, `sales.delivery.removed`, `sales.delivery.delivered` (only with `SERVICE_MODULE=on`) |
 | `service.job-order-closed` | `sales.order.balance_cancelled` (only with `SERVICE_MODULE=on`) |
+| `sales.invoice-delivered` | `sales.delivery.delivered` (Sales' own: drafts the invoice where the company asks for it) |
 | `sales.install-cancelled` | `service.job.cancelled` |
 | `service.job-from-order` | `sales.order.released` (only with `SERVICE_MODULE=on`) |
 | `service.job-payment` | `sales.receipt.verified` (only with `SERVICE_MODULE=on`) |

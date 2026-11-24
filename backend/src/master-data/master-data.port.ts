@@ -65,6 +65,8 @@ export interface MdItem {
   standardCost: string | null;
   /** Service reminders (phase 5, F6): change every so many months after installation. Null: none. */
   serviceIntervalMonths: number | null;
+  /** Warranty in months from the installation (phase 5). Null: none. */
+  warrantyMonths: number | null;
   /** The picture shown when picking (phase 5): an attachment id, or null. */
   pictureId: string | null;
   status: 'ACTIVE' | 'BLOCKED' | 'DISCONTINUED';

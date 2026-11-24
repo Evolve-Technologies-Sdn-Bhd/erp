@@ -719,6 +719,7 @@ model MdmItem {
   standardCost           Decimal?      @db.Decimal(18, 4) // for the estimated margin on sales documents
   einvoiceClassification String?       @db.VarChar(10) // LHDN classification code (SRS FR-MST-008)
   serviceIntervalMonths  Int? // a filter or part to change every so many months after installation (phase 5, F6)
+  warrantyMonths         Int? // warranty from the installation, in months (phase 5); null: none
   pictureId              String?       @db.Char(36) // sys_attachment: the picture shown when picking (phase 5)
   status                 MdmItemStatus @default(ACTIVE)
   createdAt              DateTime      @default(now()) @db.DateTime(3)
@@ -2501,6 +2502,25 @@ enum SalReceiptStatus {
 /// the slip). Account verifies it against the bank or card settlement; only verified receipts count as paid. Used only
 /// with the Sales Flow switch "Salespeople record payments as official receipts" on. Invoice balances still come from
 /// Finance (fin_receipt_stub); the company's accounting system keeps the books.
+/// A verified official receipt counted on an invoice of its order (phase 5). Never changed once made.
+model SalReceiptAllocation {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  receiptId String   @db.Char(36)
+  receiptNo String   @db.VarChar(30)
+  paidOn    DateTime @db.Date
+  method    String   @db.VarChar(12)
+  invoiceId String   @db.Char(36)
+  invoiceNo String   @db.VarChar(30)
+  amount    Decimal  @db.Decimal(18, 2)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  createdBy String   @db.VarChar(20)
+
+  @@unique([receiptId, invoiceId])
+  @@index([tenantId, invoiceNo])
+  @@map("sal_receipt_allocation")
+}
+
 model SalReceipt {
   id             String           @id @default(uuid()) @db.Char(36)
   tenantId       String           @db.Char(36)
@@ -2895,6 +2915,8 @@ model SalSetting {
   autoCancelDays         Int      @default(60)
   preOrders              Boolean  @default(false) // on: an order released with any item short of stock is a pre-order as a whole (phase 5)
   holdStock              Boolean  @default(false) // on: stock of booked installations is held: other orders count what is left (phase 5)
+  autoInvoice            Boolean  @default(false) // on: the delivered delivery order of an installation drafts its invoice; billing releases it (phase 5)
+  receiptsPayInvoices    Boolean  @default(false) // on: verified official receipts lower the balance of their order's invoices (phase 5)
   signedDelivery         Boolean  @default(false) // on: a delivery order of an installation is collected, then delivered when the customer signs (phase 5)
   autoDelivery           Boolean  @default(false) // on: Service asks for the delivery order 24 hours before the installation, and Sales drafts it (phase 5)
   shareWhatsapp          Boolean  @default(false) // on: whoever keys orders opens WhatsApp with the released order's summary for the customer (phase 5)
@@ -3105,6 +3127,12 @@ model SvcJob {
   recordedAt     DateTime?    @db.DateTime(3)
   postponedCount Int          @default(0)
   reminderId     String?      @db.Char(36) // made from a service reminder (F6): completing it starts the next one
+  // A warranty claim (phase 5): the unit, and what the office decided.
+  warrantyId     String?      @db.Char(36)
+  assessment     String?      @db.VarChar(12) // COVERED, CHARGEABLE, REJECTED
+  assessNote     String?      @db.VarChar(300)
+  assessedBy     String?      @db.VarChar(100)
+  assessedAt     DateTime?    @db.DateTime(3)
   followUpOfId   String?      @db.Char(36) // this job finishes a partly done one
   followUpOfNo   String?      @db.VarChar(30)
   closedAt       DateTime?    @db.DateTime(3)
@@ -3116,6 +3144,7 @@ model SvcJob {
   updatedAt      DateTime     @updatedAt @db.DateTime(3)
   updatedBy      String       @db.VarChar(20)
   items          SvcJobItem[]
+  parts          SvcJobPart[]
 
   @@unique([tenantId, docNo])
   @@unique([tenantId, salesOrderId])
@@ -3124,6 +3153,62 @@ model SvcJob {
   @@index([tenantId, personId, jobDate])
   @@index([tenantId, jobDate])
   @@map("svc_job")
+}
+
+/// A unit under warranty (phase 5): registered by a complete installation, active once the order is fully paid.
+model SvcWarranty {
+  id             String    @id @default(uuid()) @db.Char(36)
+  tenantId       String    @db.Char(36)
+  branchCode     String    @db.VarChar(10)
+  customerCode   String    @db.VarChar(20)
+  customerName   String    @db.VarChar(150)
+  contactName    String?   @db.VarChar(100)
+  phone          String?   @db.VarChar(40)
+  phoneKey       String?   @db.VarChar(40) // digits only, so it is found however it is typed
+  siteAddress    String?   @db.VarChar(300)
+  area           String?   @db.VarChar(60)
+  salesOrderId   String?   @db.Char(36)
+  salesOrderNo   String?   @db.VarChar(30)
+  jobId          String    @db.Char(36)
+  jobNo          String    @db.VarChar(30)
+  itemCode       String    @db.VarChar(30)
+  itemName       String    @db.VarChar(150)
+  uomCode        String    @db.VarChar(10)
+  qty            Decimal   @db.Decimal(18, 4)
+  serialNo       String?   @db.VarChar(60)
+  warrantyMonths Int
+  startOn        DateTime  @db.Date // the installation
+  endOn          DateTime  @db.Date // the last day covered
+  status         String    @default("PENDING") @db.VarChar(10) // PENDING (not fully paid), ACTIVE, VOID
+  activatedAt    DateTime? @db.DateTime(3)
+  voidReason     String?   @db.VarChar(300)
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @db.DateTime(3)
+  updatedAt      DateTime  @updatedAt @db.DateTime(3)
+  updatedBy      String    @db.VarChar(20)
+
+  @@unique([jobId, itemCode])
+  @@index([tenantId, status, endOn])
+  @@index([tenantId, salesOrderId])
+  @@index([tenantId, customerCode])
+  @@map("svc_warranty")
+}
+
+/// Parts used on a service, warranty or repair job (phase 5). Stock is not moved yet.
+model SvcJobPart {
+  id       String  @id @default(uuid()) @db.Char(36)
+  tenantId String  @db.Char(36)
+  jobId    String  @db.Char(36)
+  lineNo   Int
+  itemCode String  @db.VarChar(30)
+  itemName String  @db.VarChar(150)
+  uomCode  String  @db.VarChar(10)
+  qty      Decimal @db.Decimal(18, 4)
+  job      SvcJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, lineNo])
+  @@index([tenantId, itemCode])
+  @@map("svc_job_part")
 }
 
 /// Parts an installer brings back from a job (phase 5): listed at the visit, received by the store as good or damaged.

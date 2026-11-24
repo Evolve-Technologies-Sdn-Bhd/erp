@@ -3,6 +3,7 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { CurrentContext, RequirePermission } from '../../platform/context/context.decorators';
 import type { RequestContext } from '../../platform/context/request-context';
+import { AssessJobDto } from '../warranty/warranty.dto';
 import { ServiceOnGuard } from '../service-on.guard';
 import { SERVICE_PERMISSIONS as P } from '../service.permissions';
 import { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, JobListQueryDto, RecordVisitDto, UpdateJobDto, VersionDto } from './dto/job.dto';
@@ -100,6 +101,13 @@ export class ServiceJobsController {
     return this.service.followUp(ctx, id);
   }
 
+  /** A warranty claim: covered, chargeable or rejected (phase 5). */
+  @Post(':id/assess')
+  @RequirePermission(P.JOB_EDIT)
+  assess(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: AssessJobDto) {
+    return this.service.assess(ctx, id, dto);
+  }
+
   @Post(':id/close')
   @RequirePermission(P.JOB_BOOK)
   close(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
@@ -131,6 +139,14 @@ export class ServiceHomeController {
   }
 
   /** Customers for a job added by hand: active ones and prospects, with the site details to copy. */
+  /** Items for the parts used on a visit (phase 5). */
+  @Get('lookups/items')
+  @RequirePermission(P.VIEW)
+  async items(@CurrentContext() ctx: RequestContext, @Query() query: SearchQuery) {
+    const rows = await this.masterData.searchSellableItems(ctx.tenantId, { q: query.q, limit: 20 });
+    return { items: rows.map((i) => ({ code: i.code, name: i.name, uomCode: i.uomCode })) };
+  }
+
   @Get('lookups/customers')
   @RequirePermission(P.VIEW)
   async customers(@CurrentContext() ctx: RequestContext, @Query() query: SearchQuery) {

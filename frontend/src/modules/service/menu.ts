@@ -1,4 +1,4 @@
-import { BellRing, Boxes, CalendarDays, ClipboardList, PackageOpen, Receipt, SlidersHorizontal, Wrench } from '@lucide/vue'
+import { BellRing, Boxes, CalendarDays, ClipboardList, PackageOpen, Receipt, ShieldCheck, SlidersHorizontal, Wrench } from '@lucide/vue'
 import type { MenuGroup } from '../common/menu'
 
 /** Service sidebar (SvcHome.html and the other Svc mockups). Labels as in the mockups. */
@@ -13,6 +13,7 @@ export const SERVICE_MENU: MenuGroup[] = [
       { key: 'jobs', label: 'Jobs', to: '/service/jobs', icon: ClipboardList },
       { key: 'stock', label: 'Stock for Jobs', to: '/service/stock', icon: Boxes },
       { key: 'returns', label: 'Returned Parts', to: '/service/returns', icon: PackageOpen },
+      { key: 'warranties', label: 'Warranties', to: '/service/warranties', icon: ShieldCheck },
       { key: 'reminders', label: 'Reminders', to: '/service/reminders', icon: BellRing },
       { key: 'claims', label: 'Installer Claims', to: '/service/claims', icon: Receipt },
     ],

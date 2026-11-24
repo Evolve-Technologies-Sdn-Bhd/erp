@@ -114,6 +114,14 @@ class ItemFieldsDto {
   @Max(60, { message: 'Service interval is 1 to 60 months.' })
   serviceIntervalMonths?: number | null;
 
+  /** Warranty in months from the installation (phase 5). Empty: no warranty. */
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null || value === undefined ? null : Number(value)))
+  @IsInt({ message: 'Warranty is a whole number of months.' })
+  @Min(1, { message: 'Warranty is 1 to 240 months.' })
+  @Max(240, { message: 'Warranty is 1 to 240 months.' })
+  warrantyMonths?: number | null;
+
   /** The picture shown when picking (phase 5): uploaded first (POST /attachments), or null to take it off. Not sent: kept as it is. */
   @IsOptional()
   @IsUUID('all', { message: 'Upload the picture again.' })

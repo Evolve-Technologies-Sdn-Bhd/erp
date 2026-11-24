@@ -2,13 +2,14 @@ import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
 import type {
   Board, ClaimDetail, ClaimInput, ClaimPeriod, ClaimRow, EligibleJob, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ReminderRow, ServiceCustomerOption, ServiceHome,
-  ReturnedPart, ServiceSettings, StockDay, VisitInput,
+  Assessment, ReturnedPart, ServiceSettings, StockDay, VisitInput, Warranty,
 } from '../types'
 
 /** The Service module's API (phase 5, F3) — /api/v1/service. */
 export const serviceApi = {
   home: () => api<ServiceHome>('/service/home'),
   customers: (q: string) => api<{ items: ServiceCustomerOption[] }>('/service/lookups/customers', { query: { q } }),
+  items: (q: string) => api<{ items: { code: string; name: string; uomCode: string }[] }>('/service/lookups/items', { query: { q } }),
   board: (date?: string) => api<Board>('/service/board', { query: { date } }),
   settings: () => api<ServiceSettings>('/service/settings'),
   saveGeneral: (body: ServiceSettings['general']) => api<ServiceSettings>('/service/settings/general', { method: 'PUT', body }),
@@ -62,6 +63,7 @@ export const serviceJobsApi = {
     form.append('entityId', id)
     return api<JobPhoto>('/attachments', { method: 'POST', body: form })
   },
+  assess: (id: string, body: { version: number; result: Assessment; note?: string }) => api<JobDetail>(`/service/jobs/${id}/assess`, { method: 'POST', body }),
   close: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/close`, { method: 'POST', body: { version } }),
 }
 
@@ -76,6 +78,14 @@ export const serviceStockApi = {
 export const serviceReturnsApi = {
   list: (query: ListQuery) => api<ListResponse<ReturnedPart>>('/service/returns', { query }),
   receive: (id: string, body: { version: number; goodQty: string; damagedQty: string; note?: string }) => api<ReturnedPart>(`/service/returns/${id}/receive`, { method: 'POST', body }),
+}
+
+/** Warranties (phase 5) — /api/v1/service/warranties. */
+export const serviceWarrantiesApi = {
+  list: (query: ListQuery) => api<ListResponse<Warranty>>('/service/warranties', { query }),
+  update: (id: string, version: number, serialNo: string) => api<Warranty>(`/service/warranties/${id}`, { method: 'PATCH', body: { version, serialNo } }),
+  makeVoid: (id: string, version: number, reason: string) => api<Warranty>(`/service/warranties/${id}/void`, { method: 'POST', body: { version, reason } }),
+  claim: (id: string, body: { problem: string; preferredDate?: string }) => api<JobDetail>(`/service/warranties/${id}/job`, { method: 'POST', body }),
 }
 
 /** Service reminders (F6) — /api/v1/service/reminders. */

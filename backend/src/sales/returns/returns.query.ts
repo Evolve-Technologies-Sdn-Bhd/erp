@@ -11,6 +11,7 @@ import { NotFoundError } from '../../platform/http/errors';
 import { buildStatusCounts, dateRange, pageArgs, parseSort, statusFromKey, toListResponse, toOrderBy } from '../../platform/http/list';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { SALES_PERMISSIONS as P } from '../sales.permissions';
+import { InvoicePayments } from '../shared/invoice-payments.service';
 import { SalesLinkedDocsService } from '../shared/linked-docs.service';
 import { SAL_ENTITY, SAL_EVENT } from '../shared/sales.constants';
 import { invoiceBalance, saleLineTotals } from '../shared/totals.rules';
@@ -41,6 +42,7 @@ export class ReturnsQuery {
     private readonly activity: ActivityService,
     private readonly attachments: AttachmentsService,
     private readonly permissions: PermissionRegistry,
+    private readonly payments: InvoicePayments,
     private readonly linked: SalesLinkedDocsService,
     private readonly clock: ClockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
@@ -90,8 +92,7 @@ export class ReturnsQuery {
   }
 
   async invoiceBalanceOf(tenantId: string, inv: SalInvoice) {
-    const paid = await this.prisma.finReceiptStub.aggregate({ where: { tenantId, appliesToType: 'INVOICE', appliesToNo: inv.docNo }, _sum: { amount: true } });
-    const paidAmount = paid._sum.amount ?? dec(0);
+    const paidAmount = await this.payments.paidOne(tenantId, inv.docNo);
     return { paid: paidAmount, balance: invoiceBalance({ total: inv.total, debited: inv.debitedAmount, credited: inv.creditedAmount, deposit: inv.depositApplied, paid: paidAmount }) };
   }
 

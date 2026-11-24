@@ -65,6 +65,7 @@ const form = reactive({
   salesTaxCode: '',
   standardCost: '',
   serviceIntervalMonths: '',
+  warrantyMonths: '',
   pictureId: null as string | null,
   conversions: [] as ConversionRow[],
 })
@@ -99,6 +100,7 @@ function fill(i: ItemDetail | null) {
       salesTaxCode: i.salesTaxCode ?? '',
       standardCost: i.standardCost === null ? '' : Number(i.standardCost).toFixed(2),
       serviceIntervalMonths: i.serviceIntervalMonths === null ? '' : String(i.serviceIntervalMonths),
+      warrantyMonths: i.warrantyMonths === null ? '' : String(i.warrantyMonths),
       pictureId: i.pictureId,
       conversions: i.conversions.map((c) => ({ key: nextKey++, fromUom: c.fromUom, toUom: c.toUom, factor: String(Number(c.factor)) })),
     })
@@ -106,7 +108,7 @@ function fill(i: ItemDetail | null) {
     Object.assign(form, {
       code: '', name: '', itemGroup: '', type: 'STOCK', baseUom: '', barcode: '', einvoiceClassification: '', isPurchasable: true, isBuyToOrder: false,
       purchaseUom: '', purchaseTaxCode: '', preferredSupplier: null, reorderLevel: '', packSize: '1', isSellable: false, salesUom: '', salesTaxCode: '',
-      standardCost: '', serviceIntervalMonths: '', pictureId: null, conversions: [],
+      standardCost: '', serviceIntervalMonths: '', warrantyMonths: '', pictureId: null, conversions: [],
     })
   }
   saved.value = snapshot()
@@ -171,6 +173,7 @@ function body(): ItemInput {
     salesTaxCode: form.salesTaxCode || null,
     standardCost: canSeeCost.value ? form.standardCost.trim() || null : item.value?.standardCost ?? null,
     serviceIntervalMonths: form.serviceIntervalMonths.trim() ? Number(form.serviceIntervalMonths.trim()) : null,
+    warrantyMonths: form.warrantyMonths.trim() ? Number(form.warrantyMonths.trim()) : null,
     pictureId: form.pictureId,
     conversions: form.conversions.map((c) => ({ fromUom: c.fromUom, toUom: c.toUom, factor: c.factor.trim() })),
   }
@@ -387,7 +390,11 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
             <FormField label="Service every (months)" for="svcInterval" :error="errors.serviceIntervalMonths">
               <input id="svcInterval" v-model="form.serviceIntervalMonths" class="erp-input" inputmode="numeric" placeholder="No reminder" :disabled="!editable" />
             </FormField>
+            <FormField label="Warranty (months)" for="warrantyMonths" :error="errors.warrantyMonths">
+              <input id="warrantyMonths" v-model="form.warrantyMonths" class="erp-input" inputmode="numeric" placeholder="No warranty" :disabled="!editable" />
+            </FormField>
           </div>
+          <span class="text-xs text-erp-muted">Warranty: from the installation day. Service registers the unit when its installation is complete; it is active once the order is fully paid.</span>
           <span class="text-xs text-erp-muted">Service every: a filter or part to change after installation. Service reminds the office and makes the job 14 days before it is due.</span>
           <span v-if="canSeeCost" class="text-xs text-erp-muted">Standard cost gives the estimated margin on quotations. Only the Sales Manager sees it.</span>
         </section>

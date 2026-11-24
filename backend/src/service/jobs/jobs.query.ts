@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SvcJob, SvcJobItem, SvcJobStage } from '@prisma/client';
 import { JobStockService } from '../stock/job-stock.service';
 import { returnView } from '../returns/returns.service';
+import { WarrantyService } from '../warranty/warranty.service';
+import { ASSESSMENT_LABEL, suggestedAssessment, type Assessment } from '../warranty/warranty.rules';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { AttachmentsService } from '../../platform/attachments/attachments.service';
 import { ActivityService } from '../../platform/activity/activity.service';
@@ -52,6 +54,7 @@ export class JobsQuery {
     private readonly clock: ClockService,
     private readonly attachments: AttachmentsService,
     private readonly jobStock: JobStockService,
+    private readonly warranties: WarrantyService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -161,6 +164,18 @@ export class JobsQuery {
         confirmedBy: job.stockConfirmedBy,
       },
       delivery: job.deliveryId ? { id: job.deliveryId, docNo: job.deliveryNo, delivered: Boolean(job.deliveredAt) } : null,
+      /** The warranty claim (phase 5): the unit, the office's decision, and the one suggested. Null on other jobs. */
+      warranty: job.jobType === 'WARRANTY'
+        ? await (async () => {
+            const unit = await this.warranties.ofJob(ctx.tenantId, job.warrantyId);
+            return {
+              unit, suggested: unit ? suggestedAssessment(unit.state) : ('CHARGEABLE' as const), assessment: job.assessment, assessmentLabel: job.assessment ? ASSESSMENT_LABEL[job.assessment as Assessment] : null,
+              note: job.assessNote, by: job.assessedBy, at: job.assessedAt?.toISOString() ?? null,
+              canAssess: this.permissions.has(ctx.user.roles, P.JOB_EDIT) && (job.stage === 'NOT_BOOKED' || job.stage === 'BOOKED'),
+            };
+          })()
+        : null,
+      parts: (await this.prisma.svcJobPart.findMany({ where: { jobId: job.id }, orderBy: { lineNo: 'asc' } })).map((p) => ({ itemCode: p.itemCode, itemName: p.itemName, uomCode: p.uomCode, qty: toQty(p.qty) })),
       /** Parts the installer said come back (phase 5). */
       returns: (await this.prisma.svcReturn.findMany({ where: { tenantId: ctx.tenantId, jobId: job.id }, orderBy: { itemCode: 'asc' } })).map(returnView),
       doneAt: job.doneAt?.toISOString() ?? null,

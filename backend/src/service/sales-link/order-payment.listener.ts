@@ -5,6 +5,7 @@ import { dec } from '../../platform/http/decimal';
 import { OutboxConsumers } from '../../platform/outbox/outbox.consumers';
 import type { OutboxEnvelope } from '../../platform/outbox/outbox.types';
 import type { Tx } from '../../platform/prisma/prisma.service';
+import { WarrantyService } from '../warranty/warranty.service';
 import { SVC_ENTITY, SYSTEM_USER } from '../service.constants';
 
 /** The Sales event: Account verified an official receipt (EVENTS.md → Service listens to). */
@@ -31,6 +32,7 @@ export class OrderPaymentListener {
   constructor(
     private readonly consumers: OutboxConsumers,
     private readonly activity: ActivityService,
+    private readonly warranties: WarrantyService,
   ) {}
 
   /** Called by ServiceModule only when the module is turned on. */
@@ -47,6 +49,8 @@ export class OrderPaymentListener {
       where: { tenantId: event.tenantId, salesOrderId: pay.salesOrderId },
       data: { orderPayment: pay.status, orderPaid: dec(pay.verified), orderTotal: dec(pay.total) },
     });
+    // Fully paid: the order's warranties become active (phase 5).
+    const active = pay.status === 'FULLY_PAID' ? await this.warranties.activateForOrder(tx, event.tenantId, pay.salesOrderId, SYSTEM_USER.code) : 0;
     for (const j of jobs) {
       const ctx: RequestContext = {
         tenantId: event.tenantId, branchCode: j.branchCode, correlationId: event.correlationId,
@@ -54,7 +58,7 @@ export class OrderPaymentListener {
       };
       await this.activity.log(tx, ctx, {
         entityType: SVC_ENTITY.JOB, entityId: j.id, docNo: j.docNo, action: 'order_payment',
-        message: `${pay.salesOrderNo} payment ${pay.orNo} verified: ${LABEL[pay.status]}, RM ${dec(pay.verified).toFixed(2)} of RM ${dec(pay.total).toFixed(2)}`, comment: null,
+        message: `${pay.salesOrderNo} payment ${pay.orNo} verified: ${LABEL[pay.status]}, RM ${dec(pay.verified).toFixed(2)} of RM ${dec(pay.total).toFixed(2)}${active ? '; warranty active' : ''}`, comment: null,
       });
     }
   }

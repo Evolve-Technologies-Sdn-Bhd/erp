@@ -11,6 +11,7 @@ import { NotFoundError } from '../../platform/http/errors';
 import { dateRange, parseSort } from '../../platform/http/list';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { SALES_PERMISSIONS as P } from '../sales.permissions';
+import { InvoicePayments } from '../shared/invoice-payments.service';
 import { CreditService, type CreditOutcome } from '../shared/credit.service';
 import { DepositsService } from '../shared/deposits.service';
 import { depositToUse } from '../proformas/proforma.rules';
@@ -39,6 +40,7 @@ export class InvoicesQuery {
     private readonly activity: ActivityService,
     private readonly approvals: ApprovalsService,
     private readonly permissions: PermissionRegistry,
+    private readonly payments: InvoicePayments,
     private readonly credit: CreditService,
     private readonly linked: SalesLinkedDocsService,
     private readonly deposits: DepositsService,
@@ -142,8 +144,7 @@ export class InvoicesQuery {
   }
 
   private async paidByInvoice(tenantId: string, docNos: string[]) {
-    const receipts = await this.prisma.finReceiptStub.groupBy({ by: ['appliesToNo'], where: { tenantId, appliesToType: 'INVOICE', appliesToNo: { in: docNos } }, _sum: { amount: true } });
-    return new Map(receipts.map((r) => [r.appliesToNo, r._sum.amount ?? dec(0)]));
+    return this.payments.paid(tenantId, docNos);
   }
 
   private balanceOf(inv: SalInvoice, paid: Prisma.Decimal) {
@@ -306,7 +307,7 @@ export class InvoicesQuery {
       this.masterData.findCustomer(ctx.tenantId, inv.customerCode),
       this.masterData.listTaxCodes(ctx.tenantId),
       this.masterData.listBranches(ctx.tenantId),
-      this.prisma.finReceiptStub.findMany({ where: { tenantId: ctx.tenantId, appliesToType: 'INVOICE', appliesToNo: inv.docNo }, orderBy: { receiptDate: 'asc' } }),
+      this.payments.list(ctx.tenantId, inv.docNo),
       this.prisma.sysOutbox.findFirst({ where: { tenantId: ctx.tenantId, name: SAL_EVENT.INVOICE_RELEASED, aggregateId: inv.id }, select: { status: true } }),
       inv.salesOrderId ? this.prisma.salSalesOrder.findFirst({ where: { id: inv.salesOrderId }, include: { lines: true } }) : null,
       this.prisma.sysTenant.findUnique({ where: { id: ctx.tenantId }, select: { name: true } }),
@@ -399,7 +400,7 @@ export class InvoicesQuery {
         paid: toMoney(paid),
         balance: toMoney(balance),
       },
-      payments: receipts.map((r) => ({ receiptNo: r.receiptNo, date: iso(r.receiptDate), amount: toMoney(r.amount), method: r.method, note: r.note })),
+      payments: receipts.map((r) => ({ receiptNo: r.receiptNo, date: iso(r.date), amount: toMoney(r.amount), method: r.method, note: r.note })),
       posting: { accounts: inv.isMigrated ? 'OLD_SYSTEM' : event?.status === 'PENDING' ? 'QUEUED' : event ? 'POSTED' : null, eInvoice: inv.isMigrated ? null : event?.status === 'PENDING' ? 'PENDING' : event ? 'SUBMITTED' : null },
       checks: {
         priceBelowList: needs.price ? needs.below : null,

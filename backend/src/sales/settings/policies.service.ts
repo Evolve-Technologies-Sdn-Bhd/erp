@@ -28,6 +28,8 @@ const flowOf = (s: FlowSwitches): FlowSwitches => ({
   holdStock: s.holdStock,
   autoDelivery: s.autoDelivery,
   signedDelivery: s.signedDelivery,
+  autoInvoice: s.autoInvoice,
+  receiptsPayInvoices: s.receiptsPayInvoices,
 });
 import { codeFromName, creditChanges, CREDIT_DOCS, normaliseRule, numberingChanges, ruleProblems, TOGGLES, type CreditRuleView, type ToggleKey } from './settings.rules';
 
@@ -149,6 +151,8 @@ export class SalesPoliciesService {
       holdStock: dto.holdStock ?? s.holdStock,
       autoDelivery: dto.autoDelivery ?? s.autoDelivery,
       signedDelivery: dto.signedDelivery ?? s.signedDelivery,
+      autoInvoice: dto.autoInvoice ?? s.autoInvoice,
+      receiptsPayInvoices: dto.receiptsPayInvoices ?? s.receiptsPayInvoices,
     };
     const before = { belowPct: pct(s.priceBelowPct), abovePct: pct(s.priceAbovePct) };
     const typed = { belowPct: dto.priceBelowPct?.trim() ?? before.belowPct, abovePct: dto.priceAbovePct?.trim() ?? before.abovePct };

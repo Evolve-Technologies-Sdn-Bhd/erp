@@ -30,6 +30,8 @@ export const SVC_EVENT = {
   JOB_DELIVERY_DUE: 'service.job.delivery_due',
   /** The store received a part an installer brought back (phase 5): good and damaged. Inventory later. */
   PARTS_RETURNED: 'service.parts.returned',
+  /** A complete installation registered its units under warranty (phase 5). */
+  WARRANTY_REGISTERED: 'service.warranty.registered',
   /** The visit is recorded as complete or partly done: what fees and commission will count (F5). */
   JOB_DONE: 'service.job.done',
   /** Account approved an installer's claim (F5): to pay on its pay day. Finance later. */

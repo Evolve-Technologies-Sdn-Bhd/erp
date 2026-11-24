@@ -5,6 +5,7 @@ import { ClockService } from '../../platform/clock/clock.service';
 import type { RequestContext } from '../../platform/context/request-context';
 import { toRmText } from '../../platform/http/decimal';
 import { BusinessRuleError, NotFoundError, ValidationFailedError } from '../../platform/http/errors';
+import { InvoicePayments } from '../shared/invoice-payments.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { mailDate, renderSalesTemplate, SalesMailService } from '../shared/sales-mail.service';
 import { SAL_ENTITY } from '../shared/sales.constants';
@@ -21,6 +22,7 @@ const VARIABLES = ['contact.name', 'document.number', 'document.total', 'documen
 export class SalesListsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly payments: InvoicePayments,
     private readonly mail: SalesMailService,
     private readonly clock: ClockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
@@ -275,8 +277,8 @@ export class SalesListsService {
       : await this.prisma.salInvoice.findFirst({ where: { tenantId, status: 'RELEASED', isMigrated: false }, orderBy: [{ docDate: 'asc' }, { docNo: 'asc' }] });
     if (!inv) return base;
     const c = await customerOf(inv.customerCode);
-    const paid = await this.prisma.finReceiptStub.aggregate({ where: { tenantId, appliesToType: 'INVOICE', appliesToNo: inv.docNo }, _sum: { amount: true } });
-    const balance = invoiceBalance({ total: inv.total, debited: inv.debitedAmount, credited: inv.creditedAmount, deposit: inv.depositApplied, paid: paid._sum.amount ?? 0 });
+    const paid = await this.payments.paidOne(tenantId, inv.docNo);
+    const balance = invoiceBalance({ total: inv.total, debited: inv.debitedAmount, credited: inv.creditedAmount, deposit: inv.depositApplied, paid });
     return { ...base, entityType: SAL_ENTITY.INVOICE, entityId: inv.id, docNo: inv.docNo, to: c?.email ?? null, agentEmail: agentOf(inv.agentCode)?.email ?? null,
       vars: {
         'contact.name': inv.contactName ?? c?.contactName ?? inv.customerName, 'document.number': inv.docNo,
