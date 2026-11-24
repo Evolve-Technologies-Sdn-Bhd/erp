@@ -208,7 +208,7 @@ async function exportCsv() {
     </section>
 
     <!-- Delivery orders -->
-    <section class="erp-card flex grow flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="dl:list" class="erp-card flex grow flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-baseline justify-between gap-3">
         <h2 class="m-0 text-[15px] font-bold">Delivery orders</h2>
         <div class="flex items-center gap-3">

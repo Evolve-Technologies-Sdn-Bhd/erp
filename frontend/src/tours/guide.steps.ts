@@ -63,6 +63,9 @@ export const openModule = (module: PageMatch['module'], label: string): TourStep
   text: `Click the top icon, then ${label}.`,
 })
 
+/** From Core's home: a menu group's tile, which opens its first page. */
+export const openCore = (tile: string, title: string, to: PageMatch): TourStep => ({ target: 'home:main', page: { module: 'core' }, pick: tile, wait: { kind: 'page', to }, title, text: `Click the ${tile} tile.`, placement: 'top' })
+
 /** A document in a list, by the word that holds its number. */
 export const openDoc = (list: PageMatch, word: string, to: PageMatch, title: string, extra: Partial<TourStep> = {}): TourStep => ({
   target: 'list',

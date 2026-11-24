@@ -111,7 +111,7 @@ async function save() {
     </DataList>
     <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
 
-    <Dialog :visible="Boolean(ask)" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="ask ? `${TITLE[ask]} · ${unit?.itemCode}` : ''" @update:visible="ask = null">
+    <Dialog :visible="Boolean(ask)" data-tour="svc:warranty-ask" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="ask ? `${TITLE[ask]} · ${unit?.itemCode}` : ''" @update:visible="ask = null">
       <div class="flex flex-col gap-3 text-[13px]">
         <p class="m-0">{{ unit?.customerName }} · {{ unit?.stateLabel }}</p>
         <template v-if="ask === 'claim'">

@@ -51,6 +51,7 @@ const HOVER_MS = 450
 const FILL_MS = 600
 const SLOW_MS = 700
 const PASS_MS = 100
+const REVEAL_MS = 2500
 
 export const SENSITIVE_NUDGE = 'The tour won’t press this: it changes records for real. Pause or exit the tour, then do it yourself.'
 export const OUTSIDE_NUDGE = 'The tour is showing the highlighted part. Use Next, or Pause to use the rest of the page.'
@@ -299,7 +300,9 @@ function findTarget(id: string): HTMLElement | null {
 const screenSize = () => ({ width: window.innerWidth, height: window.innerHeight })
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+let revealedAt = 0
 function reveal(node: HTMLElement): void {
+  revealedAt = performance.now()
   if (!needsScroll(node.getBoundingClientRect(), screenSize())) return
   node.scrollIntoView({ block: window.innerWidth < NARROW ? 'start' : 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
 }
@@ -314,11 +317,20 @@ function menuOf(node: HTMLElement): HTMLElement | null {
 /** The link or button inside the target that a step's `pick` names: a document's number, or the row or card it is in. */
 function pickIn(container: HTMLElement, words: string): HTMLElement | null {
   if (!words) return null
-  const controls = [...container.querySelectorAll<HTMLElement>('a[href], button')].filter(visible)
+  const [key, label] = words.split(' > ') as [string, string?]
   const says = (n: HTMLElement) => (n.textContent ?? '').replace(/\s+/g, ' ').trim()
+  const controlsIn = (n: HTMLElement) => [...n.querySelectorAll<HTMLElement>('a[href], button')].filter(visible)
+  const rows = [...container.querySelectorAll<HTMLElement>('tr, article, li')].filter(visible)
+  const row = rows.find((r) => says(r).startsWith(key)) ?? rows.find((r) => says(r).includes(key))
+  if (label) return row ? (controlsIn(row).find((c) => says(c) === label) ?? null) : null
   // In a list, the row's own document: its first link (a receipt's row also links its order).
-  const row = [...container.querySelectorAll<HTMLElement>('tr')].find((r) => visible(r) && says(r).includes(words))
-  return row?.querySelector<HTMLElement>('a[href]') ?? controls.find((c) => says(c) === words) ?? controls.find((c) => says(c).includes(words)) ?? null
+  const controls = controlsIn(container)
+  return (
+    (row ? (row.querySelector<HTMLElement>('a[href]') ?? controlsIn(row)[0]) : undefined) ??
+    controls.find((c) => says(c) === key) ??
+    controls.find((c) => says(c).includes(key) || (c.getAttribute('aria-label') ?? '').includes(key)) ??
+    null
+  )
 }
 
 /** The element, and a menu it has opened (the person menu, a dropdown list): both stay lit. */
@@ -457,7 +469,9 @@ function frame(): void {
   if (!step.target) {
     if (run.status !== 'showing') arm(step)
   } else if (!el || !visible(el)) {
-    const found = findTarget(step.target)
+    const there = findTarget(step.target)
+    // An optional step that names one link is left out when that link is not there.
+    const found = there && step.optional && step.pick && !pickIn(there, stepText(step.pick)) ? null : there
     if (found) {
       el = found
       if (run.status !== 'showing') {
@@ -474,6 +488,8 @@ function frame(): void {
       } else if (run.status === 'finding' && now - startedAt > (step.optional ? OPTIONAL_MS : FIND_MS)) {
         if (step.optional) {
           if (!run.skipped.includes(run.index)) run.skipped.push(run.index)
+          // It would have opened a page: the optional steps on that page are left out at once.
+          if (waitOf(step).kind === 'page' && step.pick) navSkipped = true
           return goTo(run.index + 1)
         }
         run.status = 'missing'
@@ -488,10 +504,17 @@ function frame(): void {
     const one = container ? pickIn(container, stepText(step.pick)) : null
     if (one && one !== el) {
       el = one
+      armedAt = now
       reveal(one)
     }
   }
+  // The page may still be drawing itself when it is scrolled to: look again for a moment, until it is on screen.
+  if (el && run.status === 'showing' && !run.raised && now - armedAt < REVEAL_MS && now - revealedAt > 600) reveal(el)
   if (el) updateHole(el)
+  if (step.remember && run.status === 'showing' && !/\d/.test(run.memory[step.remember]?.label ?? '')) {
+    const title = document.querySelector('[data-tour="page-header"] h1')?.textContent ?? ''
+    if (/\d/.test(title)) remember(step.remember)
+  }
   // A menu the element opened is part of the highlight, so the box is already beside it and stays readable.
   const dropdown = run.interactive ? document.querySelector<HTMLElement>(DROPDOWNS) : null
   const dropdownOpen = !!dropdown && visible(dropdown)
@@ -543,6 +566,15 @@ function inRefused(target: Element): boolean {
   return !!target.closest(INVALID) || !!target.closest(DROPDOWNS) || !!target.closest('div:has(> [role="alert"])')
 }
 
+/** The document on this page: its number once the title has it (a page still loading says only "Claim"). */
+function remember(key: string): void {
+  const title = document.querySelector('[data-tour="page-header"] h1')?.textContent ?? ''
+  const memo = { path: here().fullPath, label: docNoIn(title), branch: deps?.me()?.branchCode ?? '' }
+  run.memory[key] = memo
+  if (run.tour?.guide) keepDoc(run.tour.id, key, memo)
+  record(false, shownPath)
+}
+
 /** A step with nothing to do: on to the next one, left out of Back. */
 function pass(): void {
   if (run.tour && isRunning()) goTo(run.index + 1)
@@ -567,13 +599,7 @@ function arm(step: TourStep): void {
   // A hand-over is read first; the page is only given back when the person chooses to do it.
   run.interactive = !!el && isInteractive(step, live()) && !run.guarded && !step.handover
   run.userOk = userFits(step)
-  if (step.remember) {
-    const title = document.querySelector('[data-tour="page-header"] h1')?.textContent ?? ''
-    const memo = { path: here().fullPath, label: docNoIn(title), branch: deps?.me()?.branchCode ?? '' }
-    run.memory[step.remember] = memo
-    if (run.tour?.guide) keepDoc(run.tour.id, step.remember, memo)
-    record(false, shownPath)
-  }
+  if (step.remember) remember(step.remember)
 
   const wait = waitOf(step)
   const node = el

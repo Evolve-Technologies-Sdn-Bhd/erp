@@ -335,11 +335,11 @@ const asksFor = computed(() => {
         <RouterLink to="/service/jobs" class="erp-btn erp-btn-secondary">Back</RouterLink>
         <button v-if="job?.allowedActions.includes('cancel')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelOpen = true">Cancel job</button>
         <button v-if="job?.allowedActions.includes('unbook')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="run('unbook')">Take off the board</button>
-        <RouterLink v-if="job?.allowedActions.includes('book')" :to="boardLink" class="erp-btn erp-btn-secondary">{{ job.stage === 'BOOKED' ? 'Move' : 'Book on the board' }}</RouterLink>
-        <button v-if="editable" type="button" class="erp-btn" :class="job?.allowedActions.includes('record') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="saving || (!isNew && !dirty)" @click="save">{{ isNew ? 'Add job' : 'Save' }}</button>
+        <RouterLink v-if="job?.allowedActions.includes('book')" :to="boardLink" data-tour="svc:book-link" class="erp-btn erp-btn-secondary">{{ job.stage === 'BOOKED' ? 'Move' : 'Book on the board' }}</RouterLink>
+        <button v-if="editable" type="button" data-tour="action:save-job" class="erp-btn" :class="job?.allowedActions.includes('record') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="saving || (!isNew && !dirty)" @click="save">{{ isNew ? 'Add job' : 'Save' }}</button>
         <button v-if="job?.allowedActions.includes('record')" type="button" data-tour="action:record-visit" class="erp-btn erp-btn-primary" :disabled="saving || dirty" @click="openRecord">Record the visit</button>
         <button v-if="job?.allowedActions.includes('followUp')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="addFollowUp">Add follow-up job</button>
-        <button v-if="job?.allowedActions.includes('close')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="run('close')">Close job</button>
+        <button v-if="job?.allowedActions.includes('close')" type="button" data-tour="action:close-job" class="erp-btn erp-btn-primary" :disabled="saving" @click="run('close')">Close job</button>
       </template>
     </PageHeader>
 
@@ -378,7 +378,7 @@ const asksFor = computed(() => {
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-4">
-        <section class="erp-card grid grid-cols-2 gap-x-4 gap-y-3 px-5 py-[18px]">
+        <section data-tour="svc:site" class="erp-card grid grid-cols-2 gap-x-4 gap-y-3 px-5 py-[18px]">
           <h2 class="col-span-2 m-0 text-[15px] font-bold">Customer and site</h2>
           <FormField v-if="isNew" label="Type" for="job-type">
             <select id="job-type" v-model="form.jobType" class="erp-input">
@@ -406,7 +406,7 @@ const asksFor = computed(() => {
             <input v-if="editable" id="job-phone" v-model="form.phone" class="erp-input" maxlength="40" />
             <div v-else class="erp-input-ro">{{ form.phone || '—' }}</div>
           </FormField>
-          <FormField label="Site address" class="col-span-2" :error="errors.siteAddress" for="job-site">
+          <FormField data-tour="svc:address" label="Site address" class="col-span-2" :error="errors.siteAddress" for="job-site">
             <input v-if="editable" id="job-site" v-model="form.siteAddress" class="erp-input" maxlength="300" :aria-invalid="Boolean(errors.siteAddress)" />
             <div v-else class="erp-input-ro">{{ form.siteAddress || '—' }}</div>
           </FormField>
@@ -456,7 +456,7 @@ const asksFor = computed(() => {
           </p>
         </section>
 
-        <section v-if="job && job.items.length" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section v-if="job && job.items.length" data-tour="svc:items" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <h2 class="m-0 text-[15px] font-bold">Items</h2>
           <table class="erp-table">
             <thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th>Unit</th><th>Serial number</th></tr></thead>
@@ -473,7 +473,7 @@ const asksFor = computed(() => {
         </section>
 
         <!-- What the installer recorded (SvcJob.html) -->
-        <section v-if="job?.visit" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section v-if="job?.visit" data-tour="svc:visit" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <h2 class="m-0 text-[15px] font-bold">What the installer recorded</h2>
           <div class="grid grid-cols-[140px_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
             <span class="text-erp-muted">Result</span><span class="font-semibold">{{ job.visit.resultLabel }}<template v-if="job.visit.reason"> · {{ job.visit.reason }}</template></span>
@@ -512,7 +512,7 @@ const asksFor = computed(() => {
             <div v-if="job" class="flex justify-between gap-3"><span class="text-erp-muted">Branch</span><span>{{ job.branch.name }}</span></div>
           </div>
           <p v-if="!job?.booking" class="m-0 text-xs text-erp-muted">The office books the person, the day and the slot on the Planning Board.</p>
-          <button v-if="job?.allowedActions.includes('extend')" type="button" class="erp-btn erp-btn-secondary mt-1 justify-center" :disabled="saving" @click="openExtend">Extend the time</button>
+          <button v-if="job?.allowedActions.includes('extend')" type="button" data-tour="action:extend" class="erp-btn erp-btn-secondary mt-1 justify-center" :disabled="saving" @click="openExtend">Extend the time</button>
         </SideCard>
         <SideCard v-if="job && (job.delivery || (job.booking && job.stock.confirms && job.stock.items.length))" data-tour="svc:stock" title="Stock and delivery">
           <div class="flex flex-col gap-1.5 text-[13px]">
@@ -543,7 +543,7 @@ const asksFor = computed(() => {
           </div>
           <button v-if="job.warranty.canAssess" type="button" data-tour="action:assess" class="erp-btn erp-btn-secondary mt-1 justify-center" :disabled="saving" @click="openAssess">{{ job.warranty.assessment ? 'Change the decision' : 'Decide the claim' }}</button>
         </SideCard>
-        <SideCard v-if="job?.parts.length" title="Parts used">
+        <SideCard v-if="job?.parts.length" data-tour="svc:parts" title="Parts used">
           <div v-for="p in job.parts" :key="p.itemCode" class="flex justify-between gap-3 text-[13px]"><span>{{ p.itemCode }} <span class="text-xs text-erp-muted">{{ p.itemName }}</span></span><span>{{ formatQty(p.qty) }} {{ p.uomCode }}</span></div>
           <p class="m-0 text-xs text-erp-muted">Recorded only: stock is not taken yet.</p>
         </SideCard>
@@ -592,7 +592,7 @@ const asksFor = computed(() => {
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="assessOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="`Decide the claim · ${job?.docNo}`">
+    <Dialog v-model:visible="assessOpen" data-tour="svc:assess" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="`Decide the claim · ${job?.docNo}`">
       <div class="flex flex-col gap-3 text-[13px]">
         <fieldset class="m-0 flex flex-col gap-1.5 border-0 p-0">
           <legend class="mb-1 text-xs font-medium text-erp-muted">Decision</legend>
@@ -606,7 +606,7 @@ const asksFor = computed(() => {
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="extendOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="`Extend the time · ${job?.docNo}`">
+    <Dialog v-model:visible="extendOpen" data-tour="svc:extend" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="`Extend the time · ${job?.docNo}`">
       <div class="flex flex-col gap-3 text-[13px]">
         <p v-if="job?.booking" class="m-0 text-erp-muted">{{ job.booking.personName }} · {{ job.booking.text }} · expected by {{ job.booking.expectedText }} now</p>
         <FormField label="Now expected to finish by" :error="extendErrors.until" for="extend-until">
@@ -623,7 +623,7 @@ const asksFor = computed(() => {
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="recordOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '560px' }" :header="`Record the visit · ${job?.docNo}`">
+    <Dialog v-model:visible="recordOpen" data-tour="svc:record" modal :draggable="false" class="erp-dialog" :style="{ width: '560px' }" :header="`Record the visit · ${job?.docNo}`">
       <div class="flex flex-col gap-4 text-[13px]">
         <p v-if="job?.booking" class="m-0 text-erp-muted">{{ job.booking.personName }} · {{ job.booking.text }}</p>
 

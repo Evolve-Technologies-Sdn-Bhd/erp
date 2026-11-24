@@ -1,32 +1,11 @@
-import { be, openDoc, openFromHome, openModule, openPage, status } from '@/tours/guide.steps'
+import { account, addItem, admin, agent, CUSTOMER, CUSTOMERS, installDate, INVOICE, newOrder, NEW_ORDER, ORDER, ORDERS, pickCustomer, RECEIPT, RECEIPTS, recordPayment, release, salesManager, saveDraft, toOrders, toReceipts, toSalesFlow, FLOW } from '@/tours/guide.sales'
+import { be, openCore, openDoc, openFromHome, openModule, openPage, status } from '@/tours/guide.steps'
 import type { Guide, Tour, TourStep } from '@/tours/types'
 
 /**
  * Sales guides: the Handbook's journeys on screen, step for step (dev mode). Neutral words only; a company's own people
  * and items come from its file (GUIDE_VALUES_FILE). Each Handbook step starts where `row` says so.
  */
-
-const NEW_ORDER = { path: '^/sales/orders/new$' }
-const ORDER = { path: '^/sales/orders/(?!new$)[^/]+$' }
-const ORDERS = { code: 'S10' }
-const RECEIPT = { path: '^/sales/receipts/[^/]+$' }
-const RECEIPTS = { code: 'S35' }
-const INVOICE = { path: '^/sales/invoices/(?!new$)[^/]+$' }
-const CUSTOMER = { path: '^/core/customers/(?!new$)[^/]+$' }
-const CUSTOMERS = { path: '^/core/customers$' }
-const FLOW = { code: 'S34' }
-
-/* The clicks the Sales guides repeat */
-
-const admin = (extra: Partial<TourStep> = {}) => be('ADMIN', 'admin', 'administrator', extra)
-const agent = (as: 'agent' | 'hqAgent', extra: Partial<TourStep> = {}) => be('SALES_AGENT', as, 'sales agent', extra)
-/** A request goes to the branch's own manager where it has one. */
-const salesManager = (as: 'salesManager' | 'branchManager', extra: Partial<TourStep> = {}) => be('SALES_MANAGER', as, 'sales manager', extra)
-const account = (extra: Partial<TourStep> = {}) => be('FINANCE_MANAGER', 'account', 'finance manager', extra)
-
-const toSalesFlow = () => openPage('policies', 'Operation Policies', 'sales-flow', 'Sales Flow', FLOW)
-const toOrders = () => openPage('transaction', 'Sales Transaction', 'orders', 'Sales Order', ORDERS)
-const toReceipts = () => openPage('billing', 'Billing', 'receipts', 'Official Receipts', RECEIPTS)
 
 /** Sales Flow: a switch to turn on, and Save changes (nothing to save when it is on already). */
 const switchOn = (card: string, title: string, text: string, expect: string): TourStep[] => [
@@ -42,48 +21,6 @@ const switchOn = (card: string, title: string, text: string, expect: string): To
   { target: 'flow:changes', page: FLOW, title: 'Recent changes', text: 'Every change of these settings is kept here.', expect, placement: 'top' },
 ]
 
-const newOrder = (extra: Partial<TourStep> = {}): TourStep => ({ target: 'action:new-order', page: ORDERS, wait: { kind: 'page', to: NEW_ORDER }, title: 'Start the order', text: 'Click Add new order.', ...extra })
-const pickCustomer = (): TourStep => ({
-  target: 'so:customer',
-  page: NEW_ORDER,
-  wait: { kind: 'use' },
-  title: 'Pick the customer',
-  text: 'Type {customer}, pick it from the list, then Next.',
-  type: [{ field: 'Customer', value: '{customer}' }],
-  placement: 'right',
-})
-const addItem = (text = 'Search {item}, tick it, keep the quantity at 1 and click Add 1 item.'): TourStep[] => [
-  { target: 'action:add-item', page: NEW_ORDER, wait: { kind: 'appear', selector: '[data-tour="item-picker"]' }, title: 'Add an item', text: 'Click Add item.' },
-  {
-    target: 'item-picker',
-    page: NEW_ORDER,
-    wait: { kind: 'appear', selector: '[data-tour="so:line"]' },
-    waiting: 'Waiting for the item on the order.',
-    title: 'Pick the item',
-    text,
-    type: [{ field: 'Search', value: '{item}' }],
-  },
-]
-const installDate = (text: string): TourStep => ({ target: 'so:install-date', page: NEW_ORDER, wait: { kind: 'use' }, must: true, title: 'The preferred date', text })
-/** A saved order's changes: Save draft is grey again once they are saved. */
-const saveDraft = (page: typeof NEW_ORDER, extra: Partial<TourStep> = {}): TourStep => ({
-  target: 'action:save-draft',
-  page,
-  wait: page === NEW_ORDER ? { kind: 'page', to: ORDER } : { kind: 'appear', selector: '[data-tour="action:save-draft"]:disabled' },
-  waiting: 'Waiting for the order to be saved.',
-  title: 'Save the draft',
-  text: 'Click Save draft.',
-  ...extra,
-})
-const release = (extra: Partial<TourStep> = {}): TourStep => ({
-  target: 'action:release',
-  page: ORDER,
-  wait: status('RELEASED'),
-  waiting: 'Waiting for the order to be released.',
-  title: 'Release it',
-  text: 'Click Release, then Release again in the question that opens.',
-  ...extra,
-})
 const askApproval = (reason: string, rows: { reason?: number; request?: number } = {}): TourStep[] => [
   { row: rows.reason, target: 'so:approval', page: ORDER, wait: { kind: 'use' }, title: 'Say why', text: 'Type a reason for the approver, then Next.', type: [{ field: 'Reason', value: reason }], placement: 'top' },
   {
@@ -118,27 +55,6 @@ const approve = (as: 'salesManager' | 'branchManager', row: number, expect: stri
     text: 'Click Approve.',
   },
 ]
-/** Record a payment on the order's Payments card. */
-const recordPayment = (text: string, type?: TourStep['type'], row?: number): TourStep[] => [
-  {
-    row,
-    target: 'action:record-payment',
-    page: ORDER,
-    wait: { kind: 'appear', selector: '[data-tour="receipt-dialog"]' },
-    title: 'Record a payment',
-    text: 'Click Record payment on the Payments card.',
-  },
-  {
-    target: 'receipt-dialog',
-    page: ORDER,
-    wait: { kind: 'gone', selector: '[data-tour="receipt-dialog"]' },
-    waiting: 'Waiting for the payment to be recorded.',
-    title: 'The payment and its proof',
-    text,
-    type,
-  },
-]
-
 const FIELD_SALES: Pick<Guide, 'book'> = { book: 'Field sales' }
 
 const HOUSEHOLD_ORDER: Tour = {
@@ -399,15 +315,7 @@ const HOUSEHOLD_ORDER: Tour = {
     /* 7 · Administrator: the new household in Core */
     be('ADMIN', 'admin', 'administrator', { row: 7 }),
     openModule('core', 'Core'),
-    {
-      target: 'home:main',
-      page: { module: 'core' },
-      optional: true,
-      wait: { kind: 'page', to: { path: '^/core/customers$' } },
-      title: 'Open the customers',
-      text: 'Click the Customers card.',
-      placement: 'top',
-    },
+    openCore('Customers & Suppliers', 'Open the customers', CUSTOMERS),
     {
       target: 'filters',
       page: { path: '^/core/customers$' },
@@ -807,7 +715,7 @@ const WHATSAPP: Tour = {
 
     admin({ row: 1 }),
     openModule('core', 'Core'),
-    { target: 'home:main', page: { module: 'core' }, wait: { kind: 'page', to: CUSTOMERS }, title: 'Open the customers', text: 'Click the Customers card.', placement: 'top' },
+    openCore('Customers & Suppliers', 'Open the customers', CUSTOMERS),
     { target: 'filters', page: CUSTOMERS, wait: { kind: 'use' }, title: 'Find the customer', text: 'Type it in the search, then Next.', type: [{ field: 'Search', value: '{customer}' }] },
     { target: 'list', page: CUSTOMERS, pick: '{customer}', wait: { kind: 'page', to: CUSTOMER }, title: 'Open it', text: 'Click its code.', placement: 'top' },
     {

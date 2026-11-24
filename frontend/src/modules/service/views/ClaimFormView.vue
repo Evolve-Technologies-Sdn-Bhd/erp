@@ -207,11 +207,11 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
     <template #actions>
       <RouterLink to="/service/claims" class="erp-btn erp-btn-secondary">Back</RouterLink>
       <button v-if="!isNew && can('cancel')" type="button" class="erp-btn erp-btn-delete" :disabled="saving" @click="cancelClaim">Cancel claim</button>
-      <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="save">Save draft</button>
+      <button v-if="editable" type="button" data-tour="action:save-claim" class="erp-btn erp-btn-secondary" :disabled="saving" @click="save">Save draft</button>
       <button v-if="editable && can('submit')" type="button" data-tour="action:submit-claim" class="erp-btn erp-btn-primary" :disabled="saving || !chosen.length" @click="submit">Submit to Account</button>
       <button v-if="can('return')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="backOpen = true">Send back</button>
-      <button v-if="can('approve')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="approve">Approve</button>
-      <button v-if="can('pay')" type="button" class="erp-btn erp-btn-primary" :disabled="saving" @click="openPay">Record payment</button>
+      <button v-if="can('approve')" type="button" data-tour="action:approve-claim" class="erp-btn erp-btn-primary" :disabled="saving" @click="approve">Approve</button>
+      <button v-if="can('pay')" type="button" data-tour="action:pay-claim" class="erp-btn erp-btn-primary" :disabled="saving" @click="openPay">Record payment</button>
     </template>
   </PageHeader>
 
@@ -226,7 +226,7 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
 
   <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_300px]">
     <div class="flex min-w-0 flex-col gap-4">
-      <section v-if="isNew" class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-[18px]">
+      <section v-if="isNew" data-tour="claim:who" class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-[18px]">
         <h2 class="col-span-3 m-0 text-[15px] font-bold">Installer and claim period</h2>
         <FormField label="Installer" :error="errors.personId" for="cl-person">
           <select id="cl-person" v-model="form.personId" class="erp-input">
@@ -292,7 +292,7 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
         </p>
       </section>
 
-      <section class="erp-card grid grid-cols-2 gap-x-4 gap-y-3 px-5 py-[18px]">
+      <section data-tour="claim:invoice" class="erp-card grid grid-cols-2 gap-x-4 gap-y-3 px-5 py-[18px]">
         <h2 class="col-span-2 m-0 text-[15px] font-bold">Installer's invoice</h2>
         <FormField label="Invoice number" :error="errors.invoiceNo" for="cl-invoice">
           <input v-if="editable" id="cl-invoice" v-model="form.invoiceNo" class="erp-input" maxlength="40" :disabled="form.selfBilled" />
@@ -331,7 +331,7 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
     </template>
   </Dialog>
 
-  <Dialog v-model:visible="payOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '420px' }" :header="`Record the payment of ${claim?.docNo}`">
+  <Dialog v-model:visible="payOpen" data-tour="claim:pay" modal :draggable="false" class="erp-dialog" :style="{ width: '420px' }" :header="`Record the payment of ${claim?.docNo}`">
     <div class="flex flex-col gap-3">
       <FormField label="Payment voucher (PV) number" :error="payError" for="cl-pv"><input id="cl-pv" v-model="pay.ref" class="erp-input" maxlength="40" /></FormField>
       <FormField label="Paid on" for="cl-paid">

@@ -49,7 +49,7 @@ async function act(j: StockJob, what: 'confirm' | 'undo') {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-4 px-6 py-[18px]">
+  <section data-tour="svc:stock-day" class="erp-card flex grow flex-col gap-4 px-6 py-[18px]">
     <PageHeader title="Stock for Jobs" subtitle="What a day's booked jobs need. Confirm each one once the goods are there; its delivery order is made 24 hours before the job." />
 
     <div v-if="!day" class="py-10 text-center text-[13px] text-erp-muted">Loading…</div>

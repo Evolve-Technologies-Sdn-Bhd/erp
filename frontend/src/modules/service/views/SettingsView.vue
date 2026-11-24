@@ -141,7 +141,7 @@ async function saveGroup() {
       <p class="m-0 text-xs text-erp-muted">The delivery order itself is made by Sales: turn on <em>Make the delivery order 24 hours before the installation</em> in Sales › Operation Policies › Sales Flow.</p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="set:people" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-center justify-between gap-3">
         <h2 class="m-0 text-[15px] font-bold">People</h2>
         <button v-if="canManage" type="button" class="erp-btn erp-btn-secondary" @click="openPerson(null)"><Plus :size="14" aria-hidden="true" />Add person</button>
@@ -165,7 +165,7 @@ async function saveGroup() {
       <p class="m-0 text-xs text-erp-muted">People here need no ERP sign-in. They get one when the phone app comes.</p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="set:groups" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-center justify-between gap-3">
         <h2 class="m-0 text-[15px] font-bold">Slot groups</h2>
         <button v-if="canManage" type="button" class="erp-btn erp-btn-secondary" @click="openGroup(null)"><Plus :size="14" aria-hidden="true" />Add slot group</button>
@@ -193,7 +193,7 @@ async function saveGroup() {
     </section>
 
     <div class="grid grid-cols-[3fr_2fr] items-start gap-4">
-      <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+      <section data-tour="set:takes" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
         <h2 class="m-0 text-[15px] font-bold">Who takes which job</h2>
         <p v-if="!activePeople.length" class="m-0 text-[13px] text-erp-muted">Nobody yet.</p>
         <table v-else class="erp-table">
@@ -222,7 +222,7 @@ async function saveGroup() {
       </section>
     </div>
 
-    <Dialog v-model:visible="personOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="person.id ? `Edit ${person.name}` : 'Add person'">
+    <Dialog v-model:visible="personOpen" data-tour="set:person" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="person.id ? `Edit ${person.name}` : 'Add person'">
       <div class="flex flex-col gap-3">
         <FormField label="Name" :error="errors.name" for="sp-name"><input id="sp-name" v-model="person.name" class="erp-input" maxlength="100" /></FormField>
         <div class="grid grid-cols-2 gap-3">
@@ -254,7 +254,7 @@ async function saveGroup() {
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="groupOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '520px' }" :header="group.id ? `Edit ${group.name}` : 'Add slot group'">
+    <Dialog v-model:visible="groupOpen" data-tour="set:group" modal :draggable="false" class="erp-dialog" :style="{ width: '520px' }" :header="group.id ? `Edit ${group.name}` : 'Add slot group'">
       <div class="grid grid-cols-3 gap-3">
         <FormField label="Name" class="col-span-3" for="sg-name"><input id="sg-name" v-model="group.name" class="erp-input" maxlength="60" /></FormField>
         <FormField label="Slot length (hours)" for="sg-hours">

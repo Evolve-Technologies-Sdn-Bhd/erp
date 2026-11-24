@@ -275,7 +275,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
               Discontinue
             </button>
             <button v-if="can('activate')" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || dirty" @click="setStatus('activate')">Activate</button>
-            <button v-if="editable" type="button" class="erp-btn erp-btn-primary" :disabled="saving || !dirty" @click="save">Save changes</button>
+            <button v-if="editable" type="button" data-tour="action:save-item" class="erp-btn erp-btn-primary" :disabled="saving || !dirty" @click="save">Save changes</button>
             <RouterLink v-else to="/core/items" class="erp-btn erp-btn-secondary">Back</RouterLink>
           </template>
         </template>
@@ -390,7 +390,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
             <FormField label="Service every (months)" for="svcInterval" :error="errors.serviceIntervalMonths">
               <input id="svcInterval" v-model="form.serviceIntervalMonths" class="erp-input" inputmode="numeric" placeholder="No reminder" :disabled="!editable" />
             </FormField>
-            <FormField label="Warranty (months)" for="warrantyMonths" :error="errors.warrantyMonths">
+            <FormField data-tour="core:warranty" label="Warranty (months)" for="warrantyMonths" :error="errors.warrantyMonths">
               <input id="warrantyMonths" v-model="form.warrantyMonths" class="erp-input" inputmode="numeric" placeholder="No warranty" :disabled="!editable" />
             </FormField>
           </div>

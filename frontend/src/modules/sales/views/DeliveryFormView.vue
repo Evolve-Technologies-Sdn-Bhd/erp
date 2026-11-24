@@ -258,9 +258,9 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
         <RouterLink :to="`/sales/deliveries/${delivery.id}/print`" class="erp-btn erp-btn-secondary">Print DO</RouterLink>
         <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving || !dirty" @click="save">Save draft</button>
         <button v-if="can('checkIn')" type="button" class="erp-btn erp-btn-secondary" :disabled="signBusy" @click="signing.open('check-in')">Check in</button>
-        <button v-if="can('refuse')" type="button" class="erp-btn erp-btn-secondary" :disabled="signBusy" @click="signing.open('refuse')">Not signed</button>
+        <button v-if="can('refuse')" type="button" data-tour="action:refuse" class="erp-btn erp-btn-secondary" :disabled="signBusy" @click="signing.open('refuse')">Not signed</button>
         <button v-if="can('returnRefusal')" type="button" class="erp-btn erp-btn-secondary" :disabled="signBusy" @click="signing.open('return-refusal')">Send back</button>
-        <button v-if="can('acceptUnsigned')" type="button" class="erp-btn erp-btn-primary" :disabled="signBusy" @click="signing.open('accept-unsigned')">Accept unsigned</button>
+        <button v-if="can('acceptUnsigned')" type="button" data-tour="action:accept-unsigned" class="erp-btn erp-btn-primary" :disabled="signBusy" @click="signing.open('accept-unsigned')">Accept unsigned</button>
         <button v-if="can('collect')" type="button" data-tour="action:collect" class="erp-btn erp-btn-primary" :disabled="signBusy || dirty || Boolean(delivery.depositHold)" :title="dirty ? 'Save the draft first.' : undefined" @click="signing.open('collect')">Mark collected</button>
         <button v-if="can('sign')" type="button" data-tour="action:record-signature" class="erp-btn" :class="can('acceptUnsigned') ? 'erp-btn-secondary' : 'erp-btn-primary'" :disabled="signBusy" @click="signing.open('sign')">Record signature</button>
         <button v-if="!confirmed && !delivery.signature" type="button" data-tour="action:confirm-delivery" class="erp-btn erp-btn-primary" :disabled="saving || !can('confirm') || Boolean(delivery.depositHold)" @click="confirmDelivery">Confirm delivery</button>
@@ -470,7 +470,7 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
       </div>
     </div>
 
-    <Dialog :visible="Boolean(signStep)" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="signing.title.value" @update:visible="signing.close()">
+    <Dialog :visible="Boolean(signStep)" data-tour="do:sign" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }" :header="signing.title.value" @update:visible="signing.close()">
       <div class="flex flex-col gap-3 text-[13px]">
         <p class="m-0">{{ signing.text.value }}</p>
         <FormField v-if="signStep === 'sign'" label="Signed by" :error="signErrors.signerName" for="do-signer"><input id="do-signer" v-model="signForm.signerName" class="erp-input" maxlength="100" /></FormField>

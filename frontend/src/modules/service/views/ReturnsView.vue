@@ -85,7 +85,7 @@ async function receive() {
     </DataList>
     <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
 
-    <Dialog :visible="Boolean(part)" modal :draggable="false" class="erp-dialog" :style="{ width: '440px' }" :header="`Receive ${part?.itemCode ?? ''} from ${part?.jobNo ?? ''}`" @update:visible="part = null">
+    <Dialog :visible="Boolean(part)" data-tour="svc:receive" modal :draggable="false" class="erp-dialog" :style="{ width: '440px' }" :header="`Receive ${part?.itemCode ?? ''} from ${part?.jobNo ?? ''}`" @update:visible="part = null">
       <div class="grid grid-cols-2 gap-3 text-[13px]">
         <p class="col-span-2 m-0">{{ part ? formatQty(part.qty) : '' }} {{ part?.uomCode }} {{ part?.itemName }} said to come back.</p>
         <FormField label="Good" :error="errors.goodQty" for="rt-good"><input id="rt-good" v-model="form.goodQty" class="erp-input text-right" inputmode="decimal" /></FormField>

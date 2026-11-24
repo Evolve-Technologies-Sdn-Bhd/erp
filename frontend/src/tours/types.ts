@@ -77,7 +77,8 @@ export interface TourStep {
   expect?: string
   /**
    * Guides: the link or button inside the target to highlight, by its words ("{order}"): a document's number in a list,
-   * a request's card. Left out of the screen, the whole target is highlighted.
+   * a request's card; or "{order} > Receive", that button in the row or card naming {order}. When it is not there the
+   * whole target is highlighted, or an optional step is left out.
    */
   pick?: string
   /** Guides: the Handbook step this starts (several clicks may make one step) */
