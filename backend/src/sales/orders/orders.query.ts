@@ -5,6 +5,7 @@ import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ApprovalsService } from '../../platform/approvals/approvals.service';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
+import { TenantService } from '../../platform/context/tenant.service';
 import type { RequestContext } from '../../platform/context/request-context';
 import { dec, toMoney, toPrice, toQty, toRate } from '../../platform/http/decimal';
 import { NotFoundError } from '../../platform/http/errors';
@@ -25,6 +26,7 @@ import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortf
 import { REVISIONS_OFF_MESSAGE, reviseRefusal, revisionApproval, revisionChanges } from './revision.rules';
 import { revisionContent, type RevisionSnapshot } from './revision.snapshot';
 import { preOrderState } from './pre-order.rules';
+import { mayShare, orderShareText, whatsappNumber } from './share.rules';
 
 export type OrderWithLines = SalSalesOrder & { lines: SalSalesOrderLine[]; vouchers: SalOrderVoucher[] };
 
@@ -47,6 +49,7 @@ export class OrdersQuery {
     private readonly linked: SalesLinkedDocsService,
     private readonly priceRules: PriceRules,
     private readonly receipts: ReceiptsQuery,
+    private readonly tenants: TenantService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -282,7 +285,7 @@ export class OrdersQuery {
     const taxLines = taxLinesWithVouchers(order.lines, order.vouchers).map((t) => ({ code: t.code, name: taxName(t.code), amount: toMoney(t.amount) }));
     const quotation = order.quotationId ? await this.prisma.salQuotation.findFirst({ where: { id: order.quotationId }, select: { id: true, docNo: true } }) : null;
     const price = await this.priceCheck(ctx.tenantId, order);
-    const flags = await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { reviseOrders: true, preOrders: true } });
+    const flags = await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { reviseOrders: true, preOrders: true, shareWhatsapp: true } });
     const switchOn = Boolean(flags?.reviseOrders);
     const preOrder = (await this.preOrderStates(ctx.tenantId, [order])).get(order.id) ?? null;
     const [reviseCheck, revisionState, revisions] = await Promise.all([
@@ -351,6 +354,21 @@ export class OrdersQuery {
         stockArrived: preOrder?.stockArrived ?? false,
         willBe: draft && Boolean(flags?.preOrders) && Boolean(shortfall),
       },
+      /** Share on WhatsApp (phase 5): the customer's number (null: pick the chat in WhatsApp) and the message. Null when it is not offered. */
+      share: mayShare({ switchOn: Boolean(flags?.shareWhatsapp), status: order.status, canEdit: this.permissions.has(ctx.user.roles, P.ORDER_EDIT) })
+        ? {
+            number: whatsappNumber(customer?.phone),
+            text: orderShareText({
+              company: await this.tenants.name(), contactName: order.contactName, customerName: order.customerName,
+              docNo: order.docNo, revisionNo: order.revisionNo, docDate: iso(order.docDate)!, total: toMoney(order.total),
+              installOption: order.installOption, installDate, afterStock,
+              lines: order.lines.map((l) => ({
+                itemName: l.itemName, uomCode: l.uomCode, qty: toQty(l.orderedQty), lineKind: l.lineKind,
+                package: l.packageCode ? { group: l.packageGroup, name: l.packageName, uomCode: l.packageUomCode, qty: l.packageQty ? toQty(l.packageQty) : null } : null,
+              })),
+            }),
+          }
+        : null,
       /** The installer's booking, from Service (phase 5): a revision after booking needs approval. */
       installBooking: order.installBooking,
       installation: {

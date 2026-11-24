@@ -46,6 +46,7 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   reviseOrders: 'A Revise button on the released sales order, until a delivery order, invoice or cancel order is made from it.',
   preOrders: 'An order released with any item short of stock is marked Pre-order, as a whole.',
   autoCancel: 'A released order with no official receipt and no delivery order is cancelled by the system, with alerts a week before and on the day.',
+  shareWhatsapp: 'A WhatsApp button on the released sales order, for whoever keys orders.',
 }
 
 /** Runs the automatic cancel now; it also runs every hour on the server. */
@@ -179,6 +180,14 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">
         Counted from the order's first release. It needs official receipts on: a recorded receipt, a delivery order or a cancel order keeps the order. Pre-orders are
         left out. The salesperson and whoever releases cancellations are alerted under Alerts in the top bar. The server checks every hour.
+      </p>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.shareWhatsapp }}</span><span class="text-xs text-erp-subtle">{{ HINT.shareWhatsapp }}</span></span>
+        <SwitchToggle v-model="draft.shareWhatsapp" :label="data.labels.shareWhatsapp" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">
+        It opens WhatsApp with the order's summary written to the customer's phone number in Core. Nothing is sent until the person presses Send there. WhatsApp takes
+        text only this way, so the A4 order is attached by hand: Print, then save it as a PDF.
       </p>
     </section>
 

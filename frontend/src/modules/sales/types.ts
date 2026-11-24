@@ -250,6 +250,8 @@ export interface OrderDetail {
   installBooking: string | null
   /** Pre-order (phase 5): short stock made the whole order a pre-order. */
   preOrder: { switchOn: boolean; isPreOrder: boolean; shortAtRelease: string | null; label: string | null; stockArrived: boolean; willBe: boolean }
+  /** Share on WhatsApp (phase 5): the customer's number (null: pick the chat in WhatsApp) and the message; null when it is not offered. */
+  share: { number: string | null; text: string } | null
   quantities: { ordered: string; delivered: string; uomCode: string }
   credit: { result: string | null; snapshot: CreditSnapshot | null; live: boolean; needsApproval: boolean; blocked: boolean; approverRole: string | null }
   /** Official receipts (phase 5): null while the company does not use them. */
@@ -1297,6 +1299,8 @@ export interface SalesFlowSwitches {
   preOrders: boolean
   /** An order with no receipt and no delivery order is cancelled after a number of days (phase 5). */
   autoCancel: boolean
+  /** Whoever keys orders opens WhatsApp with the released order's summary for the customer (phase 5). */
+  shareWhatsapp: boolean
 }
 
 export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'

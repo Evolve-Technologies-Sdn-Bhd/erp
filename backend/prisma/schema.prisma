@@ -2882,6 +2882,7 @@ model SalSetting {
   autoCancel             Boolean  @default(false) // on: a released order with no official receipt and no delivery order is cancelled after autoCancelDays (phase 5)
   autoCancelDays         Int      @default(60)
   preOrders              Boolean  @default(false) // on: an order released with any item short of stock is a pre-order as a whole (phase 5)
+  shareWhatsapp          Boolean  @default(false) // on: whoever keys orders opens WhatsApp with the released order's summary for the customer (phase 5)
   reviseOrders           Boolean  @default(false) // on: a released order is revised until it is delivered; after booking or for a price change the Sales Manager approves (phase 5)
   priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
   priceAbovePct          Decimal  @default(20) @db.Decimal(7, 4)

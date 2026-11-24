@@ -5,7 +5,7 @@ import DatePicker from 'primevue/datepicker'
 import Menu from 'primevue/menu'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { ChevronDown, Gift, Lock, Plus, Ticket, X } from '@lucide/vue'
+import { ChevronDown, Gift, Lock, MessageCircle, Plus, Ticket, X } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import ActivityList from '@/components/erp/ActivityList.vue'
 import FormField from '@/components/erp/FormField.vue'
@@ -578,6 +578,13 @@ function backToEdit() {
 function later(what: string) {
   toast.add({ severity: 'info', summary: what, detail: 'This comes with a later Sales step.', life: 3000 })
 }
+/** Opens WhatsApp with the order's summary written for the customer. Nothing is sent until the person presses Send there. */
+function shareOnWhatsapp() {
+  const share = order.value?.share
+  if (!share) return
+  window.open(`https://wa.me/${share.number ?? ''}?text=${encodeURIComponent(share.text)}`, '_blank', 'noopener,noreferrer')
+  if (!share.number) toast.add({ severity: 'info', summary: 'Pick the chat in WhatsApp', detail: `${order.value!.customer.name} has no phone number WhatsApp can use in Core.`, life: 5000 })
+}
 async function createProforma(orderId: string) {
   const p = await salesProformasApi.create({ salesOrderId: orderId })
   toast.add({ severity: 'success', summary: `${p.docNo} created`, detail: 'Deposit 30% by default. Check it, then release.', life: 3500 })
@@ -706,6 +713,9 @@ const viewRows = computed<ViewRow[]>(() => {
         <template v-else-if="order && released">
           <RouterLink :to="`/sales/orders/${order.id}/print`" class="erp-btn erp-btn-secondary">Print</RouterLink>
           <button type="button" class="erp-btn erp-btn-secondary" @click="later('Email')">Email</button>
+          <button v-if="order.share" type="button" data-tour="action:whatsapp" data-tour-sensitive class="erp-btn erp-btn-secondary" @click="shareOnWhatsapp">
+            <MessageCircle :size="14" aria-hidden="true" />WhatsApp
+          </button>
           <button
             type="button"
             data-tour="action:revise"
