@@ -62,6 +62,8 @@ export interface SaleItemOption {
   listPrice: string | null
   lastSold: { price: string; date: string; docNo: string } | null
   inStock: string | null
+  /** Held for booked installations (phase 5): already taken off inStock. */
+  heldQty: string | null
   state: ItemState
   reason: string | null
   /** The item's picture in Core, when it has one (phase 5). */
@@ -1301,6 +1303,10 @@ export interface SalesFlowSwitches {
   autoCancel: boolean
   /** Whoever keys orders opens WhatsApp with the released order's summary for the customer (phase 5). */
   shareWhatsapp: boolean
+  /** Stock of booked installations is held: other orders count what is left (phase 5). */
+  holdStock: boolean
+  /** The delivery order is made 24 hours before the installation (phase 5). */
+  autoDelivery: boolean
 }
 
 export type ReceiptStatus = 'WAITING' | 'VERIFIED' | 'RETURNED' | 'CANCELLED'

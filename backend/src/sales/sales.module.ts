@@ -6,6 +6,8 @@ import { SalesApprovalsController } from './approvals/approvals.controller';
 import { SalesApprovalsInboxService } from './approvals/approvals-inbox.service';
 import { SalesBuyToOrderListener } from './buy-to-order/buy-to-order.listener';
 import { SalesInstallBookingListener } from './orders/install-booking.listener';
+import { InstallDeliveryListener } from './deliveries/install-delivery.listener';
+import { HeldStock } from './shared/held-stock.service';
 import { OrderLapseService } from './orders/lapse.service';
 import { SalesDashboardController } from './dashboard/dashboard.controller';
 import { SalesDeliveriesController } from './deliveries/deliveries.controller';
@@ -80,6 +82,8 @@ import { SalesMailService } from './shared/sales-mail.service';
     SalesNewCustomersService,
     SalesBuyToOrderListener,
     SalesInstallBookingListener,
+    InstallDeliveryListener,
+    HeldStock,
     OrderLapseService,
     SalesDashboardService,
     SalesIndicators,

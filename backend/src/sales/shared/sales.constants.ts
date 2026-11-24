@@ -77,4 +77,8 @@ export const SAL_EVENT = {
   CASH_SALE_RELEASED: 'sales.cash_sale.released',
   /** Account verified an official receipt (phase 5): what the order has been paid, for Service and Finance. */
   RECEIPT_VERIFIED: 'sales.receipt.verified',
+  /** A delivery order was drafted for an order with installation (phase 5): its job keeps the number. */
+  DELIVERY_DRAFTED: 'sales.delivery.drafted',
+  /** That draft was deleted again. */
+  DELIVERY_REMOVED: 'sales.delivery.removed',
 } as const;

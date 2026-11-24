@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { IsOptional, Matches } from 'class-validator';
 import { CurrentContext, RequirePermission } from '../../platform/context/context.decorators';
 import type { RequestContext } from '../../platform/context/request-context';
 import { ServiceOnGuard } from '../service-on.guard';
 import { SERVICE_PERMISSIONS as P } from '../service.permissions';
-import { PersonDto, SlotGroupDto, UpdatePersonDto, UpdateSlotGroupDto } from '../settings/settings.dto';
+import { GeneralSettingsDto, PersonDto, SlotGroupDto, UpdatePersonDto, UpdateSlotGroupDto } from '../settings/settings.dto';
 import { ServiceSettingsService } from '../settings/settings.service';
 import { BoardQuery } from './board.query';
 
@@ -37,6 +37,12 @@ export class ServiceSettingsController {
   @RequirePermission(P.VIEW)
   view(@CurrentContext() ctx: RequestContext) {
     return this.settings.view(ctx);
+  }
+
+  @Put('general')
+  @RequirePermission(P.SETTINGS_MANAGE)
+  saveGeneral(@CurrentContext() ctx: RequestContext, @Body() dto: GeneralSettingsDto) {
+    return this.settings.saveGeneral(ctx, dto);
   }
 
   @Post('people')

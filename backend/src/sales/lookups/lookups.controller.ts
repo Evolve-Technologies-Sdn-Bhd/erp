@@ -2,6 +2,7 @@ import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
+import { HeldStock } from '../shared/held-stock.service';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ClockService } from '../../platform/clock/clock.service';
 import { CurrentContext, RequirePermission } from '../../platform/context/context.decorators';
@@ -58,6 +59,7 @@ export class SalesLookupsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: ClockService,
+    private readonly heldStock: HeldStock,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -105,6 +107,7 @@ export class SalesLookupsController {
         : Promise.resolve([]),
     ]);
     const branchWarehouses = new Set(warehouses.filter((w) => !w.code.includes('DMG')).map((w) => w.code));
+    const held = await this.heldStock.held(ctx.tenantId, codes);
     return {
       branchCode,
       priceListCode: customer?.priceListCode ?? null,
@@ -112,7 +115,10 @@ export class SalesLookupsController {
         const tax = taxes.find((t) => t.code === (i.salesTaxCode ?? i.purchaseTaxCode));
         const ex = excluded.find((e) => e.itemCode === i.code);
         const last = sold.find((s) => s.itemCode === i.code);
-        const inStock = stock.filter((s) => s.itemCode === i.code && branchWarehouses.has(s.warehouseCode)).reduce((sum, s) => sum.add(dec(s.onHand)), dec(0));
+        const onHand = stock.filter((s) => s.itemCode === i.code && branchWarehouses.has(s.warehouseCode)).reduce((sum, s) => sum.add(dec(s.onHand)), dec(0));
+        // Held for booked installations (phase 5): what the salesperson sees is what is left.
+        const heldQty = [...branchWarehouses].reduce((sum, w) => sum.add(held(i.code, w)), dec(0));
+        const inStock = onHand.sub(heldQty).gt(0) ? onHand.sub(heldQty) : dec(0);
         const blocked = !i.isSellable ? 'NOT_FOR_SALE' : ex ? 'EXCLUDED' : null;
         const price = prices.find((p) => p.itemCode === i.code);
         return {
@@ -122,6 +128,7 @@ export class SalesLookupsController {
           listPrice: blocked || !price ? null : toPrice(price.unitPrice),
           lastSold: blocked || !last ? null : { price: toPrice(last.unitPrice), date: iso(last.invoice.docDate), docNo: last.invoice.docNo },
           inStock: i.type === 'STOCK' ? toQty(inStock) : null,
+          heldQty: i.type === 'STOCK' && heldQty.gt(0) ? toQty(heldQty) : null,
           state: blocked ?? (i.type === 'STOCK' && inStock.lte(0) && !i.isBuyToOrder ? 'OUT_OF_STOCK' : 'ACTIVE'),
           reason: blocked === 'EXCLUDED' ? ex!.reason : null,
         };

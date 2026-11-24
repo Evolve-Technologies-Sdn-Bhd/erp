@@ -2185,6 +2185,7 @@ model SalSalesOrder {
   // The installer's booking, from Service's events: a revision after booking needs approval.
   installBooking    String?             @db.VarChar(150) // "Thu, 1 Oct · 10 AM – 12 PM · Hafiz Rahman"
   installBookedAt   DateTime?           @db.DateTime(3)
+  autoDoNote        String?             @db.VarChar(300) // why the automatic delivery order was not made; cleared once it is
   quotationId       String?             @db.Char(36)
   quotationNo       String?             @db.VarChar(30)
   enquiryNo         String?             @db.VarChar(30)
@@ -2882,6 +2883,8 @@ model SalSetting {
   autoCancel             Boolean  @default(false) // on: a released order with no official receipt and no delivery order is cancelled after autoCancelDays (phase 5)
   autoCancelDays         Int      @default(60)
   preOrders              Boolean  @default(false) // on: an order released with any item short of stock is a pre-order as a whole (phase 5)
+  holdStock              Boolean  @default(false) // on: stock of booked installations is held: other orders count what is left (phase 5)
+  autoDelivery           Boolean  @default(false) // on: Service asks for the delivery order 24 hours before the installation, and Sales drafts it (phase 5)
   shareWhatsapp          Boolean  @default(false) // on: whoever keys orders opens WhatsApp with the released order's summary for the customer (phase 5)
   reviseOrders           Boolean  @default(false) // on: a released order is revised until it is delivered; after booking or for a price change the Sales Manager approves (phase 5)
   priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
@@ -3062,6 +3065,11 @@ model SvcJob {
   agentCode      String?      @db.VarChar(20)
   agentName      String?      @db.VarChar(100)
   warehouseCode  String?      @db.VarChar(20)
+  // The warehouse's check before the delivery order, and the delivery order Sales made (phase 5).
+  stockConfirmedAt DateTime?   @db.DateTime(3)
+  stockConfirmedBy String?     @db.VarChar(100)
+  deliveryId     String?      @db.Char(36) // from Sales' events; Service never reads sal_ tables
+  deliveryNo     String?      @db.VarChar(30)
   // Stock not ready 24 hours before a booked installation: the office and the salesperson are alerted (phase 5).
   atRiskSince    DateTime?    @db.DateTime(3)
   atRiskNote     String?      @db.VarChar(300)
@@ -3102,6 +3110,17 @@ model SvcJob {
   @@index([tenantId, personId, jobDate])
   @@index([tenantId, jobDate])
   @@map("svc_job")
+}
+
+/// Service's own settings (phase 5). No row: the defaults.
+model SvcSetting {
+  id                String   @id @default(uuid()) @db.Char(36)
+  tenantId          String   @unique @db.Char(36)
+  warehouseConfirms Boolean  @default(false) // on: the warehouse confirms a booked job's stock before its delivery order
+  updatedAt         DateTime @updatedAt @db.DateTime(3)
+  updatedBy         String   @db.VarChar(20)
+
+  @@map("svc_setting")
 }
 
 model SvcJobItem {

@@ -2,12 +2,12 @@ import { flowChanges, FLOW_SWITCHES, NEW_CUSTOMERS_OFF_MESSAGE, rangeChange, STA
 
 describe('sales flow rules (S34)', () => {
   it('starts every company on the standard flow', () => {
-    expect(STANDARD_FLOW).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false });
+    expect(STANDARD_FLOW).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false });
     expect(Object.keys(STANDARD_FLOW)).toEqual(Object.keys(FLOW_SWITCHES));
   });
 
   it('writes one history line per switch that changed, in plain words', () => {
-    expect(flowChanges(STANDARD_FLOW, { useEnquiries: false, officeDraftsQuotations: false, askInstallation: true, agentsAddCustomers: true, priceRange: true, useReceipts: true, reviseOrders: true, preOrders: true, autoCancel: true, shareWhatsapp: true })).toEqual([
+    expect(flowChanges(STANDARD_FLOW, { useEnquiries: false, officeDraftsQuotations: false, askInstallation: true, agentsAddCustomers: true, priceRange: true, useReceipts: true, reviseOrders: true, preOrders: true, autoCancel: true, shareWhatsapp: true, holdStock: true, autoDelivery: true })).toEqual([
       'Use enquiries: On → Off',
       'Office drafts quotations: On → Off',
       'Ask for an installation option on the order: Off → On',
@@ -18,6 +18,8 @@ describe('sales flow rules (S34)', () => {
       'Short stock makes the order a pre-order: Off → On',
       'Cancel an order with no receipt and no delivery after a number of days: Off → On',
       'Share the sales order with the customer on WhatsApp: Off → On',
+      'Hold stock for booked installations: Off → On',
+      'Make the delivery order 24 hours before the installation: Off → On',
     ]);
     expect(rangeChange({ belowPct: '10', abovePct: '20' }, { belowPct: '5', abovePct: '20' })).toBe('Price range: 10% below to 20% above → 5% below to 20% above');
     expect(rangeChange({ belowPct: '10', abovePct: '20' }, { belowPct: '10', abovePct: '20' })).toBeNull();

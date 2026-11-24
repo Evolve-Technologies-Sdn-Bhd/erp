@@ -15,6 +15,9 @@ import { RemindersService } from './reminders/reminders.service';
 import { JobsQuery } from './jobs/jobs.query';
 import { JobsService } from './jobs/jobs.service';
 import { StockCheckService } from './jobs/stock-check.service';
+import { JobStockService } from './stock/job-stock.service';
+import { ServiceStockController } from './stock/job-stock.controller';
+import { JobDeliveryListener } from './sales-link/job-delivery.listener';
 import { JobFromOrderListener } from './sales-link/job-from-order.listener';
 import { OrderPaymentListener } from './sales-link/order-payment.listener';
 import { ServiceOnGuard } from './service-on.guard';
@@ -28,8 +31,8 @@ import { SERVICE_SCOPE_RULES } from './service.scope';
  * server runs with SERVICE_MODULE=on: no permissions in the role editor, no listener, and its routes answer 404.
  */
 @Module({
-  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController, ServiceClaimsController],
-  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, BoardQuery, ServiceSettingsService, RemindersService, StockCheckService, ClaimsQuery, ClaimsService],
+  controllers: [ServiceJobsController, ServiceHomeController, ServiceBoardController, ServiceSettingsController, ServiceRemindersController, ServiceClaimsController, ServiceStockController],
+  providers: [ServiceOnGuard, JobsQuery, JobsService, JobFromOrderListener, OrderPaymentListener, JobDeliveryListener, JobStockService, BoardQuery, ServiceSettingsService, RemindersService, StockCheckService, ClaimsQuery, ClaimsService],
 })
 export class ServiceModule implements OnModuleInit {
   constructor(
@@ -38,6 +41,7 @@ export class ServiceModule implements OnModuleInit {
     private readonly scopes: ScopeRegistry,
     private readonly listener: JobFromOrderListener,
     private readonly payments: OrderPaymentListener,
+    private readonly deliveries: JobDeliveryListener,
     private readonly reminders: RemindersService,
     private readonly stockCheck: StockCheckService,
   ) {}
@@ -49,6 +53,7 @@ export class ServiceModule implements OnModuleInit {
     this.permissions.register(SERVICE_PERMISSION_CATALOGUE);
     this.listener.register();
     this.payments.register();
+    this.deliveries.register();
     this.reminders.schedule();
     this.stockCheck.schedule();
   }

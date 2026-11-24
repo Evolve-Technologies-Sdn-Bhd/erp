@@ -33,6 +33,12 @@ export const serviceRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/service/stock',
+    name: 'service-stock',
+    component: () => import('./views/StockView.vue'),
+    meta: { code: 'V09', title: 'Stock for Jobs', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'stock' },
+  },
+  {
     path: '/service/reminders',
     name: 'service-reminders',
     component: () => import('./views/RemindersView.vue'),

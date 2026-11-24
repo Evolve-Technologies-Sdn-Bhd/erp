@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import type { Env } from '../../config/env';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
+import { JobStockService } from '../stock/job-stock.service';
+import { notReady, shortText } from '../stock/stock.rules';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ClockService } from '../../platform/clock/clock.service';
@@ -37,6 +39,7 @@ export class StockCheckService implements OnApplicationShutdown {
     private readonly clock: ClockService,
     private readonly config: ConfigService<Env, true>,
     private readonly scheduler: SchedulerRegistry,
+    private readonly jobStock: JobStockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -51,7 +54,7 @@ export class StockCheckService implements OnApplicationShutdown {
     if (this.scheduler.getIntervals().includes(INTERVAL_NAME)) this.scheduler.deleteInterval(INTERVAL_NAME);
   }
 
-  async run(tenantId: string): Promise<{ atRisk: string[]; ready: string[] }> {
+  async run(tenantId: string): Promise<{ atRisk: string[]; ready: string[]; deliveries?: string[] }> {
     return asSystem(async () => {
       const done = { atRisk: [] as string[], ready: [] as string[] };
       const today = this.clock.today();
@@ -65,10 +68,18 @@ export class StockCheckService implements OnApplicationShutdown {
       const codes = [...new Set(due.flatMap((j) => j.items.map((i) => i.itemCode)))];
       const [items, stock] = await Promise.all([this.masterData.findItems(tenantId, codes), this.stock.listStock(tenantId, codes)]);
       const ctx = await this.systemCtx(tenantId);
+      // Where the warehouse confirms stock (phase 5), earlier jobs hold theirs first, a job it has not confirmed is at risk,
+      // and a confirmed one asks Sales for its delivery order.
+      const confirms = await this.jobStock.confirms(tenantId);
+      const held = confirms ? await this.jobStock.stockOf(tenantId, due) : null;
+      const asked: string[] = [];
 
       for (const j of due) {
         const onHand = (code: string) => stock.filter((s) => s.itemCode === code && (!j.warehouseCode || s.warehouseCode === j.warehouseCode)).reduce((sum, s) => sum + Number(s.onHand), 0);
-        const short = stockShort(j.items.map((i) => ({ itemCode: i.itemCode, qty: i.qty.toString(), onHand: String(onHand(i.itemCode)), isStock: items.find((x) => x.code === i.itemCode)?.type === 'STOCK' })));
+        const short = held
+          ? notReady({ confirms, confirmed: Boolean(j.stockConfirmedAt), short: shortText(held.get(j.id) ?? []) })
+          : stockShort(j.items.map((i) => ({ itemCode: i.itemCode, qty: i.qty.toString(), onHand: String(onHand(i.itemCode)), isStock: items.find((x) => x.code === i.itemCode)?.type === 'STOCK' })));
+        if (confirms && (await this.prisma.$transaction((tx) => this.jobStock.askForDelivery(tx, ctx, j)))) asked.push(j.docNo);
         const when = `${shortDay(iso(j.jobDate!))} · ${slotLabel(j.slotStart!, j.slotEnd!)}`;
         if (short && !j.atRiskSince) {
           await this.prisma.$transaction(async (tx) => {
@@ -86,7 +97,7 @@ export class StockCheckService implements OnApplicationShutdown {
           done.ready.push(j.docNo);
         }
       }
-      return done;
+      return confirms ? { ...done, deliveries: asked } : done;
     });
   }
 

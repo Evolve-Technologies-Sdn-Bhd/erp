@@ -46,6 +46,8 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   reviseOrders: 'A Revise button on the released sales order, until a delivery order, invoice or cancel order is made from it.',
   preOrders: 'An order released with any item short of stock is marked Pre-order, as a whole.',
   autoCancel: 'A released order with no official receipt and no delivery order is cancelled by the system, with alerts a week before and on the day.',
+  holdStock: 'Once the installer is booked, the order’s items are held: other orders see what is left. It warns, it never blocks.',
+  autoDelivery: 'Once the warehouse has confirmed the stock. From then on the order can no longer be revised.',
   shareWhatsapp: 'A WhatsApp button on the released sales order, for whoever keys orders.',
 }
 
@@ -198,6 +200,15 @@ async function save() {
         <SwitchToggle v-model="draft.askInstallation" :label="data.labels.askInstallation" :disabled="!canManage" />
       </div>
       <p class="m-0 text-xs text-erp-muted">When it is on, the customer's preferred installation date is needed to release an order whose items are all in stock. With items short, installation is arranged when stock arrives.</p>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.holdStock }}</span><span class="text-xs text-erp-subtle">{{ HINT.holdStock }}</span></span>
+        <SwitchToggle v-model="draft.holdStock" :label="data.labels.holdStock" :disabled="!canManage" />
+      </div>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.autoDelivery }}</span><span class="text-xs text-erp-subtle">{{ HINT.autoDelivery }}</span></span>
+        <SwitchToggle v-model="draft.autoDelivery" :label="data.labels.autoDelivery" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">The warehouse confirms each job in Service › Stock for Jobs (turned on in Service › Slots and Stages). The same delivery order follows the job when it is moved or postponed.</p>
     </section>
 
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">

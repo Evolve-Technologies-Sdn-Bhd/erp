@@ -14,6 +14,8 @@ export const SERVICE_PERMISSIONS = {
   JOB_BOOK: 'service.job.book',
   /** Record what happened at the visit: result, photos, paid or not (F3 part 3). Installers on the phone app later. */
   JOB_RECORD: 'service.job.record',
+  /** The warehouse: confirm a booked job's stock before its delivery order (V09). */
+  STOCK_CONFIRM: 'service.stock.confirm',
   /** People and slot groups (V05). */
   SETTINGS_MANAGE: 'service.settings.manage',
   /** Key an installer's claim and submit it (F5); installers themselves with the phone app later. */
@@ -33,6 +35,7 @@ export const SERVICE_PERMISSION_CATALOGUE: ModulePermissions = {
     { key: P.JOB_EDIT, object: 'Job', action: 'Edit and cancel' },
     { key: P.JOB_BOOK, object: 'Job', action: 'Book and close' },
     { key: P.JOB_RECORD, object: 'Job', action: 'Record the visit' },
+    { key: P.STOCK_CONFIRM, object: 'Job', action: 'Confirm stock' },
     { key: P.SETTINGS_MANAGE, object: 'Service', action: 'People and slots' },
     { key: P.CLAIM_EDIT, object: 'Installer claim', action: 'Key and submit' },
     { key: P.CLAIM_APPROVE, object: 'Installer claim', action: 'Approve and pay' },

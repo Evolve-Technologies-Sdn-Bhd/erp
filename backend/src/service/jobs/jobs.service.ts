@@ -29,7 +29,7 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 /** What taking a job off the board clears, the expected completion and its extension with it. */
 const FREE_SLOT = {
   personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null, expectedEnd: null, extendReason: null,
-  atRiskSince: null, atRiskNote: null,
+  atRiskSince: null, atRiskNote: null, stockConfirmedAt: null, stockConfirmedBy: null,
 } as const;
 /** A job's timing, for the rules in timing.rules.ts. */
 const timing = (j: { stage: string; jobDate: Date | null; slotEnd: number | null; expectedEnd: number | null; overdueSince: Date | null }): JobTiming => ({
@@ -195,6 +195,8 @@ export class JobsService {
       await this.bump(tx, ctx, job.id, dto.version, {
         stage: 'BOOKED', personId: person.id, personName: person.name, jobDate: day(dto.date), slotStart: dto.start, slotEnd: end,
         slotGroupCode: group.code, bookedAt: this.clock.now(), expectedEnd: end, extendReason: null, overdueSince,
+        // Another day: the warehouse confirms the stock again, unless the delivery order is already made.
+        ...(moving && isoDay(job.jobDate!) !== dto.date && !job.deliveryNo && { stockConfirmedAt: null, stockConfirmedBy: null }),
       }, ['NOT_BOOKED', 'BOOKED']);
       await this.log(tx, ctx, job.id, job.docNo, moving ? 'moved' : 'booked', `${moving ? 'Moved to' : 'Booked for'} ${person.name}, ${shortDay(dto.date)}, ${slotLabel(dto.start, end)}`);
       // A rescheduled installation (phase 5): the salesperson hears of it, to tell the customer.

@@ -26,6 +26,8 @@ export const SVC_EVENT = {
   JOB_UNBOOKED: 'service.job.unbooked',
   /** The office gave a booked job longer: a new expected completion that day, with the reason (F3 part 4). */
   JOB_EXTENDED: 'service.job.extended',
+  /** A booked job is within 24 hours and its stock is confirmed: Sales drafts its delivery order (phase 5). */
+  JOB_DELIVERY_DUE: 'service.job.delivery_due',
   /** The visit is recorded as complete or partly done: what fees and commission will count (F5). */
   JOB_DONE: 'service.job.done',
   /** Account approved an installer's claim (F5): to pay on its pay day. Finance later. */

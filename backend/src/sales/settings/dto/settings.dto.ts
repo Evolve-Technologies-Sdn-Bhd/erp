@@ -48,6 +48,8 @@ export class SaveSalesFlowDto {
   @IsOptional() @IsBoolean() preOrders?: boolean;
   @IsOptional() @IsBoolean() autoCancel?: boolean;
   @IsOptional() @IsBoolean() shareWhatsapp?: boolean;
+  @IsOptional() @IsBoolean() holdStock?: boolean;
+  @IsOptional() @IsBoolean() autoDelivery?: boolean;
   /** Days after release before the automatic cancel; checked in lapse.rules.ts. */
   @IsOptional() @Type(() => Number) @IsInt() autoCancelDays?: number;
   @IsOptional() @IsString() @MaxLength(10) priceBelowPct?: string;

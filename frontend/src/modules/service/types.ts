@@ -102,6 +102,10 @@ export interface JobDetail extends JobRow {
     /** "JB-0014 at 2 PM – 4 PM": later jobs that day this one now runs into. */
     runsInto: string[]
   } | null
+  /** The stock the job needs, free once earlier jobs have theirs, and the warehouse's confirmation (phase 5). */
+  stock: { confirms: boolean; items: JobStockItem[]; confirmedAt: string | null; confirmedBy: string | null }
+  /** The delivery order Sales made for the job (phase 5). */
+  delivery: { id: string; docNo: string | null } | null
   doneAt: string | null
   doneNote: string | null
   closedAt: string | null
@@ -196,7 +200,56 @@ export interface SlotGroup {
   slotsText: string
 }
 
+/** An item a booked job needs, and what is free for it (phase 5). */
+export interface JobStockItem {
+  itemCode: string
+  itemName: string
+  uomCode: string
+  needed: string
+  onHand: string
+  earlier: string
+  free: string
+  short: boolean
+}
+
+/** V09 · Stock for Jobs. */
+export interface StockJob {
+  id: string
+  docNo: string
+  typeLabel: string
+  branchCode: string
+  customerName: string
+  salesOrderNo: string | null
+  personName: string | null
+  slotText: string
+  warehouseCode: string | null
+  items: JobStockItem[]
+  shortText: string | null
+  atRisk: boolean
+  atRiskNote: string | null
+  confirmedAt: string | null
+  confirmedBy: string | null
+  deliveryId: string | null
+  deliveryNo: string | null
+  version: number
+  canConfirm: boolean
+  canUndo: boolean
+}
+
+export interface StockDay {
+  date: string
+  dateText: string
+  today: string
+  /** The company's warehouse confirms stock (Slots and Stages). */
+  on: boolean
+  stockConnected: boolean
+  counts: { jobs: number; confirmed: number; short: number }
+  jobs: StockJob[]
+}
+
 export interface ServiceSettings {
+  /** Service's own switches (phase 5). */
+  general: { warehouseConfirms: boolean }
   people: Person[]
   slotGroups: SlotGroup[]
   /** The roles, and the jobs a new person with that role starts with. */

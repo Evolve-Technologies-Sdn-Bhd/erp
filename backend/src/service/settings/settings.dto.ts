@@ -3,6 +3,12 @@ import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, 
 import { PERSON_ROLES, SITE_TYPES } from '../board/booking.rules';
 import { JOB_TYPES } from '../jobs/jobs.rules';
 
+/** Service's own switches (phase 5). */
+export class GeneralSettingsDto {
+  @IsBoolean()
+  warehouseConfirms!: boolean;
+}
+
 /** A person the office books (V05 · People). */
 export class PersonDto {
   @IsString()

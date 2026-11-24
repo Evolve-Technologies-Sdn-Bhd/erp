@@ -85,12 +85,13 @@ export function statusLabel(status: SoStatus, balanceCancelled: boolean): string
 }
 
 /** Stock warning at release (policy: warn, never block): "60 in stock, 40 short". Null when nothing is short. */
-export function stockShortfall(lines: { itemCode: string; qty: Prisma.Decimal; onHand: Prisma.Decimal; isStock: boolean }[]): string | null {
-  const short = lines.filter((l) => l.isStock && l.onHand.lt(l.qty));
+export function stockShortfall(lines: { itemCode: string; qty: Prisma.Decimal; onHand: Prisma.Decimal; isStock: boolean; held?: Prisma.Decimal }[]): string | null {
+  // Stock held for other orders' booked installations (phase 5) is not free: what is left counts.
+  const short = lines.map((l) => ({ ...l, onHand: l.held ? l.onHand.sub(l.held) : l.onHand })).filter((l) => l.isStock && l.onHand.lt(l.qty));
   if (!short.length) return null;
   const plain = (v: Prisma.Decimal) => (v.isInteger() ? v.toFixed(0) : v.toFixed(2));
   return short
-    .map((l) => `${lines.length > 1 ? `${l.itemCode}: ` : ''}${plain(l.onHand.gt(0) ? l.onHand : dec(0))} in stock, ${plain(l.qty.sub(l.onHand.gt(0) ? l.onHand : dec(0)))} short`)
+    .map((l) => `${lines.length > 1 ? `${l.itemCode}: ` : ''}${plain(l.onHand.gt(0) ? l.onHand : dec(0))} ${l.held?.gt(0) ? `free (${plain(l.held)} held for booked installations)` : 'in stock'}, ${plain(l.qty.sub(l.onHand.gt(0) ? l.onHand : dec(0)))} short`)
     .join('; ');
 }
 

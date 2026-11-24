@@ -6,6 +6,7 @@ import { ActivityService } from '../../platform/activity/activity.service';
 import { ApprovalsService } from '../../platform/approvals/approvals.service';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
 import { TenantService } from '../../platform/context/tenant.service';
+import { HeldStock } from '../shared/held-stock.service';
 import type { RequestContext } from '../../platform/context/request-context';
 import { dec, toMoney, toPrice, toQty, toRate } from '../../platform/http/decimal';
 import { NotFoundError } from '../../platform/http/errors';
@@ -50,6 +51,7 @@ export class OrdersQuery {
     private readonly priceRules: PriceRules,
     private readonly receipts: ReceiptsQuery,
     private readonly tenants: TenantService,
+    private readonly heldStock: HeldStock,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -133,7 +135,9 @@ export class OrdersQuery {
     const codes = [...new Set(pre.flatMap((o) => o.lines.map((l) => l.itemCode)))];
     const [items, stock] = await Promise.all([this.masterData.findItems(tenantId, codes), this.stock.listStock(tenantId, codes)]);
     for (const o of pre) {
+      const held = await this.heldStock.held(tenantId, o.lines.map((l) => l.itemCode), o.id);
       const shortNow = stockShortfall(o.lines.map((l) => ({
+        held: held(l.itemCode, o.warehouseCode),
         itemCode: l.itemCode, qty: open(l), isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
         onHand: sum(stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === o.warehouseCode).map((s) => dec(s.onHand))),
       })));
@@ -271,7 +275,9 @@ export class OrdersQuery {
 
     // Stock: live for drafts (warns only), and what was logged at release for released orders.
     const onHand = (code: string) => sum(stock.filter((s) => s.itemCode === code && s.warehouseCode === order.warehouseCode).map((s) => dec(s.onHand)));
+    const held = await this.heldStock.held(ctx.tenantId, codes, order.id);
     const shortfall = stockShortfall(order.lines.map((l) => ({
+      held: held(l.itemCode, order.warehouseCode),
       itemCode: l.itemCode, qty: l.orderedQty, onHand: onHand(l.itemCode), isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
     })));
     const releaseNote = activity.find((a) => a.action === 'stock_warning')?.message ?? null;

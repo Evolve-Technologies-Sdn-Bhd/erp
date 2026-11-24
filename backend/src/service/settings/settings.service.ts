@@ -10,9 +10,9 @@ import {
   listOf, PERSON_ROLE_LABEL, PERSON_ROLES, personErrors, ROLE_JOB_TYPES, SITE_TYPE_LABEL, SITE_TYPES, slotGroupErrors, slotLabel, slotsOf,
   STARTER_SLOT_GROUPS, timeLabel, type PersonRole, type SiteType,
 } from '../board/booking.rules';
-import type { PersonDto, SlotGroupDto, UpdatePersonDto, UpdateSlotGroupDto } from './settings.dto';
+import type { GeneralSettingsDto, PersonDto, SlotGroupDto, UpdatePersonDto, UpdateSlotGroupDto } from './settings.dto';
 
-const ENTITY = { PERSON: 'SVC_PERSON', SLOT_GROUP: 'SVC_SLOT_GROUP' } as const;
+const ENTITY = { PERSON: 'SVC_PERSON', SLOT_GROUP: 'SVC_SLOT_GROUP', SETTING: 'SVC_SETTING' } as const;
 
 /**
  * V05 · Slots and Stages (SvcSettings.html, kept simple): the people the office books, with the jobs they take and the
@@ -38,11 +38,14 @@ export class ServiceSettingsService {
 
   async view(ctx: RequestContext) {
     await this.ensureSlotGroups(ctx);
-    const [people, groups] = await Promise.all([
+    const [people, groups, general] = await Promise.all([
       this.prisma.svcPerson.findMany({ where: { tenantId: ctx.tenantId }, orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }, { name: 'asc' }] }),
       this.prisma.svcSlotGroup.findMany({ where: { tenantId: ctx.tenantId }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
+      this.prisma.svcSetting.findUnique({ where: { tenantId: ctx.tenantId } }),
     ]);
     return {
+      /** Phase 5: the warehouse confirms a booked job's stock before its delivery order. Off by default. */
+      general: { warehouseConfirms: general?.warehouseConfirms ?? false },
       people: people.map(personView),
       slotGroups: groups.map(slotGroupView),
       /** The roles, and the jobs a new person with that role starts with. Each person then keeps their own list. */
@@ -51,6 +54,24 @@ export class ServiceSettingsService {
       siteTypes: SITE_TYPES.map((t) => ({ value: t, label: SITE_TYPE_LABEL[t] })),
       stages: ['Not booked', 'Booked', 'Done', 'Closed'],
     };
+  }
+
+  async saveGeneral(ctx: RequestContext, dto: GeneralSettingsDto) {
+    const before = (await this.prisma.svcSetting.findUnique({ where: { tenantId: ctx.tenantId } }))?.warehouseConfirms ?? false;
+    if (before !== dto.warehouseConfirms) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.svcSetting.upsert({
+          where: { tenantId: ctx.tenantId },
+          update: { warehouseConfirms: dto.warehouseConfirms, updatedBy: ctx.user.code },
+          create: { tenantId: ctx.tenantId, warehouseConfirms: dto.warehouseConfirms, updatedBy: ctx.user.code },
+        });
+        await this.activity.log(tx, ctx, {
+          entityType: ENTITY.SETTING, entityId: ctx.tenantId, docNo: 'Service', action: 'saved',
+          message: `The warehouse confirms stock before the delivery order: ${before ? 'On' : 'Off'} → ${dto.warehouseConfirms ? 'On' : 'Off'}`, comment: null,
+        });
+      });
+    }
+    return this.view(ctx);
   }
 
   async addPerson(ctx: RequestContext, dto: PersonDto) {

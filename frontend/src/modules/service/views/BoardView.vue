@@ -127,8 +127,10 @@ function bookSlot(personId: string, slot: { start: number; end: number; label: s
       busy.value = true
       try {
         const latest = await serviceJobsApi.get(j.id)
-        await serviceJobsApi.book(j.id, { version: latest.version, personId, date: board.value!.date, slotGroupCode: g.code, start: slot.start })
+        const booked = await serviceJobsApi.book(j.id, { version: latest.version, personId, date: board.value!.date, slotGroupCode: g.code, start: slot.start })
         toast.add({ severity: 'success', summary: `${j.docNo} ${j.moving ? 'moved' : 'booked'}`, detail: `${p.name}, ${board.value!.dateText}, ${slot.label}`, life: 3500 })
+        const short = booked.stock.confirms ? booked.stock.items.filter((i) => i.short) : []
+        if (short.length) toast.add({ severity: 'warn', summary: `${j.docNo}: stock is short`, detail: `${short.map((i) => `${i.itemCode}: ${Number(i.free)} free, ${Number(i.needed)} needed`).join('; ')}. It is booked all the same.`, life: 6000 })
         picked.value = null
         if (route.query.job) await router.replace({ query: { ...route.query, job: undefined } })
         await load()

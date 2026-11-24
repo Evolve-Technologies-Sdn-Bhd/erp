@@ -6,6 +6,7 @@ import { Plus } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import FormField from '@/components/erp/FormField.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
+import SwitchToggle from '@/components/erp/SwitchToggle.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { useSession } from '@/composables/useSession'
 import { serviceApi } from '../api/service'
@@ -36,6 +37,16 @@ const typeLabel = (t: string) => JOB_TYPE_OPTIONS.find((o) => o.value === t)?.la
 const activePeople = computed(() => data.value?.people.filter((p) => p.isActive) ?? [])
 
 // ── People ───────────────────────────────────────────────────────────────────
+async function saveGeneral(warehouseConfirms: boolean) {
+  saving.value = true
+  try {
+    data.value = await serviceApi.saveGeneral({ warehouseConfirms })
+    toast.add({ severity: 'success', summary: 'Saved', life: 2500 })
+  } finally {
+    saving.value = false
+  }
+}
+
 const personOpen = ref(false)
 const person = reactive({ id: '', name: '', role: 'INSTALLER' as PersonRole, phone: '', jobTypes: [] as JobType[], siteTypes: [] as SiteType[], claimsFees: true, isActive: true, version: 0 })
 const ALL_SITES = SITE_TYPE_OPTIONS.map((s) => s.value as SiteType)
@@ -120,6 +131,15 @@ async function saveGroup() {
 
   <template v-else>
     <PageHeader title="Slots and Stages" subtitle="The time slots the Planning Board offers, who takes which job, and the steps a job goes through." />
+
+    <section class="erp-card flex flex-col gap-2 px-5 py-[18px]">
+      <h2 class="m-0 text-[15px] font-bold">Warehouse</h2>
+      <div class="flex items-center justify-between gap-4">
+        <span><span class="block text-[13px] font-bold">The warehouse confirms stock before the delivery order</span><span class="text-xs text-erp-subtle">Stock for Jobs lists the next day's jobs to confirm. A job not confirmed 24 hours before is at risk and gets no delivery order.</span></span>
+        <SwitchToggle :model-value="data.general.warehouseConfirms" label="The warehouse confirms stock before the delivery order" :disabled="!canManage || saving" @update:model-value="saveGeneral" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">The delivery order itself is made by Sales: turn on <em>Make the delivery order 24 hours before the installation</em> in Sales › Operation Policies › Sales Flow.</p>
+    </section>
 
     <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-center justify-between gap-3">

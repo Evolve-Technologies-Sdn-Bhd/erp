@@ -5,6 +5,7 @@ import { OutboxConsumers } from '../../platform/outbox/outbox.consumers';
 import type { OutboxEnvelope } from '../../platform/outbox/outbox.types';
 import type { Tx } from '../../platform/prisma/prisma.service';
 import { SAL_ENTITY } from '../shared/sales.constants';
+import { InstallDeliveryListener } from '../deliveries/install-delivery.listener';
 
 /** Service events Sales listens to (EVENTS.md). Names are Service's; Sales never imports Service code. */
 export const SERVICE_EVENT = {
@@ -40,6 +41,7 @@ export class SalesInstallBookingListener implements OnModuleInit {
   constructor(
     private readonly consumers: OutboxConsumers,
     private readonly activity: ActivityService,
+    private readonly deliveries: InstallDeliveryListener,
   ) {}
 
   onModuleInit(): void {
@@ -55,6 +57,7 @@ export class SalesInstallBookingListener implements OnModuleInit {
     if (!order) return;
     await tx.salSalesOrder.update({ where: { id: order.id }, data: { installBooking: p.bookingText.slice(0, 150), installBookedAt: event.occurredAt } });
     await this.log(tx, event, order, 'install_booked', `Installer ${p.moved === true ? 'moved' : 'booked'} by the office (${String(p.jobNo)}): ${p.bookingText}`);
+    await this.deliveries.moved(event, tx, order.id);
   }
 
   async onOff(event: OutboxEnvelope, tx: Tx, kind: 'unbooked' | 'cancelled'): Promise<void> {
@@ -66,6 +69,7 @@ export class SalesInstallBookingListener implements OnModuleInit {
     const reason = typeof p.reason === 'string' && p.reason ? p.reason : null;
     const message = kind === 'cancelled' ? `Installation job ${String(p.jobNo)} cancelled` : `Installer booking undone (${String(p.jobNo)})`;
     await this.log(tx, event, order, `install_${kind}`, reason ? `${message}: ${reason}` : message);
+    await this.deliveries.waiting(event, tx, order.id, message);
   }
 
   private log(tx: Tx, event: OutboxEnvelope, order: { id: string; docNo: string }, action: string, message: string) {

@@ -468,6 +468,20 @@ const asksFor = computed(() => {
           <p v-if="!job?.booking" class="m-0 text-xs text-erp-muted">The office books the person, the day and the slot on the Planning Board.</p>
           <button v-if="job?.allowedActions.includes('extend')" type="button" class="erp-btn erp-btn-secondary mt-1 justify-center" :disabled="saving" @click="openExtend">Extend the time</button>
         </SideCard>
+        <SideCard v-if="job && (job.delivery || (job.booking && job.stock.confirms && job.stock.items.length))" data-tour="svc:stock" title="Stock and delivery">
+          <div class="flex flex-col gap-1.5 text-[13px]">
+            <template v-if="job.booking && job.stock.confirms">
+              <div v-for="i in job.stock.items" :key="i.itemCode" class="flex justify-between gap-3">
+                <span>{{ i.itemCode }}</span><span :class="i.short ? 'font-semibold text-chip-cancelled-text' : ''">{{ formatQty(i.free) }} free, {{ formatQty(i.needed) }} needed</span>
+              </div>
+              <div class="flex justify-between gap-3">
+                <span class="text-erp-muted">Warehouse</span>
+                <span class="text-right" :class="job.stock.confirmedAt ? 'font-semibold text-chip-done-text' : 'text-attention'">{{ job.stock.confirmedAt ? `Confirmed by ${job.stock.confirmedBy}` : 'Not confirmed' }}</span>
+              </div>
+            </template>
+            <div v-if="job.delivery" class="flex justify-between gap-3"><span class="text-erp-muted">Delivery order</span><RouterLink :to="`/sales/deliveries/${job.delivery.id}`" class="erp-link font-semibold">{{ job.delivery.docNo }}</RouterLink></div>
+          </div>
+        </SideCard>
         <SideCard v-if="job?.doneAt" title="Done">
           <div class="flex flex-col gap-1.5 text-[13px]">
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Done</span><span>{{ formatDateTime(job.doneAt) }}</span></div>

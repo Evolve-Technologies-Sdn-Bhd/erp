@@ -34,8 +34,8 @@ describe('Sales flow switches (end to end)', () => {
 
   it('starts on the standard flow: both steps on, nothing in the history', async () => {
     const flow = await api.get<Flow>('sales/settings/sales-flow', 'AR');
-    expect(flow.switches).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false });
-    expect(flow.labels).toEqual({ useEnquiries: 'Use enquiries', officeDraftsQuotations: 'Office drafts quotations', askInstallation: 'Ask for an installation option on the order', agentsAddCustomers: 'Salespeople add new customers on the order', priceRange: 'Salespeople set prices within a range of the price list', useReceipts: 'Salespeople record payments as official receipts', reviseOrders: 'Salespeople revise a released order until it is delivered', preOrders: 'Short stock makes the order a pre-order', autoCancel: 'Cancel an order with no receipt and no delivery after a number of days', shareWhatsapp: 'Share the sales order with the customer on WhatsApp' });
+    expect(flow.switches).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false });
+    expect(flow.labels).toEqual({ useEnquiries: 'Use enquiries', officeDraftsQuotations: 'Office drafts quotations', askInstallation: 'Ask for an installation option on the order', agentsAddCustomers: 'Salespeople add new customers on the order', priceRange: 'Salespeople set prices within a range of the price list', useReceipts: 'Salespeople record payments as official receipts', reviseOrders: 'Salespeople revise a released order until it is delivered', preOrders: 'Short stock makes the order a pre-order', autoCancel: 'Cancel an order with no receipt and no delivery after a number of days', shareWhatsapp: 'Share the sales order with the customer on WhatsApp', holdStock: 'Hold stock for booked installations', autoDelivery: 'Make the delivery order 24 hours before the installation' });
     expect(flow.history).toEqual([]);
   });
 
@@ -54,7 +54,7 @@ describe('Sales flow switches (end to end)', () => {
     const saved = await api.call<Flow>('PUT', 'sales/settings/sales-flow', 'ADM', { useEnquiries: false, officeDraftsQuotations: false, askInstallation: false });
     expect(saved.status).toBe(200);
     expect(saved.body.saved).toEqual(['Use enquiries: On → Off', 'Office drafts quotations: On → Off']);
-    expect(saved.body.switches).toEqual({ useEnquiries: false, officeDraftsQuotations: false, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false });
+    expect(saved.body.switches).toEqual({ useEnquiries: false, officeDraftsQuotations: false, askInstallation: false, agentsAddCustomers: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false });
     expect(saved.body.history.map((h) => h.message).sort()).toEqual(['Office drafts quotations: On → Off', 'Use enquiries: On → Off']);
 
     const refused = await api.call('POST', 'sales/enquiries', 'AR', await enquiry());

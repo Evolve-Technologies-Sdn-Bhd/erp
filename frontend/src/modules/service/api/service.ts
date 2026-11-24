@@ -2,7 +2,7 @@ import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
 import type {
   Board, ClaimDetail, ClaimInput, ClaimPeriod, ClaimRow, EligibleJob, JobDetail, JobInput, JobPhoto, JobRow, PersonRole, ReminderRow, ServiceCustomerOption, ServiceHome,
-  ServiceSettings, VisitInput,
+  ServiceSettings, StockDay, VisitInput,
 } from '../types'
 
 /** The Service module's API (phase 5, F3) — /api/v1/service. */
@@ -11,6 +11,7 @@ export const serviceApi = {
   customers: (q: string) => api<{ items: ServiceCustomerOption[] }>('/service/lookups/customers', { query: { q } }),
   board: (date?: string) => api<Board>('/service/board', { query: { date } }),
   settings: () => api<ServiceSettings>('/service/settings'),
+  saveGeneral: (body: ServiceSettings['general']) => api<ServiceSettings>('/service/settings/general', { method: 'PUT', body }),
   addPerson: (body: PersonInput) => api<ServiceSettings>('/service/settings/people', { method: 'POST', body }),
   updatePerson: (id: string, body: PersonInput & { isActive: boolean; version: number }) => api<ServiceSettings>(`/service/settings/people/${id}`, { method: 'PATCH', body }),
   addSlotGroup: (body: SlotGroupInput) => api<ServiceSettings>('/service/settings/slot-groups', { method: 'POST', body }),
@@ -62,6 +63,13 @@ export const serviceJobsApi = {
     return api<JobPhoto>('/attachments', { method: 'POST', body: form })
   },
   close: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/close`, { method: 'POST', body: { version } }),
+}
+
+/** Stock for Jobs (phase 5) — /api/v1/service/stock. */
+export const serviceStockApi = {
+  day: (date?: string) => api<StockDay>('/service/stock', { query: { date } }),
+  confirm: (id: string, version: number) => api<StockDay>(`/service/stock/${id}/confirm`, { method: 'POST', body: { version } }),
+  undo: (id: string, version: number) => api<StockDay>(`/service/stock/${id}/undo`, { method: 'POST', body: { version } }),
 }
 
 /** Service reminders (F6) — /api/v1/service/reminders. */

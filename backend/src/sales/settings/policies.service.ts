@@ -25,6 +25,8 @@ const flowOf = (s: FlowSwitches): FlowSwitches => ({
   preOrders: s.preOrders,
   autoCancel: s.autoCancel,
   shareWhatsapp: s.shareWhatsapp,
+  holdStock: s.holdStock,
+  autoDelivery: s.autoDelivery,
 });
 import { codeFromName, creditChanges, CREDIT_DOCS, normaliseRule, numberingChanges, ruleProblems, TOGGLES, type CreditRuleView, type ToggleKey } from './settings.rules';
 
@@ -143,6 +145,8 @@ export class SalesPoliciesService {
       preOrders: dto.preOrders ?? s.preOrders,
       autoCancel: dto.autoCancel ?? s.autoCancel,
       shareWhatsapp: dto.shareWhatsapp ?? s.shareWhatsapp,
+      holdStock: dto.holdStock ?? s.holdStock,
+      autoDelivery: dto.autoDelivery ?? s.autoDelivery,
     };
     const before = { belowPct: pct(s.priceBelowPct), abovePct: pct(s.priceAbovePct) };
     const typed = { belowPct: dto.priceBelowPct?.trim() ?? before.belowPct, abovePct: dto.priceAbovePct?.trim() ?? before.abovePct };

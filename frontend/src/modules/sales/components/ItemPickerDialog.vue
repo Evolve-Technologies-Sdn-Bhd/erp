@@ -151,7 +151,10 @@ function add() {
                 <template v-if="i.lastSold">{{ formatPrice(i.lastSold.price) }} · {{ formatDayMonth(i.lastSold.date) }}</template>
                 <template v-else>{{ canPick(i) ? 'Never' : '—' }}</template>
               </td>
-              <td v-if="showStock" class="num">{{ i.inStock === null ? '—' : formatQty(i.inStock) }}</td>
+              <td v-if="showStock" class="num">
+                {{ i.inStock === null ? '—' : formatQty(i.inStock) }}
+                <div v-if="i.heldQty" class="text-xs text-erp-muted" title="Held for booked installations">{{ formatQty(i.heldQty) }} held</div>
+              </td>
               <td
                 class="text-xs"
                 :class="{ 'font-semibold text-attention': note(i).tone === 'warn', 'text-erp-muted': note(i).tone === 'muted' }"

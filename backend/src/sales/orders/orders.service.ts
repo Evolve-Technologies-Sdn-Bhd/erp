@@ -20,6 +20,7 @@ import { priceVouchers, totalsWithVouchers, type TaxedLine, type VoucherInput } 
 import type { MdCustomer } from '../../master-data/master-data.port';
 import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.constants';
 import type { CreateOrderDto, RequestApprovalDto, ReviseOrderDto, UpdateOrderDto } from './dto/order.dto';
+import { HeldStock } from '../shared/held-stock.service';
 import { ORDER_LOCKED_MESSAGE, stockShortfall, type OrderAction } from './order.rules';
 import { deliveryAreaFields, installationErrors, installationFields, releaseInstallation } from './installation.rules';
 import { OrdersQuery, type OrderWithLines } from './orders.query';
@@ -46,6 +47,7 @@ export class OrdersService {
     private readonly docs: SalesDocumentLines,
     private readonly packages: PackageLines,
     private readonly clock: ClockService,
+    private readonly heldStock: HeldStock,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -289,7 +291,9 @@ export class OrdersService {
     // Stock only warns (policy "Stock check while entering: warn, never block").
     const items = await this.masterData.findItems(ctx.tenantId, order.lines.map((l) => l.itemCode));
     const stock = await this.stock.listStock(ctx.tenantId, order.lines.map((l) => l.itemCode));
+    const held = await this.heldStock.held(ctx.tenantId, order.lines.map((l) => l.itemCode), order.id);
     const shortfall = stockShortfall(order.lines.map((l) => ({
+      held: held(l.itemCode, order.warehouseCode),
       itemCode: l.itemCode, qty: l.orderedQty, isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
       onHand: stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === order.warehouseCode).reduce((sum, s) => sum.add(dec(s.onHand)), dec(0)),
     })));

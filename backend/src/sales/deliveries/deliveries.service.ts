@@ -16,7 +16,7 @@ import { breachText, creditActivityText } from '../shared/credit.rules';
 import { SalesDocumentLines } from '../shared/document-lines.service';
 import { SalesMailService } from '../shared/sales-mail.service';
 import { SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_LINK, SAL_ROLE } from '../shared/sales.constants';
-import { DeliveriesQuery, type DeliveryWithLines } from './deliveries.query';
+import { DeliveriesQuery, type DeliveryWithLines, type OrderWithLines } from './deliveries.query';
 import { deliverProblems, DO_LOCKED_MESSAGE, openToDeliver, orderStatusAfterDelivery, type DeliveryAction } from './delivery.rules';
 import type { DeliveryApprovalDto, UpdateDeliveryDto } from './dto/delivery.dto';
 
@@ -52,7 +52,16 @@ export class DeliveriesService {
     if (order.isMigrated || !['RELEASED', 'PARTIAL'].includes(order.status)) {
       throw new BusinessRuleError('ORDER_NOT_DELIVERABLE', `${order.docNo} is not waiting for delivery. Only released orders with a balance can be delivered.`);
     }
-    const cancelling = await this.prisma.salCancelOrderLine.findMany({
+    const { id } = await this.prisma.$transaction(async (tx) => this.draft(tx, ctx, order, this.clock.today(), `Created from ${order.docNo} by ${ctx.user.name}`));
+    return this.query.detail(ctx, id);
+  }
+
+  /**
+   * Drafts a delivery order for everything still open on the order, in the caller's transaction: the store's button, or
+   * the system 24 hours before the installation (phase 5, InstallDeliveryListener).
+   */
+  async draft(tx: Tx, ctx: RequestContext, order: OrderWithLines, docDate: string, message: string, extra: { driver?: string | null } = {}): Promise<{ id: string; docNo: string }> {
+    const cancelling = await tx.salCancelOrderLine.findMany({
       where: { tenantId: ctx.tenantId, soLineId: { in: order.lines.map((l) => l.id) }, cancelOrder: { status: 'DRAFT' } },
       select: { soLineId: true, cancelQty: true },
     });
@@ -61,30 +70,36 @@ export class DeliveriesService {
       .filter((x) => x.balance.gt(0));
     if (!open.length) throw new BusinessRuleError('NOTHING_TO_DELIVER', `${order.docNo} has nothing left to deliver.`);
 
-    const docDate = this.clock.today();
-    const { id } = await this.prisma.$transaction(async (tx) => {
-      const docNo = await this.numbering.next(tx, ctx.tenantId, SAL_DOC_TYPE.DELIVERY, { date: docDate, branchCode: order.branchCode });
-      const row = await tx.salDelivery.create({
-        data: {
-          tenantId: ctx.tenantId, docNo, docDate: day(docDate), status: 'DRAFT', branchCode: order.branchCode,
-          salesOrderId: order.id, salesOrderNo: order.docNo, customerCode: order.customerCode, customerName: order.customerName,
-          warehouseCode: order.warehouseCode, deliverTo: order.deliveryAddress, receiver: order.contactName,
-          createdBy: ctx.user.code, updatedBy: ctx.user.code,
-          lines: {
-            create: open.map(({ l, balance }, i) => ({
-              tenantId: ctx.tenantId, lineNo: i + 1, soLineId: l.id, itemId: l.itemId, itemCode: l.itemCode, itemName: l.itemName, uomCode: l.uomCode,
-              orderedQty: l.orderedQty, deliveredBeforeQty: l.deliveredQty, qty: balance,
-            })),
-          },
+    const docNo = await this.numbering.next(tx, ctx.tenantId, SAL_DOC_TYPE.DELIVERY, { date: docDate, branchCode: order.branchCode });
+    const row = await tx.salDelivery.create({
+      data: {
+        tenantId: ctx.tenantId, docNo, docDate: day(docDate), status: 'DRAFT', branchCode: order.branchCode,
+        salesOrderId: order.id, salesOrderNo: order.docNo, customerCode: order.customerCode, customerName: order.customerName,
+        warehouseCode: order.warehouseCode, deliverTo: order.deliveryAddress, receiver: order.contactName, driver: extra.driver ?? null,
+        createdBy: ctx.user.code, updatedBy: ctx.user.code,
+        lines: {
+          create: open.map(({ l, balance }, i) => ({
+            tenantId: ctx.tenantId, lineNo: i + 1, soLineId: l.id, itemId: l.itemId, itemCode: l.itemCode, itemName: l.itemName, uomCode: l.uomCode,
+            orderedQty: l.orderedQty, deliveredBeforeQty: l.deliveredQty, qty: balance,
+          })),
         },
-      });
-      await tx.sysDocLink.create({
-        data: { tenantId: ctx.tenantId, fromType: SAL_ENTITY.ORDER, fromId: order.id, fromNo: order.docNo, toType: SAL_ENTITY.DELIVERY, toId: row.id, toNo: docNo, linkType: SAL_LINK.DELIVERED },
-      });
-      await this.log(tx, ctx, row.id, docNo, 'created', `Created from ${order.docNo} by ${ctx.user.name}`);
-      return row;
+      },
     });
-    return this.query.detail(ctx, id);
+    await tx.sysDocLink.create({
+      data: { tenantId: ctx.tenantId, fromType: SAL_ENTITY.ORDER, fromId: order.id, fromNo: order.docNo, toType: SAL_ENTITY.DELIVERY, toId: row.id, toNo: docNo, linkType: SAL_LINK.DELIVERED },
+    });
+    await this.log(tx, ctx, row.id, docNo, 'created', message);
+    // An order with installation (phase 5) tells its job which delivery order it has.
+    if (order.installOption === 'INSTALLATION') await this.publishDrafted(tx, ctx, order, { id: row.id, docNo });
+    if (order.autoDoNote) await tx.salSalesOrder.update({ where: { id: order.id }, data: { autoDoNote: null } });
+    return { id: row.id, docNo };
+  }
+
+  publishDrafted(tx: Tx, ctx: RequestContext, order: { id: string; docNo: string }, d: { id: string; docNo: string }) {
+    return this.outbox.publish(tx, ctx, [{
+      name: SAL_EVENT.DELIVERY_DRAFTED, aggregateType: SAL_ENTITY.DELIVERY, aggregateId: d.id,
+      payload: { doNo: d.docNo, doId: d.id, salesOrderId: order.id, salesOrderNo: order.docNo },
+    }]);
   }
 
   async update(ctx: RequestContext, id: string, dto: UpdateDeliveryDto) {
@@ -128,6 +143,12 @@ export class DeliveriesService {
       await tx.sysDocLink.deleteMany({ where: { tenantId: ctx.tenantId, toType: SAL_ENTITY.DELIVERY, toId: id } });
       await this.approvals.cancelPending(tx, ctx, SAL_ENTITY.DELIVERY, id);
       await this.log(tx, ctx, id, d.docNo, 'deleted', `Draft deleted by ${ctx.user.name}. ${d.docNo} will not be used again.`);
+      if (d.salesOrder?.installOption === 'INSTALLATION') {
+        await this.outbox.publish(tx, ctx, [{
+          name: SAL_EVENT.DELIVERY_REMOVED, aggregateType: SAL_ENTITY.DELIVERY, aggregateId: id,
+          payload: { doNo: d.docNo, doId: id, salesOrderId: d.salesOrder.id, salesOrderNo: d.salesOrder.docNo },
+        }]);
+      }
     });
     return { deleted: true, docNo: d.docNo };
   }

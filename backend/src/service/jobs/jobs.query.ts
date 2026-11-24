@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SvcJob, SvcJobItem, SvcJobStage } from '@prisma/client';
+import { JobStockService } from '../stock/job-stock.service';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { AttachmentsService } from '../../platform/attachments/attachments.service';
 import { ActivityService } from '../../platform/activity/activity.service';
@@ -49,6 +50,7 @@ export class JobsQuery {
     private readonly permissions: PermissionRegistry,
     private readonly clock: ClockService,
     private readonly attachments: AttachmentsService,
+    private readonly jobStock: JobStockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -150,6 +152,14 @@ export class JobsQuery {
               : [],
           }
         : null,
+      /** The warehouse's check and the delivery order (phase 5). `confirms` false: the company does not use it. */
+      stock: {
+        confirms: await this.jobStock.confirms(ctx.tenantId),
+        items: booked ? ((await this.jobStock.stockOf(ctx.tenantId, [job])).get(job.id) ?? []) : [],
+        confirmedAt: job.stockConfirmedAt?.toISOString() ?? null,
+        confirmedBy: job.stockConfirmedBy,
+      },
+      delivery: job.deliveryId ? { id: job.deliveryId, docNo: job.deliveryNo } : null,
       doneAt: job.doneAt?.toISOString() ?? null,
       doneNote: job.doneNote,
       /** What the installer recorded (F3 part 3): null until the visit is recorded as complete or partly done. */
