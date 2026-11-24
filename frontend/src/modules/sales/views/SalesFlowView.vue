@@ -94,7 +94,7 @@ async function save() {
       </template>
     </PageHeader>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="flow:steps" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Steps</h2>
       <div class="flex flex-col">
         <div v-for="k in ORDER" :key="k" class="flex items-center justify-between gap-4 border-b border-erp-row py-3 last:border-b-0">
@@ -106,7 +106,7 @@ async function save() {
       <p v-if="!canManage" class="m-0 text-xs text-erp-muted">Only an admin with Operation Policies rights can change these.</p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="flow:customers" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Customers</h2>
       <div class="flex items-center justify-between gap-4 py-1">
         <span><span class="block text-[13px] font-bold">{{ data.labels.agentsAddCustomers }}</span><span class="text-xs text-erp-subtle">{{ HINT.agentsAddCustomers }}</span></span>
@@ -115,7 +115,7 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">They get cash terms, no credit limit and the cash customer's price list, and show in Core as To complete until the office checks them. A phone number already on file is refused.</p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="flow:prices" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Prices</h2>
       <div class="flex items-center justify-between gap-4 py-1">
         <span><span class="block text-[13px] font-bold">{{ data.labels.priceRange }}</span><span class="text-xs text-erp-subtle">{{ HINT.priceRange }}</span></span>
@@ -139,7 +139,7 @@ async function save() {
       </p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="flow:payments" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Payments</h2>
       <div class="flex items-center justify-between gap-4 py-1">
         <span><span class="block text-[13px] font-bold">{{ data.labels.useReceipts }}</span><span class="text-xs text-erp-subtle">{{ HINT.useReceipts }}</span></span>
@@ -156,7 +156,7 @@ async function save() {
       <p class="m-0 text-xs text-erp-muted">Off, invoice balances come from Finance only. What was counted stays counted when it is turned off again. The books stay in your accounting system.</p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="flow:orders" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Orders</h2>
       <div class="flex items-center justify-between gap-4 py-1">
         <span><span class="block text-[13px] font-bold">{{ data.labels.reviseOrders }}</span><span class="text-xs text-erp-subtle">{{ HINT.reviseOrders }}</span></span>
@@ -201,7 +201,7 @@ async function save() {
       </p>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="flow:installation" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Installation</h2>
       <div class="flex items-center justify-between gap-4 py-1">
         <span><span class="block text-[13px] font-bold">{{ data.labels.askInstallation }}</span><span class="text-xs text-erp-subtle">{{ HINT.askInstallation }}</span></span>

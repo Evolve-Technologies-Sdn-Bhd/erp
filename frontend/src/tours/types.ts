@@ -4,6 +4,10 @@ import type { ModuleKey } from '@/modules/registry'
  * Guided tours (Help): short walks through the real screens. A tour points at elements marked data-tour="…", explains
  * them, and waits for the person to do the harmless part themselves (open a page, point at a menu, open a dropdown).
  * It never presses a button that changes records (tour.rules.ts → sensitive).
+ *
+ * A guide (Tour.guide, dev mode only) is a Handbook journey on screen: the same steps, the same clicks. There the
+ * highlighted button works, also one that changes records, because practising it is the point; the person still presses
+ * it, and every other button stays blocked.
  */
 
 /** A page, by what the router knows about it. Every part given must match. */
@@ -31,11 +35,14 @@ export type StepWait =
   | { kind: 'fill' }
   /**
    * switches to a person holding this role (journeys, dev mode). With sameBranchAs, also working at the branch of a
-   * document remembered earlier, so the next person can see it.
+   * document remembered earlier, so the next person can see it. In a guide, `as` names the word that holds the exact
+   * person's code ('agent'); without that word anyone with the role will do.
    */
-  | { kind: 'user'; role: string; sameBranchAs?: string }
+  | { kind: 'user'; role: string; sameBranchAs?: string; as?: string }
   /** something on screen goes away after it was there (a picked job once it is booked) */
   | { kind: 'gone'; selector: string }
+  /** uses the highlighted part (types, picks, looks around in it), then clicks Next */
+  | { kind: 'use' }
 
 export type Placement = 'auto' | 'top' | 'bottom' | 'left' | 'right'
 
@@ -62,8 +69,25 @@ export interface TourStep {
   handover?: boolean
   /** Opens this page when the step starts: a path, or '@key' for a page remembered earlier in the journey */
   go?: string
+  /** Guides: what to type, shown as rows with a copy button */
+  type?: { field: string; value: string }[]
+  /** Guides: the Handbook's "You should see" */
+  expect?: string
+  /** Guides: the Handbook step this starts (several clicks may make one step) */
+  row?: number
   /** Remembers the page this step shows on (and its document number and branch) under this key */
   remember?: string
+}
+
+export interface Guide {
+  /** The Handbook section: 'Field sales', 'Sales' … */
+  book: string
+  letter: string
+  /** How many steps the Handbook journey has; the box counts these, not the clicks */
+  rows: number
+  /** Who plays: 'Admin, Sales agent' */
+  cast: string
+  values?: Record<string, string>
 }
 
 export interface Tour {
@@ -88,6 +112,11 @@ export interface Tour {
    * is kept on this device rather than with one person. Needs 'dev' in requires.
    */
   journey?: boolean
+  /**
+   * A Handbook journey as a guide (dev mode): its book and letter, its number of Handbook steps, who plays in it, and
+   * the neutral words its texts fill in where the company's own file (GUIDE_VALUES_FILE) gives none.
+   */
+  guide?: Guide
   /** Where it starts; starting it from another page goes there first */
   startAt?: string
   steps: TourStep[]

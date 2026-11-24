@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { ChevronLeft, ChevronRight, Compass, Hand, Info, Lock, Pause, X } from '@lucide/vue'
+import { ChevronLeft, ChevronRight, Compass, Hand, Info, Lock, MousePointerClick, Pause, X } from '@lucide/vue'
 import { back, canGoBack, carryOn, exitTour, handOver, next, pause, run, skipStep, stepPosition, stepText } from './engine'
-import { isInteractive, stepLabel, waitOf } from './tour.rules'
+import GuideWords from './GuideWords.vue'
+import { isInteractive, rowAt, stepLabel, waitOf } from './tour.rules'
 
 /**
  * The box beside the highlighted element: where the tour is, what to do, and the controls. Built from the ERP's own
@@ -10,12 +11,20 @@ import { isInteractive, stepLabel, waitOf } from './tour.rules'
  *
  * A hand-over step (a real action) offers "I'll do it now" instead of Next; once chosen, the box becomes a one-line
  * "Your turn" strip while the person presses the real button, and the tour carries on when it sees it done.
+ *
+ * A guide counts the Handbook's steps, shows what to type and what to see, and its highlighted button works as it is.
  */
 const props = defineProps<{ sheet: boolean; compact?: boolean }>()
 
 const step = computed(() => run.tour?.steps[run.index] ?? null)
 const position = computed(() => stepPosition())
-const label = computed(() => stepLabel(position.value.shown, position.value.total))
+const guide = computed(() => run.tour?.guide ?? null)
+const label = computed(() => {
+  const g = guide.value
+  if (!g) return stepLabel(position.value.shown, position.value.total)
+  const row = rowAt(run.tour!, run.index)
+  return `${g.book} ${g.letter} · ${row ? `step ${row} of ${g.rows}` : 'start'}`
+})
 const percent = computed(() => `${Math.round((position.value.shown / Math.max(1, position.value.total)) * 100)}%`)
 const isLast = computed(() => !!run.tour && run.index === run.tour.steps.length - 1)
 const missing = computed(() => run.status === 'missing')
@@ -35,7 +44,9 @@ const waiting = computed(() => {
   if (!step.value || run.status !== 'showing' || run.guarded || step.value.handover) return false
   if (kind.value === 'hover') return !touch
   if (kind.value === 'user') return !run.userOk
-  return isInteractive(step.value) && run.interactive
+  // The person uses it as they like, then Next.
+  if (kind.value === 'use') return false
+  return isInteractive(step.value, !!guide.value) && run.interactive
 })
 const waitingText = computed(() => stepText(step.value?.waiting) || WAITING_TEXT[kind.value])
 const WAITING_TEXT: Record<string, string> = {
@@ -88,7 +99,7 @@ watch(
       <div class="flex min-w-0 flex-1 flex-col">
         <span class="truncate text-[11px] font-semibold tracking-wide text-erp-muted uppercase">
           <template v-if="run.handover">Your turn · the tour carries on when it sees it done</template>
-          <template v-else><span class="erp-num">{{ label }}</span> · {{ run.tour.title }}</template>
+          <template v-else><span class="erp-num">{{ label }}</span><template v-if="!guide"> · {{ run.tour.title }}</template></template>
         </span>
         <span class="flex min-w-0 items-center gap-1.5 text-[13px] font-bold text-erp-text">
           <span v-if="waiting || run.handover" class="tour-dot shrink-0" aria-hidden="true" /><span class="truncate">{{ title }}</span>
@@ -100,6 +111,11 @@ watch(
       <button type="button" class="tour-icon-btn" aria-label="Pause the tour" title="Pause (Esc)" @click="pause"><Pause :size="15" /></button>
       <button type="button" class="tour-icon-btn" aria-label="Exit the tour" title="Exit" @click="exitTour"><X :size="16" /></button>
     </div>
+    <!-- A guide's dialog: the words to follow stay readable in the corner -->
+    <template v-if="guide">
+      <p class="m-0 text-[12.5px] leading-relaxed text-erp-subtle">{{ text }}</p>
+      <GuideWords />
+    </template>
     <p v-if="run.nudgeText" :key="run.nudge" class="tour-nudge" role="alert">{{ run.nudgeText }}</p>
   </div>
   <div
@@ -115,7 +131,7 @@ watch(
     <div class="flex items-center gap-2">
       <span class="tour-badge" aria-hidden="true"><Compass :size="14" /></span>
       <p class="m-0 min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-erp-muted uppercase">
-        <span class="erp-num">{{ label }}</span> · {{ run.tour.title }}
+        <span class="erp-num">{{ label }}</span><template v-if="!guide"> · {{ run.tour.title }}</template>
       </p>
       <button type="button" class="tour-icon-btn" aria-label="Pause the tour" title="Pause (Esc)" @click="pause"><Pause :size="15" /></button>
       <button type="button" class="tour-icon-btn" aria-label="Exit the tour" title="Exit" @click="exitTour"><X :size="16" /></button>
@@ -127,13 +143,15 @@ watch(
       <p class="m-0 text-[13px] leading-relaxed text-erp-subtle">{{ text }}</p>
     </div>
 
+    <GuideWords v-if="guide" />
     <p v-if="why" class="tour-note"><Info :size="14" class="shrink-0" aria-hidden="true" />{{ why }}</p>
     <p v-if="offering" class="tour-note tour-note-lock">
       <Hand :size="14" class="shrink-0" aria-hidden="true" />This changes records for real, so the tour does not press it. Choose I’ll do it now, then press it yourself; the tour carries on when it sees it done.
     </p>
     <p v-else-if="run.guarded" class="tour-note tour-note-lock">
-      <Lock :size="14" class="shrink-0" aria-hidden="true" />The tour only shows this button. Pressing it changes records for real, so it is yours to do after the tour.
+      <Lock :size="14" class="shrink-0" aria-hidden="true" />{{ guide ? 'This step only shows this button.' : 'The tour only shows this button.' }} Pressing it changes records for real, so it is yours to do after the tour.
     </p>
+    <p v-if="run.real" class="tour-note tour-note-real"><MousePointerClick :size="14" class="shrink-0" aria-hidden="true" />This is the real button. Press it: it changes this demo’s records.</p>
     <p v-if="waiting" class="tour-waiting"><span class="tour-dot" aria-hidden="true" />{{ waitingText }}</p>
     <p v-if="finding" class="tour-waiting"><span class="tour-dot" aria-hidden="true" />Waiting for the page…</p>
     <p v-if="missing" class="tour-note">

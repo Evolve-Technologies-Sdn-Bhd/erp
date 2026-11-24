@@ -79,7 +79,7 @@ export function overlapArea(a: Rect, b: Rect): number {
  * the bottom left, where dialogs keep the least: their buttons sit at the bottom right). Several things to keep clear
  * (a dialog and the menu rail) count together.
  */
-export function cornerFor(obstacles: Rect | Rect[], size: Size, screen: Size): { top: number; left: number } {
+export function cornerFor(obstacles: Rect | Rect[], size: Size, screen: Size, never: Rect | null = null): { top: number; left: number } {
   const all = Array.isArray(obstacles) ? obstacles : [obstacles]
   const corners = [
     { top: screen.height - size.height - EDGE, left: EDGE },
@@ -90,7 +90,9 @@ export function cornerFor(obstacles: Rect | Rect[], size: Size, screen: Size): {
   let best = corners[0]!
   let bestArea = Infinity
   for (const c of corners) {
-    const area = all.reduce((sum, o) => sum + overlapArea({ ...c, ...size }, o), 0)
+    // A corner over the part the person must use is the last choice, however much else it covers.
+    const onIt = never ? overlapArea({ ...c, ...size }, never) : 0
+    const area = all.reduce((sum, o) => sum + overlapArea({ ...c, ...size }, o), 0) + (onIt > 0 ? screen.width * screen.height + onIt : 0)
     if (area < bestArea) {
       best = c
       bestArea = area

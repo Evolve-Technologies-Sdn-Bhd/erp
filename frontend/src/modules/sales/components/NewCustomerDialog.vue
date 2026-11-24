@@ -54,7 +54,7 @@ async function save() {
 </script>
 
 <template>
-  <Dialog v-model:visible="visible" modal :draggable="false" class="erp-dialog" :style="{ width: '520px' }" header="New customer">
+  <Dialog v-model:visible="visible" data-tour="new-customer" modal :draggable="false" class="erp-dialog" :style="{ width: '520px' }" header="New customer">
     <div class="flex flex-col gap-3">
       <p class="m-0 text-[13px] text-erp-subtle">For a customer who is not in the list yet. They are on cash terms with no credit limit; the office completes the rest in Core.</p>
       <FormField label="Name" for="nc-name" :error="errors.name">

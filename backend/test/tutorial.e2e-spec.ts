@@ -39,6 +39,10 @@ describe('Guided tours: saved per person (end to end)', () => {
     expect(finished.body).toEqual({ ...state, done: ['welcome'], active: null });
   });
 
+  it('has no guide words on the standard demo: the guides use neutral ones', async () => {
+    expect(await api.get('me/tutorial/guide-values', 'LMY')).toEqual({ values: {} });
+  });
+
   it('turns Tutorial mode off and keeps it off', async () => {
     await api.call('PUT', 'me/tutorial', 'AZ', { mode: false, welcomeSeen: true, done: [], active: null });
     expect(await api.get('me/tutorial', 'AZ')).toMatchObject({ mode: false, welcomeSeen: true });

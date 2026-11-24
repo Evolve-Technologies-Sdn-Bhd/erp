@@ -6,6 +6,7 @@ import { Compass, Play, X } from '@lucide/vue'
 import { useSession } from '@/composables/useSession'
 import { dropRun, exitTour, installTourEngine, onRouteChange, onUserChange, restoreJourney, restoreRun, resume, run, stepPosition } from './engine'
 import { loadFeatures } from './features'
+import { loadGuideValues } from './guide-values'
 import HelpPanel from './HelpPanel.vue'
 import { boxRect, cornerFor, NARROW, overlapArea, placeBox } from './placement.rules'
 import { clearProgress, loadProgress, progress, setOwnerSource } from './progress'
@@ -39,6 +40,7 @@ watch(
     const journey = !!run.tour?.journey
     if (!journey) dropRun()
     void loadFeatures(code, session.state.mode)
+    if (code) void loadGuideValues(session.state.mode)
     if (!code) return journey ? undefined : clearProgress()
     if (journey) onUserChange()
     await loadProgress(code)
@@ -61,12 +63,13 @@ onMounted(() => {
     },
     people: () => session.state.users,
     onFinish: (tour) =>
-      toast.add({ severity: 'success', summary: `${tour.title}: done`, detail: 'More tours, Tutorial mode and starting again are under Help in the top bar.', life: 5000 }),
+      toast.add({ severity: 'success', summary: `${tour.title}: done`, detail: tour.guide ? 'The next guide is under Help in the top bar.' : 'More tours, Tutorial mode and starting again are under Help in the top bar.', life: 5000 }),
   })
   window.addEventListener('resize', measureScreen)
 })
 onBeforeUnmount(() => {
   uninstall?.()
+  document.body.removeAttribute('data-tour-on')
   window.removeEventListener('resize', measureScreen)
   sizeWatcher?.disconnect()
 })
@@ -110,6 +113,9 @@ const boxShown = computed(() => run.status === 'showing' || run.status === 'miss
 // During a hand-over the page is the person's: no dimming, only the "Your turn" strip.
 const dimmed = computed(() => !run.handover && (run.status === 'showing' || run.status === 'missing' || run.status === 'finding'))
 
+// Messages move to the bottom left while a step shows, so they never cover the button it points at (top right).
+watch(dimmed, (on) => document.body.toggleAttribute('data-tour-on', on), { immediate: true })
+
 const place = computed(() => placeBox(run.status === 'missing' ? null : run.hole, boxSize, screen, step.value?.placement))
 /** The menu rail on the left: the "Your turn" strip keeps off it when nothing else is in the way. */
 const rail = computed(() => ({ top: 0, left: 0, width: 90, height: screen.height }))
@@ -129,7 +135,7 @@ const compact = computed(() => {
 })
 const boxStyle = computed(() => {
   if (compact.value) {
-    const c = cornerFor(keepClear.value, chipSize, screen)
+    const c = cornerFor(keepClear.value, chipSize, screen, run.handover ? null : run.hole)
     return { transform: `translate3d(${Math.round(c.left)}px, ${Math.round(c.top)}px, 0)` }
   }
   return place.value.mode === 'float' ? { transform: `translate3d(${Math.round(place.value.left)}px, ${Math.round(place.value.top)}px, 0)` } : {}

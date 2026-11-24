@@ -13,6 +13,29 @@ export const progress = reactive({
   state: freshTutorial() as TutorialState,
 })
 
+/** Guides finished on this device: a guide is several people's work, so it is not one person's progress. */
+const GUIDES_KEY = 'zora.guides.done'
+function readGuidesDone(): string[] {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(GUIDES_KEY) ?? '[]')
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+export const guidesDone = reactive({ ids: readGuidesDone() })
+function keepGuides(ids: string[]): void {
+  guidesDone.ids = ids
+  try {
+    localStorage.setItem(GUIDES_KEY, JSON.stringify(ids))
+  } catch {
+    /* private mode: until reload */
+  }
+}
+export function guideFinished(id: string): void {
+  keepGuides([...new Set([...guidesDone.ids, id])])
+}
+
 const localKey = (owner: string) => `zora.tutorial.${owner}`
 
 function readLocal(owner: string): TutorialState | null {
@@ -102,6 +125,7 @@ export async function progressSaved(): Promise<void> {
 
 export async function resetProgress(): Promise<void> {
   await progressSaved()
+  keepGuides([])
   try {
     progress.state = readTutorial(await tutorialApi.reset())
   } catch {

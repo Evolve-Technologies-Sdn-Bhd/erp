@@ -31,7 +31,7 @@ const roles = computed(() => (user.value?.roles ?? []).map(roleLabel).join(', ')
           <BrandMark :size="38" />
           <div class="truncate text-[15px] font-bold">Zora <span class="text-erp-link">Pro</span> ERP</div>
         </RouterLink>
-        <AccountMenu variant="launcher" />
+        <AccountMenu data-tour="account" variant="launcher" />
       </header>
     </div>
 

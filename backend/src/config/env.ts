@@ -25,6 +25,8 @@ export interface Env {
   OUTBOX_INTERVAL_MS: number;
   /** Dev only: pretend today is this date (YYYY-MM-DD) so screens match the mockups (29 Sep 2026). */
   DEV_TODAY: string | null;
+  /** Dev only: a JSON file, outside the repository, with the words Help's guides fill in (guide-values.rules.ts). */
+  GUIDE_VALUES_FILE: string | null;
   /** A client's WMS, for live stock figures and the WMS module (WMS_URL, WMS_EMAIL, WMS_PASSWORD, WMS_WEB_URL). Null: the stock snapshot. */
   WMS: { url: string; email: string; password: string; webUrl: string | null } | null;
   /** The Service module (installation jobs, phase 5): SERVICE_MODULE=on. Off: no tile, no routes, no jobs. */
@@ -111,6 +113,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     OUTBOX_DISPATCH: dispatch === 'on',
     OUTBOX_INTERVAL_MS: toInt('OUTBOX_INTERVAL_MS', raw.OUTBOX_INTERVAL_MS, 5000, problems),
     DEV_TODAY: devToday,
+    GUIDE_VALUES_FILE: typeof raw.GUIDE_VALUES_FILE === 'string' && raw.GUIDE_VALUES_FILE.trim() ? raw.GUIDE_VALUES_FILE.trim() : null,
     SERVICE_MODULE: serviceModule === 'on',
     WMS: wmsUrl ? { url: wmsUrl, email: wmsEmail, password: wmsPassword, webUrl: typeof raw.WMS_WEB_URL === 'string' && raw.WMS_WEB_URL.trim() ? raw.WMS_WEB_URL.trim() : null } : null,
   };

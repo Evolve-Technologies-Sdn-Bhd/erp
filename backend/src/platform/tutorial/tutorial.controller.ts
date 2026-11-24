@@ -16,6 +16,12 @@ export class TutorialController {
     return this.tutorial.view(ctx);
   }
 
+  /** The words the guides fill in (dev mode; neutral words without them). */
+  @Get('guide-values')
+  guideValues() {
+    return this.tutorial.guideValues();
+  }
+
   @Put()
   save(@CurrentContext() ctx: RequestContext, @Body() body: SaveTutorialDto) {
     return this.tutorial.save(ctx, body);

@@ -823,11 +823,11 @@ const viewRows = computed<ViewRow[]>(() => {
           </FormField>
 
           <template v-if="askInstallation">
-            <FormField label="Postcode" :error="errors.deliveryPostcode" for="so-postcode">
+            <FormField data-tour="so:postcode" label="Postcode" :error="errors.deliveryPostcode" for="so-postcode">
               <input v-if="editable" id="so-postcode" v-model="form.deliveryPostcode" class="erp-input" inputmode="numeric" maxlength="5" placeholder="e.g. 40150" />
               <div v-else class="erp-input-ro">{{ form.deliveryPostcode || '—' }}</div>
             </FormField>
-            <FormField label="State" :error="errors.deliveryState" for="so-state">
+            <FormField data-tour="so:state" label="State" :error="errors.deliveryState" for="so-state">
               <select v-if="editable" id="so-state" v-model="form.deliveryState" class="erp-input">
                 <option value="">—</option>
                 <option v-for="s in MY_STATES" :key="s" :value="s">{{ s }}</option>
@@ -995,7 +995,7 @@ const viewRows = computed<ViewRow[]>(() => {
                     </template>
                   </template>
                   <template v-for="(v, i) in form.vouchers" :key="v.key">
-                    <tr>
+                    <tr data-tour="so:voucher">
                       <td class="text-erp-muted">{{ form.lines.length + i + 1 }}</td>
                       <td>
                         <div class="flex items-center gap-2"><StatusChip status="DRAFT" label="Voucher" group="draft" /><input v-model="v.description" class="erp-cell min-w-[220px] text-left!" maxlength="100" :aria-label="`Voucher description, line ${form.lines.length + i + 1}`" /></div>

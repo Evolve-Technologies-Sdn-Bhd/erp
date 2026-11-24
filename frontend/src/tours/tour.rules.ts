@@ -1,4 +1,4 @@
-import type { Here, PageMatch, StepWait, Tour, TourStep } from './types'
+import type { Guide, Here, PageMatch, StepWait, Tour, TourStep } from './types'
 
 /**
  * Pure rules of the guided tours, kept apart from the DOM so they can be tested (tour.rules.spec.ts).
@@ -32,7 +32,26 @@ export function isSensitiveLabel(label: string): boolean {
 }
 
 /** What a tour may need switched on; tours.spec checks every tour names only these. */
-export const REQUIREMENTS = ['dev', 'service', 'wms', 'sales:askInstallation', 'sales:agentsAddCustomers', 'sales:priceRange', 'sales:useReceipts'] as const
+export const REQUIREMENTS = [
+  'dev',
+  'service',
+  'wms',
+  'sales:useEnquiries',
+  'sales:officeDraftsQuotations',
+  'sales:askInstallation',
+  'sales:agentsAddCustomers',
+  'sales:priceRange',
+  'sales:useReceipts',
+  'sales:reviseOrders',
+  'sales:preOrders',
+  'sales:autoCancel',
+  'sales:shareWhatsapp',
+  'sales:holdStock',
+  'sales:autoDelivery',
+  'sales:signedDelivery',
+  'sales:autoInvoice',
+  'sales:receiptsPayInvoices',
+] as const
 export type Requirement = (typeof REQUIREMENTS)[number]
 
 /**
@@ -49,9 +68,10 @@ export function waitOf(step: TourStep): StepWait {
   return step.wait ?? { kind: 'next' }
 }
 
-export function isInteractive(step: TourStep): boolean {
+/** live: a guide, where the highlighted part works for real (so also one whose outcome is something going away). */
+export function isInteractive(step: TourStep, live = false): boolean {
   const kind = waitOf(step).kind
-  return kind === 'click' || kind === 'fill' || kind === 'page' || kind === 'appear' || kind === 'user'
+  return kind === 'click' || kind === 'fill' || kind === 'page' || kind === 'appear' || kind === 'user' || kind === 'use' || (live && kind === 'gone')
 }
 
 /** A hand-over waits for what the person's own action leads to. */
@@ -98,7 +118,7 @@ export function tourProblems(tour: Tour): string[] {
     if (wait.kind === 'user' && wait.sameBranchAs && !remembered.has(wait.sameBranchAs)) problems.push(`${where}: "${wait.sameBranchAs}" is not remembered before this step`)
     problems.push(...pageProblems(step.page, where))
     if (step.handover && !OUTCOMES.includes(wait.kind)) problems.push(`${where}: a hand-over waits for an outcome (page, appear or gone)`)
-    if (!step.handover && isInteractive(step) && step.target && isSensitiveTargetId(step.target)) {
+    if (!tour.guide && !step.handover && isInteractive(step) && step.target && isSensitiveTargetId(step.target)) {
       problems.push(`${where}: "${step.target}" changes records; a tour may only explain it or hand it over, never wait for it to be pressed`)
     }
     if (step.optional && !step.target) problems.push(`${where}: optional only makes sense with a target`)
@@ -106,7 +126,80 @@ export function tourProblems(tour: Tour): string[] {
     if (step.go && !step.go.startsWith('@') && !step.go.startsWith('/')) problems.push(`${where}: go is a path or @remembered`)
     if (step.remember) remembered.add(step.remember)
   })
+  if (tour.guide) problems.push(...guideProblems(tour, tour.guide))
   return problems
+}
+
+/** What only a guide needs: dev mode, its module, the Handbook's steps in order, and no word it cannot fill in. */
+function guideProblems(tour: Tour, guide: Guide): string[] {
+  const problems: string[] = []
+  if (!tour.journey) problems.push(`${tour.id}: a guide switches person, so it is a journey`)
+  if (!tour.module) problems.push(`${tour.id}: a guide belongs to a module`)
+  if (!/^[A-Z]$/.test(guide.letter) || !guide.book.trim() || !guide.cast.trim()) problems.push(`${tour.id}: a guide has a book, a letter and who plays`)
+  const rows = tour.steps.flatMap((s) => (s.row ? [s.row] : []))
+  const wanted = Array.from({ length: guide.rows }, (_, i) => i + 1)
+  if (rows.join() !== wanted.join()) problems.push(`${tour.id}: Handbook steps ${rows.join(', ') || 'none'}; they should be 1 to ${guide.rows}, once each, in order`)
+  const known = new Set([...Object.keys(guide.values ?? {}), ...Object.keys(madeWords(new Date(0), () => 0))])
+  tour.steps.forEach((step, i) => {
+    if (step.handover) problems.push(`${tour.id} step ${i + 1}: a guide's button works as it is, so it has no hand-over`)
+    const here = new Set([...known, ...(waitOf(step).kind === 'user' ? ['people'] : []), ...(step.remember ? [step.remember] : [])])
+    const texts = [step.title, step.text, step.why, step.waiting, step.expect, ...(step.type ?? []).flatMap((t) => [t.field, t.value])]
+    for (const text of texts) for (const m of (text ?? '').matchAll(/\{(\w+)\}/g)) if (!here.has(m[1]!)) problems.push(`${tour.id} step ${i + 1}: nothing fills in {${m[1]}}`)
+    if (step.remember) known.add(step.remember)
+  })
+  return problems
+}
+
+/* ── Guides: the words and the Handbook's step numbers ────────────────────────────────────────────────────────────── */
+
+const FIRST = 'Salmah Aminah Faridah Rokiah Zainab Hasnah Maimun Noraini Rohana Azizah Kamariah Latifah Mariam Norlia Rashidah Suraya Wahidah Yasmin Zaleha Halimah'.split(' ')
+const LAST = 'Ismail Yusof Hamid Razak Osman Karim Salleh Bakar Daud Hashim Jalil Kassim Latif Mansor Nordin Rahim Samad Talib Wahab Zakaria'.split(' ')
+
+/**
+ * Words made new each time a guide starts, because the system refuses them twice (a phone already on file) or they
+ * must be in the future. Kept with the guide, so a reload shows the same ones.
+ */
+export function madeWords(now: Date, random: () => number): Record<string, string> {
+  const pick = (list: string[]) => list[Math.floor(random() * list.length)]!
+  const digits = (n: number) => Array.from({ length: n }, () => Math.floor(random() * 10)).join('')
+  const day = (ahead: number) => {
+    const d = new Date(now)
+    d.setDate(d.getDate() + ahead)
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  return { newName: `Puan ${pick(FIRST)} ${pick(LAST)}`, newPhone: `011-${digits(4)} ${digits(4)}`, newVoucher: `V-${digits(4)}`, tomorrow: day(1), nextWeek: day(7) }
+}
+
+/** A guide's words: its own neutral ones, the made ones, then the company's (for every guide, then for this one). */
+export function guideWords(tour: Tour, company: Record<string, Record<string, string>>, made: Record<string, string>): Record<string, string> {
+  return { ...tour.guide?.values, ...made, ...company.common, ...company[tour.id] }
+}
+
+/** The Handbook step a click belongs to: 0 before the first. */
+export function rowAt(tour: Tour, index: number): number {
+  for (let i = Math.min(index, tour.steps.length - 1); i >= 0; i--) if (tour.steps[i]!.row) return tour.steps[i]!.row!
+  return 0
+}
+
+export interface GuideGroup {
+  module: string
+  books: { title: string; guides: Tour[]; done: number }[]
+  total: number
+  done: number
+}
+
+/** Help's guides: by module, the module open now first, then by book, each in letter order with how many are done. */
+export function guideGroups(guides: Tour[], order: string[], here: string | undefined, isDone: (t: Tour) => boolean): GuideGroup[] {
+  const rank = (m: string) => (m === here ? -1 : order.indexOf(m) < 0 ? order.length : order.indexOf(m))
+  const modules = [...new Set(guides.map((g) => g.module!))].sort((a, b) => rank(a) - rank(b))
+  return modules.map((module) => {
+    const own = guides.filter((g) => g.module === module)
+    const books = [...new Set(own.map((g) => g.guide!.book))].map((title) => {
+      const list = own.filter((g) => g.guide!.book === title).sort((a, b) => a.guide!.letter.localeCompare(b.guide!.letter))
+      return { title, guides: list, done: list.filter(isDone).length }
+    })
+    return { module, books, total: own.length, done: own.filter(isDone).length }
+  })
 }
 
 /* ── Journeys: words filled in on the way, and who may play a part ────────────────────────────────────────────────── */

@@ -93,7 +93,7 @@ One shared component, `ErpToast`, draws every toast; pages keep calling PrimeVue
 | `--tour-scrim` | `rgb(20 26 60 / 0.46)` | The dimmed page around the highlight, the Help panel backdrop (half strength) |
 | `--tour-shadow`, `--tour-shadow-soft` | `rgb(20 26 60 / 0.35)`, `/ 0.08` | Tour box, pill and Help panel shadows |
 
-The tour box is an `erp-card`-like card (16px radius) with the ERP's own buttons. Motion follows the module layout: 300 ms, `cubic-bezier(0.16, 1, 0.3, 1)`, none with *reduce motion*. Under 640px the box docks at the bottom with a 16px gutter.
+The tour box is an `erp-card`-like card (16px radius) with the ERP's own buttons. Motion follows the module layout: 300 ms, `cubic-bezier(0.16, 1, 0.3, 1)`, none with *reduce motion*. Under 640px the box docks at the bottom with a 16px gutter. A guide's *what to type* is a dashed `--erp-border` box; *You should see* uses the done chip colours (`--chip-done-*`), as do the letters of finished guides in Help.
 
 ## Numbers and dates
 

@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { readFile } from 'node:fs/promises';
 import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsString, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import type { Env } from '../../config/env';
 import type { RequestContext } from '../context/request-context';
 import { PrismaService } from '../prisma/prisma.service';
+import { readGuideValues, type GuideValues } from './guide-values.rules';
 import { cleanTutorial, MAX_DONE, MAX_STEP, PATH_MAX, readTutorial, TOUR_ID, TOUR_ID_MAX, type TutorialState } from './tutorial.rules';
 
 const TOUR_ID_MESSAGE = 'A tour id is lower case, with dots or dashes between the parts (sales.order.create).';
@@ -56,7 +60,12 @@ export class SaveTutorialDto {
  */
 @Injectable()
 export class TutorialService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly log = new Logger('Guides');
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
 
   private where(ctx: RequestContext) {
     return { tenantId_userId: { tenantId: ctx.tenantId, userId: ctx.user.id } };
@@ -76,6 +85,21 @@ export class TutorialService {
       update: data,
     });
     return this.view(ctx);
+  }
+
+  /**
+   * The words the guides fill in, for the demo only (dev mode): read each time, so editing the file needs no restart. A
+   * missing or broken file is logged and the guides use neutral words.
+   */
+  async guideValues(): Promise<{ values: GuideValues }> {
+    const file = this.config.get('GUIDE_VALUES_FILE', { infer: true });
+    if (!file || this.config.get('AUTH_MODE', { infer: true }) !== 'dev') return { values: {} };
+    try {
+      return { values: readGuideValues(JSON.parse(await readFile(file, 'utf8'))) };
+    } catch (error) {
+      this.log.warn(`The guide values could not be read: ${error instanceof Error ? error.message : String(error)}`);
+      return { values: {} };
+    }
   }
 
   /** "Reset my progress": back to a first-time user, welcome card and all. */

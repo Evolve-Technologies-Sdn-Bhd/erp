@@ -1,7 +1,9 @@
 import { reactive } from 'vue'
 import type { Router } from 'vue-router'
 import { holeRect, needsScroll, NARROW, type Rect } from './placement.rules'
-import { progress, updateProgress } from './progress'
+import { meets } from './features'
+import { companyWords } from './guide-values'
+import { guideFinished, progress, updateProgress } from './progress'
 import { tourById } from './registry'
 import {
   atStep,
@@ -9,9 +11,11 @@ import {
   fillText,
   finished,
   fitsPart,
+  guideWords,
   isInteractive,
   isSensitiveLabel,
   leftTour,
+  madeWords,
   pageMatches,
   peopleFor,
   waitOf,
@@ -33,6 +37,9 @@ import type { Here, Tour, TourStep } from './types'
  * person in use holds the role; a hand-over step explains a real action, and only when the person chooses "I'll do it
  * now" does the tour give the page back to them, then carry on when it sees the outcome. The journey's place and the
  * documents it remembered are kept on this device, so it carries on whoever is using the app.
+ *
+ * Guides (Tour.guide, dev mode): a Handbook journey on screen. There the highlighted part is live: a button that changes
+ * records works when the person presses it, and so does the dialog it opens. Everything else stays stopped.
  */
 
 export type RunStatus = 'idle' | 'finding' | 'showing' | 'missing' | 'paused' | 'left'
@@ -64,6 +71,8 @@ export const run = reactive({
   offPage: false,
   /** The person may use the highlighted element (click, fill, open, go to a page) */
   interactive: false,
+  /** A guide's highlighted button does something real, and works */
+  real: false,
   /** The highlighted element itself does something real: the tour only shows it */
   guarded: false,
   /** The element is inside a dialog, which sits above the page: the highlight goes above it too */
@@ -83,6 +92,8 @@ export const run = reactive({
   userOk: false,
   /** Documents a journey remembered on the way: their page, number and branch */
   memory: {} as Record<string, Memo>,
+  /** Words a guide made when it started (a new household's name and phone) */
+  made: {} as Record<string, string>,
 })
 
 export interface Memo {
@@ -122,6 +133,8 @@ let shownPath = ''
 let navSkipped = false
 
 const isRunning = () => run.status === 'finding' || run.status === 'showing' || run.status === 'missing'
+/** A guide on the demo: the highlighted part works for real. Never with real sign-in. */
+const live = () => !!run.tour?.guide && meets('dev')
 const current = (): TourStep | null => run.tour?.steps[run.index] ?? null
 
 function here(): Here & { fullPath: string } {
@@ -143,6 +156,7 @@ interface KeptJourney {
   path: string
   paused: boolean
   memory: Record<string, Memo>
+  made?: Record<string, string>
 }
 
 function writeJourney(kept: KeptJourney | null): void {
@@ -168,7 +182,7 @@ function readJourney(): KeptJourney | null {
 function record(paused: boolean, path: string): void {
   const tour = run.tour
   if (!tour) return
-  if (tour.journey) return writeJourney({ tourId: tour.id, step: run.index, path, paused, memory: { ...run.memory } })
+  if (tour.journey) return writeJourney({ tourId: tour.id, step: run.index, path, paused, memory: { ...run.memory }, made: { ...run.made } })
   save((s) => atStep(s, tour.id, run.index, path, paused))
 }
 
@@ -176,6 +190,7 @@ function record(paused: boolean, path: string): void {
 function recordEnd(tour: Tour, done: boolean): void {
   if (tour.journey) {
     writeJourney(null)
+    if (done && tour.guide) guideFinished(tour.id)
     if (done) save((s) => ({ ...s, done: [...new Set([...s.done, tour.id])] }))
     return
   }
@@ -189,8 +204,19 @@ function partBranch(step: TourStep): string | undefined {
   return wait.kind === 'user' && wait.sameBranchAs ? run.memory[wait.sameBranchAs]?.branch || undefined : undefined
 }
 
+const words = (): Record<string, string> => (run.tour?.guide ? guideWords(run.tour, companyWords.values, run.made) : {})
+
+/** A guide's exact person for a part, when the company's words name one who works here. */
+function partPerson(step: TourStep): Person | undefined {
+  const wait = waitOf(step)
+  const code = wait.kind === 'user' && wait.as ? words()[wait.as] : undefined
+  return code ? deps?.people().find((p) => p.code === code) : undefined
+}
+
 function userFits(step: TourStep): boolean {
   const wait = waitOf(step)
+  const person = partPerson(step)
+  if (person) return deps?.me()?.code === person.code
   return wait.kind === 'user' && fitsPart(deps?.me(), wait.role, partBranch(step))
 }
 
@@ -198,9 +224,11 @@ function userFits(step: TourStep): boolean {
 export function stepText(text: string | undefined): string {
   if (!text) return ''
   const step = current()
-  const values: Record<string, string> = Object.fromEntries(Object.entries(run.memory).map(([k, m]) => [k, m.label]))
+  const values: Record<string, string> = { ...words(), ...Object.fromEntries(Object.entries(run.memory).map(([k, m]) => [k, m.label])) }
   const wait = step ? waitOf(step) : null
-  if (wait?.kind === 'user' && deps) values.people = peopleFor(deps.people(), wait.role, partBranch(step!))
+  const person = step ? partPerson(step) : undefined
+  if (person) values.people = `${person.name} (${person.code})`
+  else if (wait?.kind === 'user' && deps) values.people = peopleFor(deps.people(), wait.role, partBranch(step!))
   return fillText(text, values)
 }
 
@@ -242,10 +270,20 @@ function reveal(node: HTMLElement): void {
   node.scrollIntoView({ block: window.innerWidth < NARROW ? 'start' : 'center', behavior: reducedMotion() ? 'auto' : 'smooth' })
 }
 
+/** A menu the element has opened, inside it or beside it (the module switcher's). */
+function menuOf(node: HTMLElement): HTMLElement | null {
+  const inside = node.querySelector<HTMLElement>('[role="menu"]')
+  if (inside) return inside
+  return node.matches('[aria-haspopup="menu"][aria-expanded="true"]') ? (node.parentElement?.querySelector<HTMLElement>('[role="menu"]') ?? null) : null
+}
+
 /** The element, and a menu it has opened (the person menu, a dropdown list): both stay lit. */
 function litRect(node: HTMLElement): Rect {
-  const r = node.getBoundingClientRect()
-  const menu = node.querySelector<HTMLElement>('[role="menu"]')
+  const whole = node.getBoundingClientRect()
+  // A row of a table that scrolls sideways: light only the part that shows.
+  const frame = node.closest('table')?.parentElement?.getBoundingClientRect()
+  const r = frame && node.tagName === 'TR' ? new DOMRect(Math.max(whole.left, frame.left), whole.top, Math.min(whole.right, frame.right) - Math.max(whole.left, frame.left), whole.height) : whole
+  const menu = menuOf(node)
   if (!menu || !visible(menu)) return r
   const m = menu.getBoundingClientRect()
   const top = Math.min(r.top, m.top)
@@ -296,6 +334,7 @@ function stopStep(keepHole = false): void {
   if (!keepHole) run.hole = null
   run.interactive = false
   run.guarded = false
+  run.real = false
   run.raised = false
   run.dropdownOpen = false
   run.dialog = null
@@ -397,13 +436,16 @@ function frame(): void {
   }
 
   if (el) updateHole(el)
-  const dropdown = run.interactive ? (document.querySelector<HTMLElement>(DROPDOWNS) ?? el?.querySelector<HTMLElement>('[role="menu"]') ?? null) : null
+  // A menu the element opened is part of the highlight, so the box is already beside it and stays readable.
+  const dropdown = run.interactive ? document.querySelector<HTMLElement>(DROPDOWNS) : null
   const dropdownOpen = !!dropdown && visible(dropdown)
   if (run.dropdownOpen !== dropdownOpen) run.dropdownOpen = dropdownOpen
   if (run.interactive) trackDialog()
   else if (run.dialog) run.dialog = null
+  // Also once the button itself is gone: Release leaves the page as soon as the document is released.
   const wait = waitOf(step)
-  if (run.status === 'showing' && !step.handover && (wait.kind === 'appear' || wait.kind === 'gone') && outcomeMet(step)) return next()
+  const doing = run.status === 'showing' || (run.status === 'finding' && run.interactive)
+  if (doing && !step.handover && (wait.kind === 'appear' || wait.kind === 'gone') && outcomeMet(step)) return next()
   loop()
 }
 
@@ -418,9 +460,12 @@ function arm(step: TourStep): void {
   run.backHere = run.history.length ? null : previousHere()
   run.raised = !!el?.closest('.p-dialog, .p-drawer, .p-popover')
   const control = el?.matches(CONTROL) ? el : null
-  run.guarded = !!el && (control ? isSensitiveElement(control) : !!el.closest('[data-tour-sensitive]'))
+  const sensitive = !!el && (control ? isSensitiveElement(control) : !!el.closest('[data-tour-sensitive]'))
+  const works = live() && isInteractive(step, true)
+  run.guarded = sensitive && !works
+  run.real = sensitive && works
   // A hand-over is read first; the page is only given back when the person chooses to do it.
-  run.interactive = !!el && isInteractive(step) && !run.guarded && !step.handover
+  run.interactive = !!el && isInteractive(step, live()) && !run.guarded && !step.handover
   run.userOk = userFits(step)
   if (step.remember) {
     const title = document.querySelector('[data-tour="page-header"] h1')?.textContent ?? ''
@@ -529,6 +574,7 @@ function resetRun(): void {
   run.returnPath = ''
   run.nudgeText = ''
   run.memory = {}
+  run.made = {}
 }
 
 function handoverDone(): void {
@@ -547,6 +593,7 @@ export function startTour(id: string): void {
   resetRun()
   if (tour.journey) writeJourney(null)
   run.tour = tour
+  if (tour.guide) run.made = madeWords(new Date(), Math.random)
   if (tour.startAt && here().path !== tour.startAt) void deps.router.push(tour.startAt)
   show(0)
 }
@@ -685,6 +732,7 @@ export function restoreJourney(): boolean {
   run.status = 'paused'
   run.returnPath = kept.path
   run.memory = { ...kept.memory }
+  run.made = kept.made ?? (tour.guide ? madeWords(new Date(), Math.random) : {})
   return true
 }
 
@@ -708,13 +756,21 @@ function nudge(e: Event, text: string): void {
 /** The page is guarded while a step shows, and handed back during a hand-over or a pause. */
 const guarding = () => isRunning() && !run.handover
 
+/** In a list, a dialog or a menu the step has opened. A guide pointing into a dialog leaves the rest of that dialog alone. */
+function inOpened(target: Element): boolean {
+  if (el && menuOf(el)?.contains(target)) return true
+  const overlay = target.closest(OVERLAYS)
+  return !!overlay && !(live() && !!el && overlay.contains(el))
+}
+
 function onClick(e: MouseEvent): void {
   if (!guarding()) return
   const target = e.target instanceof Element ? e.target : null
   if (!target || target.closest('[data-tour-ui], .p-toast')) return
   const control = target.closest(CONTROL)
-  const sensitive = !!control && isSensitiveElement(control)
-  const inside = run.status === 'showing' && run.interactive && !!el && (el.contains(target) || !!target.closest(OVERLAYS))
+  const inside = run.status === 'showing' && run.interactive && !!el && (el.contains(target) || inOpened(target))
+  // In a guide the highlighted part works, with the dialog it opens; elsewhere a real action is always stopped.
+  const sensitive = !!control && isSensitiveElement(control) && !(inside && live())
   if (!inside || sensitive) return nudge(e, sensitive ? SENSITIVE_NUDGE : OUTSIDE_NUDGE)
   const step = current()
   if (step && waitOf(step).kind === 'click' && el?.contains(target)) window.setTimeout(next, 0)
@@ -724,7 +780,7 @@ function onSubmit(e: Event): void {
   if (!guarding()) return
   const form = e.target instanceof Element ? e.target : null
   if (form?.closest('[data-tour-ui]')) return
-  if (!(run.status === 'showing' && run.interactive && el && form && el.contains(form))) nudge(e, OUTSIDE_NUDGE)
+  if (!(run.status === 'showing' && run.interactive && el && form && (el.contains(form) || (live() && inOpened(form))))) nudge(e, OUTSIDE_NUDGE)
 }
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))

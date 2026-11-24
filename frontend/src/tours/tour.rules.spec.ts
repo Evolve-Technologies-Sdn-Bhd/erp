@@ -9,13 +9,17 @@ import {
   type Person,
   finished,
   freshTutorial,
+  guideGroups,
+  guideWords,
   isInteractive,
   isSensitiveLabel,
   isSensitiveTargetId,
   leftTour,
+  madeWords,
   offersWelcome,
   pageMatches,
   readTutorial,
+  rowAt,
   stepLabel,
   tourProblems,
   toursFor,
@@ -260,5 +264,63 @@ describe('progress', () => {
   it('counts steps as the person sees them', () => {
     expect(stepLabel(3, 8)).toBe('Step 3 of 8')
     expect(stepLabel(9, 8)).toBe('Step 9 of 9')
+  })
+})
+
+describe('guides: the Handbook on screen', () => {
+  const guide = (over: Partial<Tour> = {}): Tour =>
+    tour({
+      id: 'guide.field-sales.a',
+      journey: true,
+      requires: ['dev'],
+      pages: 'any',
+      guide: { book: 'Field sales', letter: 'A', rows: 2, cast: 'Agent', values: { item: 'an item' } },
+      steps: [
+        { title: 'Start', text: 'Two steps.' },
+        { row: 1, target: 'account', wait: { kind: 'user', role: 'SALES_AGENT', as: 'agent' }, title: 'Be the agent', text: 'Pick {people}.' },
+        { target: 'so:line', wait: { kind: 'use' }, title: 'Type', text: 'Pick {item}.', type: [{ field: 'Phone', value: '{newPhone}' }] },
+        { row: 2, target: 'action:release', wait: { kind: 'gone', selector: '.x' }, title: 'Release', text: 'Click Release.', remember: 'order' },
+        { title: 'Done', text: '{order}' },
+      ],
+      ...over,
+    })
+
+  it('lets the highlighted button be a real one, which a tour never may', () => {
+    expect(tourProblems(guide())).toEqual([])
+    const asTour = tour({ steps: [{ target: 'action:release', wait: { kind: 'click' }, title: 'Release', text: 'Click.' }] })
+    expect(tourProblems(asTour).join()).toContain('changes records')
+  })
+
+  it('needs the demo, a module, and the Handbook steps once each in order', () => {
+    expect(tourProblems(guide({ requires: [] })).join()).toContain("needs 'dev'")
+    expect(tourProblems(guide({ module: undefined })).join()).toContain('belongs to a module')
+    expect(tourProblems(guide({ guide: { ...guide().guide!, rows: 3 } })).join()).toContain('should be 1 to 3')
+    expect(tourProblems(guide({ steps: [...guide().steps, { handover: true, target: 'list', wait: { kind: 'page', to: { path: '^/x' } }, title: 'x', text: 'x' }] })).join()).toContain('no hand-over')
+  })
+
+  it('refuses a word nothing fills in, such as a misspelt one', () => {
+    expect(tourProblems(guide({ steps: guide().steps.map((s) => ({ ...s, text: s.text.replace('{item}', '{itm}') })) })).join()).toContain('nothing fills in {itm}')
+    // A document is known only from the step that remembers it.
+    expect(tourProblems(guide({ steps: [{ title: 'Early', text: '{order}' }, ...guide().steps] })).join()).toContain('nothing fills in {order}')
+  })
+
+  it('counts the Handbook steps, not the clicks', () => {
+    expect([0, 1, 2, 3, 4].map((i) => rowAt(guide(), i))).toEqual([0, 1, 1, 2, 2])
+  })
+
+  it('uses the words of the company over the neutral ones, the guide’s own last', () => {
+    const made = madeWords(new Date('2026-11-24T10:00:00'), () => 0)
+    expect(made).toMatchObject({ newName: 'Puan Salmah Ismail', newPhone: '011-0000 0000', tomorrow: '25 Nov 2026', nextWeek: '1 Dec 2026' })
+    expect(guideWords(guide(), {}, made)).toMatchObject({ item: 'an item', newName: 'Puan Salmah Ismail' })
+    expect(guideWords(guide(), { common: { item: 'X', agent: 'AG1' }, 'guide.field-sales.a': { item: 'Y' } }, made)).toMatchObject({ item: 'Y', agent: 'AG1' })
+  })
+
+  it('lists guides by module, the one open now first, with how many are done', () => {
+    const b = guide({ id: 'guide.field-sales.b', guide: { ...guide().guide!, letter: 'B' } })
+    const s = guide({ id: 'guide.service.a', module: 'service', guide: { ...guide().guide!, book: 'Service' } })
+    const groups = guideGroups([s, b, guide()], ['sales', 'service'], undefined, (t) => t.id === 'guide.field-sales.b')
+    expect(groups.map((g) => [g.module, g.done, g.total])).toEqual([['sales', 1, 2], ['service', 0, 1]])
+    expect(groups[0]!.books[0]!.guides.map((t) => t.guide!.letter)).toEqual(['A', 'B'])
+    expect(guideGroups([s, b], ['sales', 'service'], 'service', () => false)[0]!.module).toBe('service')
   })
 })

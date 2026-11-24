@@ -59,6 +59,13 @@ describe('the compact box beside a dialog', () => {
     expect(cornerFor([dialog, { top: 0, left: 0, width: 90, height: 900 }], chip, screen)).toEqual({ top: 900 - 56 - EDGE, left: 1440 - 420 - EDGE })
   })
 
+  it('never covers the part the person must use, even when another corner covers more of the dialog', () => {
+    const footerButton = { top: 800, left: 1200, width: 140, height: 40 }
+    expect(cornerFor([{ top: 100, left: 0, width: 1440, height: 800 }], chip, screen)).toEqual({ top: EDGE, left: EDGE })
+    expect(cornerFor([{ top: 0, left: 0, width: 1000, height: 900 }], chip, screen)).toEqual({ top: 900 - 56 - EDGE, left: 1440 - 420 - EDGE })
+    expect(cornerFor([{ top: 0, left: 0, width: 1000, height: 900 }], chip, screen, footerButton)).toEqual({ top: EDGE, left: 1440 - 420 - EDGE })
+  })
+
   it('knows when a floating box would cover something', () => {
     const at = boxRect({ mode: 'float', side: 'over', top: 600, left: 1000 }, { width: 360, height: 240 })!
     expect(overlapArea(at, dialog)).toBeGreaterThan(0)

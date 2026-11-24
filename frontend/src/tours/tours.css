@@ -58,6 +58,13 @@
     }
   }
 
+  /* Messages keep off the page's buttons while a step shows */
+  body[data-tour-on] .p-toast {
+    top: auto !important;
+    right: auto !important;
+    bottom: 16px !important;
+    left: 84px !important;
+  }
   .tour-box {
     position: fixed;
     top: 0;
@@ -165,6 +172,42 @@
   }
   .tour-note > svg {
     margin-top: 2px;
+  }
+  .tour-note-see {
+    background: var(--chip-done-bg);
+    color: var(--chip-done-text);
+  }
+  .tour-note-real {
+    background: var(--erp-head-bg);
+    color: var(--tour-accent);
+    font-weight: 600;
+  }
+  /* What to type in a guide's step */
+  .tour-type {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 2px 12px;
+    align-items: center;
+    padding: 6px 6px 6px 10px;
+    border-radius: 10px;
+    border: 1px dashed var(--erp-border);
+    font-size: 12.5px;
+  }
+  .tour-type dt {
+    color: var(--erp-muted);
+  }
+  .tour-type dd {
+    margin: 0;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .tour-copy {
+    width: 24px;
+    height: 24px;
   }
   .tour-note-lock {
     background: var(--note-warn-bg);
@@ -291,6 +334,55 @@
     border-radius: 12px;
     border: 1px solid var(--erp-row-border);
     background: var(--erp-card);
+  }
+  /* Guides in Help: one card per module, a letter per Handbook journey */
+  .tour-guide-module {
+    padding: 10px 12px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--erp-row-border);
+  }
+  .tour-guide-head {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+    padding: 0 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--erp-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .tour-guide-head:focus-visible {
+    outline: 2px solid var(--tour-accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .tour-guide-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .tour-letter {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--erp-border);
+    background: var(--erp-head-bg);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--erp-subtle);
+  }
+  .tour-letter.done {
+    border-color: transparent;
+    background: var(--chip-done-bg);
+    color: var(--chip-done-text);
   }
   .tour-chip-done {
     display: inline-flex;

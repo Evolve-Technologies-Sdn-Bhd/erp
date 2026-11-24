@@ -88,7 +88,7 @@ function add() {
         <button v-for="c in [ALL, ...categories]" :key="c" type="button" role="tab" class="pk-tab" :class="{ on: tab === c }" :aria-selected="tab === c" @click="tab = c">{{ c }}</button>
       </div>
 
-      <div class="max-h-[380px] overflow-y-auto pr-1">
+      <div data-tour="pk:cards" class="max-h-[380px] overflow-y-auto pr-1">
         <p v-if="loading" class="m-0 py-6 text-center text-[13px] text-erp-muted">Loading…</p>
         <p v-else-if="!packages.length" class="m-0 py-6 text-center text-[13px] text-erp-muted">No package is running on this date. Packages are made in Core.</p>
         <div v-else class="grid grid-cols-3 gap-3">
@@ -119,7 +119,7 @@ function add() {
         </div>
       </div>
 
-      <div v-if="pkg" class="grid grid-cols-[120px_1fr] items-start gap-x-4 gap-y-3 rounded-lg border border-erp-border px-4 py-3 text-[13px]">
+      <div v-if="pkg" data-tour="pk:chosen" class="grid grid-cols-[120px_1fr] items-start gap-x-4 gap-y-3 rounded-lg border border-erp-border px-4 py-3 text-[13px]">
         <label for="pk-qty" class="pt-2 font-semibold">Sets</label>
         <div>
           <input id="pk-qty" v-model="qty" class="erp-input w-[120px]" inputmode="numeric" :aria-invalid="!wholeSets" />
@@ -149,7 +149,7 @@ function add() {
 
     <template #footer>
       <button type="button" class="erp-btn erp-btn-secondary" @click="visible = false">Cancel</button>
-      <button type="button" class="erp-btn erp-btn-primary" :disabled="!ready" @click="add">Add package</button>
+      <button type="button" data-tour="pk:add" class="erp-btn erp-btn-primary" :disabled="!ready" @click="add">Add package</button>
     </template>
   </Dialog>
 </template>

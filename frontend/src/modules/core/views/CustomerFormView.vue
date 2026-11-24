@@ -257,6 +257,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
             <button
               v-if="can('complete')"
               type="button"
+              data-tour="action:mark-complete"
               class="erp-btn erp-btn-secondary"
               :disabled="saving || dirty"
               :title="dirty ? 'Save or undo your changes first.' : undefined"
@@ -271,7 +272,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
       </PageHeader>
     </section>
 
-    <NoticeBanner v-if="customer?.addedFromOrder">
+    <NoticeBanner v-if="customer?.addedFromOrder" data-tour="core:to-complete">
       Added by {{ customer.addedFromOrder.by }} from a sales order on {{ formatDateTime(customer.addedFromOrder.at) }}, on cash terms with no credit limit. Check the details, fill
       in what is missing, then click <strong>Mark as complete</strong>.
     </NoticeBanner>

@@ -178,6 +178,7 @@ describe('Sign-in (end to end, AUTH_MODE=jwt)', () => {
       'GET /me',
       'GET /me/modules',
       'GET /me/tutorial',
+      'GET /me/tutorial/guide-values',
       'PUT /me/tutorial',
       'DELETE /me/tutorial',
       'GET /me/notifications',
