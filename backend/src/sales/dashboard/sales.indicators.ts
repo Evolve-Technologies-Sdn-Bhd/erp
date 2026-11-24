@@ -142,7 +142,7 @@ export class SalesIndicators implements OnModuleInit {
       data: {
         kind: 'list',
         items: waiting.map((w) => {
-          const kind = approvalKind(w.entityType, w.steps.find((s) => s.stepNo === w.currentStep)?.approverRole ?? null);
+          const kind = approvalKind(w.entityType, w.steps.find((s) => s.stepNo === w.currentStep)?.approverRole ?? null, w.reason);
           return {
             id: w.id,
             title: `${w.docNo} · ${w.title.split(' · ')[1] ?? ''}`,

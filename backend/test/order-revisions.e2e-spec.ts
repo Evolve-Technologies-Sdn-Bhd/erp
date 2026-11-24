@@ -47,8 +47,9 @@ describe('Sales order revisions (end to end)', () => {
     return r.body;
   };
   const approve = async (docNo: string) => {
-    const inbox = await api.get<{ items: { id: string; docNo: string }[] }>('sales/approvals', 'NA');
+    const inbox = await api.get<{ items: { id: string; docNo: string; kind: string }[] }>('sales/approvals', 'NA');
     const item = inbox.items.find((i) => i.docNo === docNo)!;
+    expect(item.kind).toBe('REVISION');
     expect((await api.call('POST', `sales/approvals/${item.id}/approve`, 'NA', { comment: 'Fine' })).status).toBe(201);
   };
   const jobFor = (soNo: string) => api.until(`the job for ${soNo}`, async () => (await api.get<{ items: (Job & { salesOrderNo: string })[] }>(`service/jobs?q=${soNo}`)).items.find((j) => j.salesOrderNo === soNo));

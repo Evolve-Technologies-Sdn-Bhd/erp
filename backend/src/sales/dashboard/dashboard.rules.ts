@@ -4,15 +4,20 @@ import { SAL_ENTITY, SAL_ROLE } from '../shared/sales.constants';
 
 /** Sales home (S01) rules. Pure functions. */
 
-export type ApprovalKind = 'CREDIT' | 'PRICE' | 'DISCOUNT';
+export type ApprovalKind = 'CREDIT' | 'PRICE' | 'DISCOUNT' | 'REVISION';
 
 /**
- * Why a Sales document waits for approval: a quotation for a discount, a sales order or delivery for credit,
- * an invoice for credit when Finance decides and for price when the Sales Manager decides.
+ * Why a Sales document waits for approval: a quotation for a discount, a delivery for credit, an invoice for credit when
+ * Finance decides and for price when the Sales Manager decides. A sales order for credit whenever its credit check is
+ * part of the request; otherwise for its revision or for a price outside the range, as its reason says.
  */
-export function approvalKind(entityType: string, approverRole: string | null): ApprovalKind {
+export function approvalKind(entityType: string, approverRole: string | null, reason = ''): ApprovalKind {
   if (entityType === SAL_ENTITY.QUOTATION) return 'DISCOUNT';
   if (entityType === SAL_ENTITY.INVOICE) return approverRole === SAL_ROLE.FINANCE_MANAGER ? 'CREDIT' : 'PRICE';
+  if (entityType === SAL_ENTITY.ORDER && !/\b(credit|overdue) limit\b/i.test(reason)) {
+    if (/^Revision \d+/.test(reason)) return 'REVISION';
+    if (/^Price /.test(reason)) return 'PRICE';
+  }
   return 'CREDIT';
 }
 
@@ -23,6 +28,7 @@ export function waitingSummary(kinds: ApprovalKind[]): string {
     count('CREDIT') && `${count('CREDIT')} over credit limit`,
     count('PRICE') && `${count('PRICE')} price ${count('PRICE') === 1 ? 'override' : 'overrides'}`,
     count('DISCOUNT') && `${count('DISCOUNT')} ${count('DISCOUNT') === 1 ? 'discount' : 'discounts'}`,
+    count('REVISION') && `${count('REVISION')} ${count('REVISION') === 1 ? 'revision' : 'revisions'}`,
   ].filter(Boolean);
   return parts.length ? parts.join(' · ') : 'Nothing waiting for you';
 }
@@ -50,6 +56,7 @@ export const KIND_CHIP: Record<ApprovalKind, { label: string; group: 'pending' |
   CREDIT: { label: 'Credit', group: 'pending' },
   PRICE: { label: 'Price', group: 'partial' },
   DISCOUNT: { label: 'Discount', group: 'partial' },
+  REVISION: { label: 'Revision', group: 'partial' },
 };
 
 /** Whole days between two YYYY-MM-DD dates. */
@@ -68,6 +75,8 @@ export function shortReason(kind: ApprovalKind, reason: string): string {
   if (kind === 'PRICE') {
     const pct = /(\d+(?:\.\d+)?)% below/i.exec(reason);
     if (pct) return `Price ${pct[1]}% below price list`;
+    const above = /(\d+(?:\.\d+)?)% above/i.exec(reason);
+    if (above) return `Price ${above[1]}% above price list`;
   }
   if (kind === 'DISCOUNT') {
     const pct = /discount (\d+(?:\.\d+)?)%/i.exec(reason);

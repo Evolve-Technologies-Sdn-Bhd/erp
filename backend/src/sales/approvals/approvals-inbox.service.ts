@@ -17,7 +17,7 @@ import { SAL_ENTITY } from '../shared/sales.constants';
 type Tab = 'waiting' | 'approved' | 'rejected';
 const SALES_TYPES: string[] = Object.values(SAL_ENTITY);
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
-const KIND_LABEL: Record<ApprovalKind, string> = { CREDIT: 'Credit', PRICE: 'Price', DISCOUNT: 'Discount' };
+const KIND_LABEL: Record<ApprovalKind, string> = { CREDIT: 'Credit', PRICE: 'Price', DISCOUNT: 'Discount', REVISION: 'Revision' };
 
 /** S02 · Sales approvals: credit on orders, prices on invoices, discounts on quotations (FlowS1–S3). */
 @Injectable()
@@ -34,7 +34,7 @@ export class SalesApprovalsInboxService {
   ) {}
 
   private kindOf(r: ApprovalRequestView): ApprovalKind {
-    return approvalKind(r.entityType, r.steps.find((s) => s.stepNo === r.currentStep)?.approverRole ?? r.steps[0]?.approverRole ?? null);
+    return approvalKind(r.entityType, r.steps.find((s) => s.stepNo === r.currentStep)?.approverRole ?? r.steps[0]?.approverRole ?? null, r.reason);
   }
 
   private card(r: ApprovalRequestView, myDecision: string | null = null) {
@@ -93,7 +93,7 @@ export class SalesApprovalsInboxService {
       requesterNote: request.requesterNote,
       canDecide,
       decision: decided ? { byName: decided.decidedByName, at: decided.decidedAt, comment: decided.comment, status: decided.status } : null,
-      panel: kind === 'CREDIT' && request.entityType !== SAL_ENTITY.QUOTATION ? await this.creditPanel(ctx, request) : kind === 'PRICE' ? await this.pricePanel(ctx, request) : await this.discountPanel(ctx, request),
+      panel: kind === 'CREDIT' && request.entityType !== SAL_ENTITY.QUOTATION ? await this.creditPanel(ctx, request) : kind === 'PRICE' || kind === 'REVISION' ? await this.pricePanel(ctx, request) : await this.discountPanel(ctx, request),
     };
   }
 
@@ -163,8 +163,9 @@ export class SalesApprovalsInboxService {
     return { orderId: order.id as string | null, customerCode: order.customerCode, customerName: order.customerName, thisDocument: delivery ? dec(request.amount ?? 0) : order.total };
   }
 
-  /** Invoice lines priced below the customer's price list. */
+  /** The lines against the customer's price list: an invoice's, or a sales order's (the price range, a revision). */
   private async pricePanel(ctx: RequestContext, request: ApprovalRequestView) {
+    if (request.entityType === SAL_ENTITY.ORDER) return this.orderPricePanel(ctx, request);
     const invoice = await this.prisma.salInvoice.findFirst({ where: { id: request.entityId, tenantId: ctx.tenantId }, include: { lines: { orderBy: { lineNo: 'asc' } } } });
     if (!invoice) throw new NotFoundError('Invoice');
     return {
@@ -177,6 +178,28 @@ export class SalesApprovalsInboxService {
         belowPct: l.listPrice && l.listPrice.gt(0) && l.unitPrice.lt(l.listPrice) ? l.listPrice.sub(l.unitPrice).div(l.listPrice).mul(100).toFixed(0) : null,
         amount: toMoney(l.amount),
       })),
+    };
+  }
+
+  /** The price is the unit price after the line discount, as the price range checks it. */
+  private async orderPricePanel(ctx: RequestContext, request: ApprovalRequestView) {
+    const order = await this.prisma.salSalesOrder.findFirst({ where: { id: request.entityId, tenantId: ctx.tenantId }, include: { lines: { orderBy: { lineNo: 'asc' } } } });
+    if (!order) throw new NotFoundError('Sales order');
+    return {
+      type: 'PRICE' as const,
+      customerName: order.customerName,
+      total: toMoney(order.total),
+      lines: order.lines.map((l) => {
+        const net = l.unitPrice.mul(dec(100).sub(l.discountPct)).div(100);
+        const off = l.listPrice && l.listPrice.gt(0) ? net.sub(l.listPrice).div(l.listPrice).mul(100) : null;
+        return {
+          itemCode: l.itemCode, itemName: l.itemName, qty: toQty(l.orderedQty), uomCode: l.uomCode, unitPrice: toPrice(net),
+          listPrice: l.listPrice ? toPrice(l.listPrice) : null,
+          belowPct: off?.lt(0) ? off.neg().toDecimalPlaces(1).toString() : null,
+          abovePct: off?.gt(0) ? off.toDecimalPlaces(1).toString() : null,
+          amount: toMoney(l.amount),
+        };
+      }),
     };
   }
 

@@ -9,8 +9,18 @@ describe('sales dashboard.rules', () => {
     expect(approvalKind('SAL_INVOICE', 'FINANCE_MANAGER')).toBe('CREDIT');
   });
 
+  it('names a sales order’s approval by what is asked, credit first', () => {
+    expect(approvalKind('SAL_ORDER', 'SALES_MANAGER', 'Price 15.7% below the price list on 1 line (allowed: 10% below to 20% above)')).toBe('PRICE');
+    expect(approvalKind('SAL_ORDER', 'SALES_MANAGER', 'Revision 3 changes prices (CH-DIN-01 price 89.00 → 85.00)')).toBe('REVISION');
+    expect(approvalKind('SAL_ORDER', 'SALES_MANAGER', 'Revision 2 changes prices (…) · Price 15.6% below the price list on 1 line')).toBe('REVISION');
+    expect(approvalKind('SAL_ORDER', 'SALES_MANAGER', 'Price 15.7% below the price list on 1 line · Credit limit over by RM 2,400.00')).toBe('CREDIT');
+    expect(approvalKind('SAL_ORDER', 'SALES_MANAGER', 'Overdue limit over by RM 1,500.00')).toBe('CREDIT');
+    expect(approvalKind('SAL_DELIVERY', 'SALES_MANAGER', 'Price')).toBe('CREDIT');
+  });
+
   it('summarises the approvals waiting (S01 card)', () => {
     expect(waitingSummary(['CREDIT', 'CREDIT', 'PRICE'])).toBe('2 over credit limit · 1 price override');
+    expect(waitingSummary(['REVISION', 'PRICE'])).toBe('1 price override · 1 revision');
     expect(waitingSummary([])).toBe('Nothing waiting for you');
   });
 
@@ -25,6 +35,7 @@ describe('sales dashboard.rules', () => {
     expect(shortReason('CREDIT', 'Credit limit over by RM 2,400.00 · overdue limit over by RM 2,000.00')).toBe('Over credit limit by RM 2,400.00');
     expect(shortReason('CREDIT', 'Overdue limit over by RM 1,500.00')).toBe('Over overdue limit by RM 1,500.00');
     expect(shortReason('PRICE', 'Unit price 12% below the price list on 1 line')).toBe('Price 12% below price list');
+    expect(shortReason('PRICE', 'Price 25% above the price list on 1 line')).toBe('Price 25% above price list');
     expect(shortReason('DISCOUNT', 'Discount 18%, above 15% rule')).toBe('Discount 18%, above the limit');
   });
 

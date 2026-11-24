@@ -37,7 +37,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
 ]
-const KIND_GROUP: Record<ApprovalKind, 'pending' | 'partial'> = { CREDIT: 'pending', PRICE: 'partial', DISCOUNT: 'partial' }
+const KIND_GROUP: Record<ApprovalKind, 'pending' | 'partial'> = { CREDIT: 'pending', PRICE: 'partial', DISCOUNT: 'partial', REVISION: 'partial' }
 
 function go(query: { status?: Tab; id?: string | null }) {
   const status = query.status ?? tab.value
@@ -224,11 +224,11 @@ async function decide(decision: 'approve' | 'reject') {
           </div>
         </template>
 
-        <!-- Price below the price list (invoice) -->
+        <!-- Prices against the price list (an invoice, or a sales order's price range or revision) -->
         <template v-else-if="detail.panel.type === 'PRICE'">
           <table class="erp-table">
             <thead>
-              <tr><th>Item</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Price list</th><th class="num">Below</th></tr>
+              <tr><th>Item</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Price list</th><th class="num">{{ detail.entityType === 'SAL_ORDER' ? 'Against the list' : 'Below' }}</th></tr>
             </thead>
             <tbody>
               <tr v-for="l in detail.panel.lines" :key="l.itemCode">
@@ -236,11 +236,11 @@ async function decide(decision: 'approve' | 'reject') {
                 <td class="num">{{ formatQty(l.qty) }} {{ l.uomCode }}</td>
                 <td class="num font-bold">{{ formatPrice(l.unitPrice) }}</td>
                 <td class="num">{{ l.listPrice ? formatPrice(l.listPrice) : '—' }}</td>
-                <td class="num" :class="l.belowPct ? 'font-semibold text-note-error-text' : ''">{{ l.belowPct ? `${l.belowPct}%` : '—' }}</td>
+                <td class="num" :class="l.belowPct || l.abovePct ? 'font-semibold text-note-error-text' : ''">{{ l.belowPct ? `${l.belowPct}%${detail.entityType === 'SAL_ORDER' ? ' below' : ''}` : l.abovePct ? `${l.abovePct}% above` : '—' }}</td>
               </tr>
             </tbody>
           </table>
-          <div class="flex justify-between gap-3 text-[13px]"><span class="text-erp-muted">Invoice total</span><strong class="erp-num">{{ formatRm(detail.panel.total) }}</strong></div>
+          <div class="flex justify-between gap-3 text-[13px]"><span class="text-erp-muted">{{ detail.entityType === 'SAL_ORDER' ? 'Order total' : 'Invoice total' }}</span><strong class="erp-num">{{ formatRm(detail.panel.total) }}</strong></div>
           <div v-if="detail.requesterNote" class="rounded-lg bg-erp-head px-4 py-3 text-[13px]"><strong>{{ firstName(detail.requestedByName) }} wrote:</strong> {{ detail.requesterNote }}</div>
         </template>
 

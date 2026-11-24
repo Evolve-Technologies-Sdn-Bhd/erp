@@ -1,4 +1,4 @@
-export type ApprovalKind = 'CREDIT' | 'PRICE' | 'DISCOUNT'
+export type ApprovalKind = 'CREDIT' | 'PRICE' | 'DISCOUNT' | 'REVISION'
 export type ChipGroup = 'draft' | 'pending' | 'released' | 'partial' | 'done' | 'cancelled'
 
 /** S01 · the four KPI cards (the charts below them come from the board, api/boards.ts). */
@@ -394,7 +394,7 @@ export interface PricePanel {
   type: 'PRICE'
   customerName: string
   total: string
-  lines: { itemCode: string; itemName: string; qty: string; uomCode: string; unitPrice: string; listPrice: string | null; belowPct: string | null; amount: string }[]
+  lines: { itemCode: string; itemName: string; qty: string; uomCode: string; unitPrice: string; listPrice: string | null; belowPct: string | null; abovePct?: string | null; amount: string }[]
 }
 
 export interface DiscountPanel {

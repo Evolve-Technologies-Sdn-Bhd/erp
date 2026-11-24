@@ -50,7 +50,7 @@ export class SalesDashboardService {
 
     // Customers with an overdue balance.
     const overdue = open.filter((x) => x.overdue);
-    const kinds = waiting.map((w) => approvalKind(w.entityType, w.steps.find((s) => s.stepNo === w.currentStep)?.approverRole ?? null));
+    const kinds = waiting.map((w) => approvalKind(w.entityType, w.steps.find((s) => s.stepNo === w.currentStep)?.approverRole ?? null, w.reason));
 
     return {
       today,
