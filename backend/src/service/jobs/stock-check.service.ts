@@ -66,13 +66,13 @@ export class StockCheckService implements OnApplicationShutdown {
         include: { items: true },
       });
       const due = booked.filter((j) => j.jobDate && j.slotStart !== null && (j.atRiskSince || dueForCheck({ jobDate: iso(j.jobDate), slotStart: j.slotStart }, now)));
-      if (!due.length) return done;
+      const confirms = await this.jobStock.confirms(tenantId);
+      if (!due.length) return confirms ? { ...done, deliveries: [] } : done;
       const codes = [...new Set(due.flatMap((j) => j.items.map((i) => i.itemCode)))];
       const [items, stock] = await Promise.all([this.masterData.findItems(tenantId, codes), this.stock.listStock(tenantId, codes)]);
       const ctx = await this.systemCtx(tenantId);
       // Where the warehouse confirms stock (phase 5), earlier jobs hold theirs first, a job it has not confirmed is at risk,
       // and a confirmed one asks Sales for its delivery order.
-      const confirms = await this.jobStock.confirms(tenantId);
       const held = confirms ? await this.jobStock.stockOf(tenantId, due) : null;
       const asked: string[] = [];
 
