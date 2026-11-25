@@ -45,7 +45,7 @@ const breakdown = (c: CoreDashboardCard) =>
     </RouterLink>
   </div>
 
-  <section class="flex flex-col gap-3">
+  <section data-tour="core:cards" class="flex flex-col gap-3">
     <div class="flex items-baseline justify-between gap-4">
       <h2 class="m-0 text-[15px] font-bold">Master data</h2>
       <span class="text-xs text-erp-muted">Purchase and Sales read these. A change applies to new documents; released documents keep what they had.</span>
@@ -59,7 +59,7 @@ const breakdown = (c: CoreDashboardCard) =>
   </section>
 
   <div class="grid grid-cols-2 items-start gap-4">
-  <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+  <section data-tour="core:attention" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
     <div class="flex items-center justify-between gap-4">
       <h2 class="m-0 text-[15px] font-bold">Needs attention</h2>
       <span class="text-xs text-erp-muted">Checked when the page opens</span>
@@ -73,7 +73,7 @@ const breakdown = (c: CoreDashboardCard) =>
     </ul>
   </section>
 
-  <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+  <section data-tour="core:recent" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
     <h2 class="m-0 text-[15px] font-bold">Recently changed</h2>
     <p v-if="data && !data.recent.length" class="m-0 text-[13px] text-erp-muted">
       Nothing has been changed in Core yet. Every change made here shows up in this list, with who made it and what changed.

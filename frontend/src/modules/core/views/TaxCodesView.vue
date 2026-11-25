@@ -192,7 +192,7 @@ const STATE_CHIP = { waiting: { label: 'Waiting', group: 'pending' }, ended: { l
       </template>
     </PageHeader>
     <NoticeBanner kind="info"><strong>New rate</strong> adds a row from its date and closes the old one the day before. A rate is never edited in place.</NoticeBanner>
-    <table class="erp-table">
+    <table data-tour="tax:list" class="erp-table">
       <thead>
         <tr>
           <th>Code</th>
@@ -232,7 +232,7 @@ const STATE_CHIP = { waiting: { label: 'Waiting', group: 'pending' }, ended: { l
   </section>
 
   <!-- The code -->
-  <Dialog v-model:visible="codeOpen" modal :header="detail ? `Tax code ${detail.code}` : ''" :style="{ width: '600px' }">
+  <Dialog v-model:visible="codeOpen" data-tour="tax:code" modal :header="detail ? `Tax code ${detail.code}` : ''" :style="{ width: '600px' }">
     <div v-if="detail" class="flex flex-col gap-3.5">
       <div class="grid grid-cols-2 gap-x-[18px] gap-y-3.5">
         <div class="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-erp-muted">
@@ -286,7 +286,7 @@ const STATE_CHIP = { waiting: { label: 'Waiting', group: 'pending' }, ended: { l
   </Dialog>
 
   <!-- New rate -->
-  <Dialog v-model:visible="rateOpen" modal :header="rateFor ? `New rate for ${rateFor.code}` : ''" :style="{ width: '460px' }">
+  <Dialog v-model:visible="rateOpen" data-tour="tax:rate" modal :header="rateFor ? `New rate for ${rateFor.code}` : ''" :style="{ width: '460px' }">
     <div v-if="rateFor" class="flex flex-col gap-3.5">
       <p class="m-0 text-[13px] text-erp-muted">Now {{ rateFor.periods.at(-1)!.rate }} from {{ formatDate(rateFor.periods.at(-1)!.validFrom) }} ({{ rateFor.periods.at(-1)!.name }}).</p>
       <div class="grid grid-cols-2 gap-x-[18px] gap-y-3.5">

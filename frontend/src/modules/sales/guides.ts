@@ -813,7 +813,7 @@ const INVOICE_PAID: Tour = {
 }
 
 const VOUCHERS = { code: 'S37' }
-const support = (extra: Partial<TourStep> = {}) => be('SALES_SUPPORT', 'support', 'Sales Support person', extra)
+const support = (extra: Partial<TourStep> = {}) => be('ADMIN', 'support', 'person who keeps the vouchers', extra)
 
 const VOUCHER_LIST: Tour = {
   id: 'guide.field-sales.q',

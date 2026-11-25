@@ -34,7 +34,7 @@ const runs = (p: PackageListItem) => `${formatDate(p.runsFrom)} – ${p.endedOn 
     <PageHeader title="List of Packages" subtitle="Several items sold together at one price, with a free gift the customer chooses. Sales adds a package to an order as one line." />
 
     <div class="flex items-center justify-between gap-3">
-      <RouterLink v-if="can('core.price_list.edit')" to="/core/packages/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new package</RouterLink>
+      <RouterLink v-if="can('core.price_list.edit')" to="/core/packages/new" data-tour="core:new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new package</RouterLink>
     </div>
 
     <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />

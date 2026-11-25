@@ -320,7 +320,7 @@ const statusLabel = computed(() => (isNew.value ? (form.isActive ? 'Active' : 'I
               <tr>
                 <th>Item</th>
                 <th>Name</th>
-                <th class="w-[80px]">Unit</th>
+                <th class="w-[104px]">Unit</th>
                 <th class="num w-[120px]">Price (RM)</th>
                 <th :class="hasActions ? 'w-[160px]' : 'w-[120px]'">From</th>
                 <th v-if="hasActions" class="w-[60px]"><span class="sr-only">Change</span></th>
@@ -402,7 +402,7 @@ const statusLabel = computed(() => (isNew.value ? (form.isActive ? 'Active' : 'I
             </ul>
             <p v-if="list.documents" class="m-0 mt-2.5 text-xs text-erp-muted">Also on {{ list.documents }} Sales document{{ list.documents === 1 ? '' : 's' }}, so it can never be deleted.</p>
           </SideCard>
-          <ActivityList v-if="list.activity.length" :items="list.activity" />
+          <ActivityList v-if="list.activity.length" data-tour="core:activity" :items="list.activity" />
           <SideCard v-else title="Activity">
             <p class="m-0 text-[13px] text-erp-muted">No changes yet. Loaded with the opening data.</p>
           </SideCard>

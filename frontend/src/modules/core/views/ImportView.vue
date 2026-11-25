@@ -127,7 +127,7 @@ const resultClass = (s: ImportRowStatus) =>
 
     <NoticeBanner v-if="!canImport" kind="info">Only the Master Data Admin imports. You can still download a template to see the columns.</NoticeBanner>
 
-    <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-[18px]">
+    <div data-tour="imp:file" class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-[18px]">
       <label class="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-erp-muted">
         What to import
         <select v-model="kind" class="erp-input" :disabled="busy !== null" @change="changeKind">
@@ -159,7 +159,7 @@ const resultClass = (s: ImportRowStatus) =>
       <NoticeBanner v-else :kind="bannerKind">{{ summaryParts.before }}<strong v-if="summaryParts.bold">{{ summaryParts.bold }}</strong>{{ summaryParts.after }}</NoticeBanner>
       <span v-for="n in answer.notices" :key="n" class="-mt-1.5 text-xs text-erp-muted">{{ n }}</span>
 
-      <table class="erp-table">
+      <table data-tour="imp:rows" class="erp-table">
         <thead>
           <tr>
             <th class="w-[60px]">Row</th>
@@ -184,7 +184,7 @@ const resultClass = (s: ImportRowStatus) =>
 
       <div class="flex items-center justify-between gap-4">
         <span class="text-xs text-erp-muted">Checking saves nothing. {{ footNote }}</span>
-        <div class="flex shrink-0 gap-2">
+        <div data-tour="imp:buttons" class="flex shrink-0 gap-2">
           <button v-if="problemRows" type="button" class="erp-btn erp-btn-secondary" @click="downloadProblems">Download rows with problems</button>
           <button v-if="loaded" type="button" class="erp-btn erp-btn-secondary" @click="reset">Import another file</button>
           <button v-else-if="ready" type="button" class="erp-btn erp-btn-primary" :disabled="busy !== null" @click="load">

@@ -103,7 +103,7 @@ async function exportCsv() {
 
     <div class="flex items-center justify-between gap-3">
       <div class="flex gap-2">
-        <RouterLink v-if="can('core.customer.edit')" to="/core/customers/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new customer</RouterLink>
+        <RouterLink v-if="can('core.customer.edit')" to="/core/customers/new" data-tour="core:new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new customer</RouterLink>
       </div>
       <div class="flex gap-2">
         <RouterLink to="/core/import" class="erp-btn erp-btn-import">Import</RouterLink>

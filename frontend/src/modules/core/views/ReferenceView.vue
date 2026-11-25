@@ -105,7 +105,7 @@ function remove() {
     <StatusTabs :tabs="LISTS" :counts="counts" :active="active" @select="select" />
     <NoticeBanner v-if="active === 'item-groups' && data.lookAlike" kind="warning">{{ data.lookAlike }}</NoticeBanner>
 
-    <table class="erp-table">
+    <table data-tour="ref:list" class="erp-table">
       <thead>
         <tr>
           <th>Name</th>
@@ -130,7 +130,7 @@ function remove() {
     <span class="text-xs text-erp-muted">An entry in use cannot be deleted; make it inactive instead, and new records can no longer pick it.</span>
   </section>
 
-  <Dialog v-model:visible="open" modal :header="editing ? `${cap(current.one)} “${editing.name}”` : `Add ${current.one}`" :style="{ width: '440px' }">
+  <Dialog v-model:visible="open" data-tour="ref:dialog" modal :header="editing ? `${cap(current.one)} “${editing.name}”` : `Add ${current.one}`" :style="{ width: '440px' }">
     <div class="flex flex-col gap-3.5">
       <FormField label="Name" for="ref-name" :error="errors.name">
         <input id="ref-name" v-model="form.name" class="erp-input" maxlength="50" :disabled="Boolean(editing?.refusals.rename)" :placeholder="isTerms ? '60 days' : ''" />

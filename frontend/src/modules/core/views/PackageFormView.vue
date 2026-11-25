@@ -98,7 +98,7 @@ function fill(p: PackageDetail | null) {
     })
   } else {
     Object.assign(form, {
-      code: '', name: '', uomCode: 'SET', salesTaxCode: options.value?.taxCodes.find((t) => t.type === 'SALES_TAX')?.code ?? '',
+      code: '', name: '', uomCode: options.value?.uoms.some((u) => u.code === 'SET') ? 'SET' : (options.value?.uoms[0]?.code ?? ''), salesTaxCode: options.value?.taxCodes.find((t) => t.type === 'SALES_TAX')?.code ?? '',
       priceListCode: priceLists.value[0]?.code ?? '', packagePrice: '', giftRule: 'NONE', runsFrom: session.today.value, runsUntil: '', items: [], gifts: [],
       category: '', terms: '', pictureId: null,
     })
@@ -250,7 +250,7 @@ const savedLine = (i: number, l: Line) => {
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_320px]">
       <div class="flex min-w-0 flex-col gap-4">
         <!-- General -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="pkg:general" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">General</h2>
           <div class="grid grid-cols-4 gap-x-[18px] gap-y-3.5">
             <FormField v-if="isNew" label="Code" for="code" :error="errors.code">
@@ -317,11 +317,11 @@ const savedLine = (i: number, l: Line) => {
               </select>
             </FormField>
           </div>
-          <NoticeBanner v-if="pkg?.endedOn" kind="info">Ended early: {{ formatDate(pkg.endedOn) }} is its last day.</NoticeBanner>
+          <NoticeBanner v-if="pkg?.endedOn" data-tour="pkg:ended" kind="info">Ended early: {{ formatDate(pkg.endedOn) }} is its last day.</NoticeBanner>
         </section>
 
         <!-- Items -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="pkg:items" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Items in the package</h2>
           <p v-if="errors.items" class="m-0 text-xs font-medium text-note-error-text" role="alert">{{ errors.items }}</p>
           <table class="erp-table">
@@ -329,7 +329,7 @@ const savedLine = (i: number, l: Line) => {
               <tr>
                 <th>Item</th>
                 <th class="w-[110px]">Qty</th>
-                <th class="w-[100px]">Unit</th>
+                <th class="w-[112px]">Unit</th>
                 <th class="num">List price</th>
                 <th class="num">List value</th>
                 <th class="num">Price in package</th>
@@ -383,7 +383,7 @@ const savedLine = (i: number, l: Line) => {
         </section>
 
         <!-- Free gift -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="pkg:gift" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Free gift</h2>
           <div class="flex flex-wrap gap-5 text-[13px]" role="radiogroup" aria-label="Free gift">
             <label v-for="o in GIFT_RULES" :key="o.v" class="inline-flex cursor-pointer items-center gap-2">
@@ -397,7 +397,7 @@ const savedLine = (i: number, l: Line) => {
                 <tr>
                   <th>Gift item</th>
                   <th class="w-[110px]">Qty</th>
-                  <th class="w-[100px]">Unit</th>
+                  <th class="w-[112px]">Unit</th>
                   <th v-if="editable" class="w-[40px]"><span class="sr-only">Remove</span></th>
                 </tr>
               </thead>
@@ -431,7 +431,7 @@ const savedLine = (i: number, l: Line) => {
         </section>
 
         <!-- Terms -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="pkg:terms" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Terms shown to customers</h2>
           <FormField label="What the package includes, its warranty and conditions" for="terms" :error="errors.terms">
             <textarea

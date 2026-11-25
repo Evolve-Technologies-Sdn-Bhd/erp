@@ -280,7 +280,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_320px]">
       <div class="flex min-w-0 flex-col gap-4">
         <!-- General -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="cus:general" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">General</h2>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
             <div class="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-erp-muted">
@@ -358,7 +358,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
         </section>
 
         <!-- Tax identity -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="cus:tax" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Tax identity</h2>
           <NoticeBanner v-if="eInvoiceGap" kind="warning">{{ eInvoiceGap }}</NoticeBanner>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
@@ -393,7 +393,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
         </section>
 
         <!-- Credit -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="cus:credit" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Credit</h2>
           <div class="flex items-start gap-2.5 rounded-[10px] border border-mod-light-border bg-mod-light px-3.5 py-2.5 text-[13px] text-mod-accent">
             <Lock :size="16" class="mt-0.5 shrink-0" aria-hidden="true" />
@@ -431,8 +431,8 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
 
       <div class="flex flex-col gap-4">
         <template v-if="customer">
-          <InUseCard :usage="customer.usage" :waits="blockWaits" />
-          <ActivityList v-if="customer.activity.length" :items="customer.activity" />
+          <InUseCard data-tour="core:in-use" :usage="customer.usage" :waits="blockWaits" />
+          <ActivityList v-if="customer.activity.length" data-tour="core:activity" :items="customer.activity" />
           <SideCard v-else title="Activity">
             <p class="m-0 text-[13px] text-erp-muted">No changes yet. Loaded with the opening data.</p>
           </SideCard>

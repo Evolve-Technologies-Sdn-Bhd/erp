@@ -102,7 +102,7 @@ function remove() {
           <button type="button" class="erp-btn erp-btn-add" @click="edit(null)"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add warehouse</button>
         </template>
       </PageHeader>
-      <table class="erp-table">
+      <table data-tour="core:warehouses" class="erp-table">
         <thead><tr><th>Code</th><th>Name</th><th>Branch</th><th>Locations</th><th>Status</th></tr></thead>
         <tbody>
           <tr v-for="w in data.warehouses" :key="w.id" class="cursor-pointer" :class="{ 'bg-mod-light': selected?.code === w.code }" @click="select(w)">
@@ -139,7 +139,7 @@ function remove() {
     </section>
   </div>
 
-  <Dialog v-model:visible="open" modal :header="editing ? `Warehouse ${editing.code}` : 'Add warehouse'" :style="{ width: '460px' }">
+  <Dialog v-model:visible="open" data-tour="wh:dialog" modal :header="editing ? `Warehouse ${editing.code}` : 'Add warehouse'" :style="{ width: '460px' }">
     <div class="flex flex-col gap-3.5">
       <div class="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-erp-muted">
         <span class="flex justify-between gap-2">

@@ -278,7 +278,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled.'
         </section>
 
         <!-- Contact -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="sup:contact" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Contact</h2>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
             <FormField label="Contact" for="contact" :error="errors.contactName">
@@ -297,7 +297,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled.'
         </section>
 
         <!-- Tax identity -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="sup:tax" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Tax identity</h2>
           <NoticeBanner v-if="eInvoiceGap" kind="warning">{{ eInvoiceGap }}</NoticeBanner>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
@@ -344,7 +344,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled.'
         </section>
 
         <!-- Contract prices -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="sup:contracts" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <div class="flex items-center justify-between">
             <h2 class="m-0 text-[15px] font-bold">Contract prices</h2>
             <button v-if="contractsEditable" type="button" class="erp-btn erp-btn-secondary" @click="addContract"><Plus :size="14" aria-hidden="true" />Add contract price</button>
@@ -413,14 +413,14 @@ const blockWaits = 'Block comes back once these are finished or cancelled.'
 
       <div class="flex flex-col gap-4">
         <template v-if="supplier">
-          <InUseCard :usage="supplier.usage" :waits="blockWaits" />
+          <InUseCard data-tour="core:in-use" :usage="supplier.usage" :waits="blockWaits" />
           <SideCard title="Who can change it">
             <p class="m-0 text-[13px] text-erp-muted">
               The Master Data Admin, buyers and the Purchasing Manager. Contract prices: only the Purchasing Manager and the Master Data Admin, because a contract price lets an order skip the RFQ.
               Every change is logged with the old and new value.
             </p>
           </SideCard>
-          <ActivityList v-if="supplier.activity.length" :items="supplier.activity" />
+          <ActivityList v-if="supplier.activity.length" data-tour="core:activity" :items="supplier.activity" />
           <SideCard v-else title="Activity">
             <p class="m-0 text-[13px] text-erp-muted">No changes yet. Loaded with the opening data.</p>
           </SideCard>

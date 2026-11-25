@@ -288,7 +288,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_320px]">
       <div class="flex min-w-0 flex-col gap-4">
         <!-- General -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="itm:general" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">General</h2>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
             <div class="flex min-w-0 flex-col gap-1.5 text-xs font-medium text-erp-muted">
@@ -336,7 +336,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
         </section>
 
         <!-- Buying -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="itm:buying" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Buying</h2>
           <div class="flex gap-6 text-[13px] font-medium">
             <span class="inline-flex items-center gap-2"><SwitchToggle v-model="form.isPurchasable" label="Can be bought" :disabled="!editable" />Can be bought</span>
@@ -370,7 +370,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
         </section>
 
         <!-- Selling -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="itm:selling" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Selling</h2>
           <div class="flex gap-6 text-[13px] font-medium">
             <span class="inline-flex items-center gap-2"><SwitchToggle v-model="form.isSellable" label="Can be sold" :disabled="!editable" />Can be sold</span>
@@ -442,7 +442,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
           <PictureField v-model="form.pictureId" :editable="editable" :alt="form.name || 'the item'" :error="errors.pictureId" />
         </SideCard>
         <template v-if="item">
-          <InUseCard :usage="item.usage" :waits="statusWaits" />
+          <InUseCard data-tour="core:in-use" :usage="item.usage" :waits="statusWaits" />
           <SideCard title="Prices">
             <p v-if="!item.prices.length" class="m-0 text-[13px] text-erp-muted">Not on a price list yet.</p>
             <div v-for="p in item.prices" :key="`${p.priceListCode}-${p.uomCode}`" class="flex justify-between gap-2 border-b border-erp-row py-1.5 text-[13px]">
@@ -463,7 +463,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
               <span class="text-xs text-erp-muted">{{ formatDate(c.validFrom) }} – {{ c.validTo ? formatDate(c.validTo) : 'no end' }}</span>
             </div>
           </SideCard>
-          <ActivityList v-if="item.activity.length" :items="item.activity" />
+          <ActivityList v-if="item.activity.length" data-tour="core:activity" :items="item.activity" />
           <SideCard v-else title="Activity">
             <p class="m-0 text-[13px] text-erp-muted">No changes yet. Loaded with the opening data.</p>
           </SideCard>

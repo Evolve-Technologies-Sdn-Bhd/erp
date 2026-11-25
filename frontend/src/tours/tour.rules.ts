@@ -174,7 +174,7 @@ export function madeWords(now: Date, random: () => number): Record<string, strin
     d.setDate(d.getDate() + ahead)
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
   }
-  return { newName: `Puan ${pick(FIRST)} ${pick(LAST)}`, newPhone: `011-${digits(4)} ${digits(4)}`, newVoucher: `V-${digits(4)}`, newSerial: `SN-${digits(6)}`, newBill: `SI-${digits(5)}`, newBill2: `SI-${digits(5)}`, tomorrow: day(1), nextWeek: day(7) }
+  return { newName: `Puan ${pick(FIRST)} ${pick(LAST)}`, newPhone: `011-${digits(4)} ${digits(4)}`, newVoucher: `V-${digits(4)}`, newSerial: `SN-${digits(6)}`, newBill: `SI-${digits(5)}`, newBill2: `SI-${digits(5)}`, newTin: `C${digits(11)}`, newId: `2019${digits(8)}`, newItem: `SMP-${digits(4)}`, newPackage: `PK-${digits(4)}`, newWarehouse: `WH-${digits(4)}`, newDays: String(61 + Math.floor(random() * 58)), newMobile: `011-${digits(4)} ${digits(4)}`, tomorrow: day(1), nextWeek: day(7) }
 }
 
 /** A guide's words: its own neutral ones, the made ones, then the company's (for every guide, then for this one). */
