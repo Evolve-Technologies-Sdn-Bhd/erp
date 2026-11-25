@@ -948,7 +948,7 @@ Confirmed by the user on 12–13 Nov 2026:
 | 10 | Installation date | The agent enters the customer's **preferred** date at signing. The office confirms the installer and slot. The phone design makes the date required and says the team is booked; that wording changes |
 | 11 | Business rules from the phone design | Taken as written, as profile settings: a price outside list −10% / +20% needs approval; an agent may add a COD customer; a rejected quotation is revised as a new revision; an order over the credit limit is signed first and then waits for approval |
 | 12 | Security rules | Ours stay: at least 10 characters, a single-use reset link, never a password by email. The phone design's wording (8 characters, temporary password) changes to match |
-| 13 | The phone app waits | Set aside by the user on 13 Nov 2026. The admin side and the installation module are built first; steps F2 and F4 and the two questions below wait until the user brings the app back |
+| 13 | The phone app waits | Set aside by the user on 13 Nov 2026. The admin side and the installation module are built first; steps F2 and F4 and the two questions below wait until the user brings the app back *25 Nov 2026: the user handed the phone app to its own developer, on the branch `feat/mobile-app`. `docs/integration/MOBILE_HANDOVER.md` has the calls, what is not built and how changes are made.* |
 
 Open, parked with the phone app:
 
