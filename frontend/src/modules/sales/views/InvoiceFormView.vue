@@ -288,6 +288,8 @@ const dueText = computed(() => {
 })
 const credit = computed(() => inv.value?.checks.credit?.snapshot ?? null)
 const showApprovalPanel = computed(() => Boolean(inv.value && inv.value.status === 'DRAFT' && (inv.value.checks.needsApproval || inv.value.checks.creditBlocked)))
+/** The prices still wait for the Sales Manager: not once released or approved, nor where the order's price stands. */
+const priceToApprove = computed(() => !inv.value || (inv.value.status !== 'RELEASED' && (inv.value.checks.needsPrice || (direct.value && dirty.value))))
 const belowList = (l: EditLine) => Boolean(l.listPrice && l.unitPrice && Number(l.unitPrice) < Number(l.listPrice))
 </script>
 
@@ -420,7 +422,7 @@ const belowList = (l: EditLine) => Boolean(l.listPrice && l.unitPrice && Number(
                     </tr>
                     <tr v-if="(editable && (l.canInvoiceQty !== null || belowList(l))) || (!editable && belowList(l)) || errors[`lines[${i}].qty`]">
                       <td :colspan="10" class="!pt-0 text-xs" :class="belowList(l) ? 'text-attention' : 'text-erp-muted'">
-                        <template v-if="belowList(l)">{{ Math.round((1 - Number(l.unitPrice) / Number(l.listPrice)) * 100) }}% below the price list (RM {{ formatPrice(l.listPrice!) }}) · needs Sales Manager approval. </template>
+                        <template v-if="belowList(l)">{{ Math.round((1 - Number(l.unitPrice) / Number(l.listPrice)) * 100) }}% below the price list (RM {{ formatPrice(l.listPrice!) }}){{ priceToApprove ? ' · needs Sales Manager approval' : '' }}. </template>
                         <template v-if="editable && l.canInvoiceQty !== null">Can invoice {{ formatQty(l.canInvoiceQty) }} (delivered minus invoiced). </template>
                         <span v-for="key in ['qty', 'unitPrice']" :key="key" class="ml-1 text-note-error-text">{{ errors[`lines[${i}].${key}`] }}</span>
                       </td>

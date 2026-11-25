@@ -48,8 +48,9 @@ describe('Price range (end to end)', () => {
   const approve = async (docNo: string) => {
     const inbox = await api.get<{ items: { id: string; docNo: string; kind: string }[] }>('sales/approvals', 'NA');
     const item = inbox.items.find((i) => i.docNo === docNo)!;
-    // Marked by what is asked: a price, not credit; an order's request shows its lines against the price list.
-    expect(item.kind).toBe(docNo.startsWith('QT') ? 'DISCOUNT' : 'PRICE');
+    // Marked by what is asked: a price, not credit or a discount; an order's request shows its lines against the price list.
+    expect(item.kind).toBe('PRICE');
+    if (docNo.startsWith('QT')) expect(await api.get(`sales/approvals/${item.id}`, 'NA')).toMatchObject({ kindLabel: 'Price', panel: { type: 'DISCOUNT' } });
     if (docNo.startsWith('SO')) {
       const detail = await api.get<{ kindLabel: string; panel: { type: string; lines: { itemCode: string; belowPct: string | null }[] } }>(`sales/approvals/${item.id}`, 'NA');
       expect(detail).toMatchObject({ kindLabel: 'Price', panel: { type: 'PRICE', lines: [{ itemCode: 'CH-DIN-01', belowPct: '12' }] } });

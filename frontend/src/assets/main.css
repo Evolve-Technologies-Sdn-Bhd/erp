@@ -355,6 +355,16 @@
     border-top: 1px solid var(--erp-border);
     border-radius: 0 0 16px 16px;
   }
+  /* The way out of a question (Cancel, Keep it, Not yet) is never as strong as the answer. */
+  .erp-dialog .p-confirmdialog-reject-button,
+  .erp-dialog .p-confirmdialog-reject-button:not(:disabled):hover {
+    background: var(--erp-card);
+    border-color: var(--erp-input-border);
+    color: var(--erp-text);
+  }
+  .erp-dialog .p-confirmdialog-reject-button:not(:disabled):hover {
+    background: var(--erp-head-bg);
+  }
 }
 
 /*

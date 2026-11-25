@@ -93,7 +93,8 @@ export class SalesApprovalsInboxService {
       requesterNote: request.requesterNote,
       canDecide,
       decision: decided ? { byName: decided.decidedByName, at: decided.decidedAt, comment: decided.comment, status: decided.status } : null,
-      panel: kind === 'CREDIT' && request.entityType !== SAL_ENTITY.QUOTATION ? await this.creditPanel(ctx, request) : kind === 'PRICE' || kind === 'REVISION' ? await this.pricePanel(ctx, request) : await this.discountPanel(ctx, request),
+      // A quotation always shows its lines with their discounts and the margin, whichever of the two it asks for.
+      panel: request.entityType === SAL_ENTITY.QUOTATION ? await this.discountPanel(ctx, request) : kind === 'CREDIT' ? await this.creditPanel(ctx, request) : await this.pricePanel(ctx, request),
     };
   }
 

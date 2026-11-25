@@ -12,7 +12,8 @@ export type ApprovalKind = 'CREDIT' | 'PRICE' | 'DISCOUNT' | 'REVISION';
  * part of the request; otherwise for its revision or for a price outside the range, as its reason says.
  */
 export function approvalKind(entityType: string, approverRole: string | null, reason = ''): ApprovalKind {
-  if (entityType === SAL_ENTITY.QUOTATION) return 'DISCOUNT';
+  // With the price range on (phase 5) a quotation asks for a price; its discount limit is off then.
+  if (entityType === SAL_ENTITY.QUOTATION) return /^Price /.test(reason) ? 'PRICE' : 'DISCOUNT';
   if (entityType === SAL_ENTITY.INVOICE) return approverRole === SAL_ROLE.FINANCE_MANAGER ? 'CREDIT' : 'PRICE';
   if (entityType === SAL_ENTITY.ORDER && !/\b(credit|overdue) limit\b/i.test(reason)) {
     if (/^Revision \d+/.test(reason)) return 'REVISION';

@@ -9,6 +9,11 @@ describe('sales dashboard.rules', () => {
     expect(approvalKind('SAL_INVOICE', 'FINANCE_MANAGER')).toBe('CREDIT');
   });
 
+  it('names a quotation’s approval by what is asked', () => {
+    expect(approvalKind('SAL_QUOTATION', 'SALES_MANAGER', 'Discount 20% on 1 line')).toBe('DISCOUNT');
+    expect(approvalKind('SAL_QUOTATION', 'SALES_MANAGER', 'Price 20% below the price list on 1 line (allowed: 10% below to 20% above)')).toBe('PRICE');
+  });
+
   it('names a sales order’s approval by what is asked, credit first', () => {
     expect(approvalKind('SAL_ORDER', 'SALES_MANAGER', 'Price 15.7% below the price list on 1 line (allowed: 10% below to 20% above)')).toBe('PRICE');
     expect(approvalKind('SAL_ORDER', 'SALES_MANAGER', 'Revision 3 changes prices (CH-DIN-01 price 89.00 → 85.00)')).toBe('REVISION');
