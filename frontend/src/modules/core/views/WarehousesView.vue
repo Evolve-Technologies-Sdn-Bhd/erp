@@ -119,7 +119,7 @@ function remove() {
       </table>
     </section>
 
-    <section v-if="selected" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section v-if="selected" data-tour="core:locations" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-center justify-between gap-2">
         <h2 class="m-0 text-[15px] font-bold">Locations in {{ selected.code }}</h2>
         <span class="inline-flex items-center gap-1.5 text-xs text-erp-muted"><Lock :size="12" aria-hidden="true" />Read only</span>

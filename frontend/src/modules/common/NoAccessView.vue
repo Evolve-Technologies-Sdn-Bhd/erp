@@ -36,7 +36,7 @@ const roles = computed(() => (user.value?.roles ?? []).map(roleLabel).join(', ')
     </div>
 
     <main class="flex grow items-center justify-center px-4 pb-16">
-      <section class="erp-card flex max-w-[480px] flex-col items-center gap-3 px-8 py-10 text-center" aria-labelledby="no-access-title">
+      <section data-tour="no-access" class="erp-card flex max-w-[480px] flex-col items-center gap-3 px-8 py-10 text-center" aria-labelledby="no-access-title">
         <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-erp-track text-erp-subtle">
           <Lock :size="22" aria-hidden="true" />
         </span>

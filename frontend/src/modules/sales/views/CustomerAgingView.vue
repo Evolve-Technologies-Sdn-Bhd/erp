@@ -72,7 +72,7 @@ function exportCsv() {
     <FilterSelect label="Aged by" :model-value="filters.basis || 'due'" :options="BASIS" @update:model-value="setFilter('basis', $event === 'due' ? '' : $event)" />
   </div>
 
-  <div class="grid grid-cols-4 gap-4 max-lg:not-print:grid-cols-2">
+  <div data-tour="report:kpis" class="grid grid-cols-4 gap-4 max-lg:not-print:grid-cols-2">
     <KpiCard label="Balance due" :value="report ? formatRm(report.kpis.due.amount) : '—'" :sub="report ? `${report.kpis.due.invoices} unpaid invoices` : ''" :loading="loading && !report" />
     <KpiCard
       label="Overdue"
@@ -91,7 +91,7 @@ function exportCsv() {
     <KpiCard label="Not yet due" :value="report ? formatRm(report.kpis.notDue.amount) : '—'" sub="Within their credit term" :loading="loading && !report" />
   </div>
 
-  <section v-if="report" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+  <section v-if="report" data-tour="report:by-customer" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
     <div class="flex items-baseline justify-between gap-3">
       <h2 class="m-0 text-[15px] font-bold">By customer</h2>
       <span class="text-xs text-erp-muted">{{ byDue ? 'Days overdue, from the due date' : 'Days since the invoice date' }}</span>

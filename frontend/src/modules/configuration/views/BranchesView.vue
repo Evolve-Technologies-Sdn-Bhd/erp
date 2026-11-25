@@ -137,7 +137,7 @@ const tenantName = computed(() => session.state.tenantName || 'the company')
 
   <div v-else class="grid grow items-start gap-4 grid-cols-[320px_minmax(0,1fr)]">
     <!-- Tree -->
-    <section class="erp-card flex flex-col gap-3 px-[18px] py-4">
+    <section data-tour="cfg:branch-tree" class="erp-card flex flex-col gap-3 px-[18px] py-4">
       <div class="flex items-center justify-between gap-3">
         <h2 class="m-0 text-[15px] font-bold">Branches</h2>
         <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="addBranch">

@@ -308,7 +308,7 @@ const statusLabel = computed(() => (isNew.value ? (form.isActive ? 'Active' : 'I
         </section>
 
         <!-- Prices -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="core:prices" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <div class="flex items-center justify-between">
             <h2 class="m-0 text-[15px] font-bold">Prices · {{ isNew ? form.prices.length : list?.priceCount }}</h2>
             <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" @click="addPrice"><Plus :size="14" aria-hidden="true" />Add price</button>

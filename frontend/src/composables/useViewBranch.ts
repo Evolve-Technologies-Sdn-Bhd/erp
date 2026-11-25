@@ -2,6 +2,9 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from './useSession'
 
+/** More branches than this are counted, not named. */
+const MANY = 4
+
 /**
  * Which of the person's branches a page shows. The top bar decides: one branch (sent with every request as
  * x-view-branch), or all of them. While it shows all, a list's Branch filter may narrow that one list with `?branch=`
@@ -28,8 +31,8 @@ export function useViewBranch() {
     const value = typeof raw === 'string' ? raw : ''
     return branches.value.some((b) => b.code === value) ? value : ''
   })
-  /** "Showing: JB Tiong Nam (HQ), Penang" or "Showing: Penang". */
-  const showing = computed(() => `Showing: ${code.value ? nameOf(code.value) : branches.value.map((b) => b.name).join(', ')}`)
+  /** "Showing: JB Tiong Nam (HQ), Penang" or "Showing: Penang"; with many branches "Showing: all 15 branches". */
+  const showing = computed(() => `Showing: ${code.value ? nameOf(code.value) : branches.value.length > MANY ? `all ${branches.value.length} branches` : branches.value.map((b) => b.name).join(', ')}`)
   /** Query to send with the page's requests (the top bar's branch already travels as a header). */
   const query = computed((): Record<string, string> => (!fromTopBar.value && code.value ? { branch: code.value } : {}))
 
