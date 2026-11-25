@@ -69,6 +69,9 @@ async function receive() {
       <Column header="Coming back" class="erp-col-num">
         <template #body="{ data }: { data: ReturnedPart }">{{ formatQty(data.qty) }} {{ data.uomCode }}</template>
       </Column>
+      <Column header="Why">
+        <template #body="{ data }: { data: ReturnedPart }">{{ data.reasonLabel }}</template>
+      </Column>
       <Column header="From">
         <template #body="{ data }: { data: ReturnedPart }">{{ data.personName ?? '—' }}<div class="text-xs text-erp-muted">{{ formatDate(data.createdAt.slice(0, 10)) }}</div></template>
       </Column>
@@ -76,6 +79,7 @@ async function receive() {
         <template #body="{ data }: { data: ReturnedPart }">
           <template v-if="data.receivedAt">
             <StatusChip status="RECEIVED" :label="data.receivedText ?? 'Received'" group="done" />
+            <div v-if="data.grnNo || data.location" class="text-xs font-semibold"><template v-if="data.grnNo">{{ data.grnNo }}</template><template v-if="data.grnNo && data.location"> · </template><template v-if="data.location">to {{ data.location }}</template></div>
             <div class="text-xs text-erp-muted">{{ data.receivedBy }}<template v-if="data.note"> · {{ data.note }}</template></div>
           </template>
           <button v-else-if="data.canReceive" type="button" class="erp-btn erp-btn-secondary" @click="open(data)">Receive</button>
@@ -87,7 +91,7 @@ async function receive() {
 
     <Dialog :visible="Boolean(part)" data-tour="svc:receive" modal :draggable="false" class="erp-dialog" :style="{ width: '440px' }" :header="`Receive ${part?.itemCode ?? ''} from ${part?.jobNo ?? ''}`" @update:visible="part = null">
       <div class="grid grid-cols-2 gap-3 text-[13px]">
-        <p class="col-span-2 m-0">{{ part ? formatQty(part.qty) : '' }} {{ part?.uomCode }} {{ part?.itemName }} said to come back.</p>
+        <p class="col-span-2 m-0">{{ part ? formatQty(part.qty) : '' }} {{ part?.uomCode }} {{ part?.itemName }} said to come back.<template v-if="part?.reason === 'EXCHANGE'"> It is the faulty unit of a one-to-one exchange: receiving it makes its goods receipt, to the warranty location.</template></p>
         <FormField label="Good" :error="errors.goodQty" for="rt-good"><input id="rt-good" v-model="form.goodQty" class="erp-input text-right" inputmode="decimal" /></FormField>
         <FormField label="Damaged" :error="errors.damagedQty" for="rt-damaged"><input id="rt-damaged" v-model="form.damagedQty" class="erp-input text-right" inputmode="decimal" /></FormField>
         <FormField label="Note (needed when something is missing)" :error="errors.note" class="col-span-2" for="rt-note"><input id="rt-note" v-model="form.note" class="erp-input" maxlength="300" /></FormField>

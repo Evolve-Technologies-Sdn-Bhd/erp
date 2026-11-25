@@ -6,6 +6,28 @@ import type { FieldError } from '../../platform/http/errors';
  * the store as good or damaged. Stock is not moved by the ERP: the WMS counts it when it is scanned. Pure functions.
  */
 
+export const RETURN_REASON_LABEL: Record<string, string> = { UNUSED: 'Not used', POSTPONED: 'Job postponed', EXCHANGE: 'One-to-one exchange' };
+
+/** The picked goods of a postponed job, each stock item once: all of it comes back to the store. */
+export function postponedGoods(items: { itemCode: string; qty: string }[], isStock: (itemCode: string) => boolean): ReturnLine[] {
+  const out = new Map<string, ReturnLine>();
+  for (const i of items.filter((x) => isStock(x.itemCode))) out.set(i.itemCode, { itemCode: i.itemCode, qty: dec(out.get(i.itemCode)?.qty ?? 0).add(dec(i.qty)).toString() });
+  return [...out.values()];
+}
+
+/** Where what was received goes besides the shelf: an exchanged unit and anything damaged, to the warranty technician. */
+export function returnLocation(r: { reason: string; damagedQty: string }, warrantyLocation: string): string | null {
+  return r.reason === 'EXCHANGE' || dec(r.damagedQty).gt(0) ? warrantyLocation : null;
+}
+
+/** Why a job cannot be a one-to-one exchange, or null: only a covered claim on a registered unit is. */
+export function exchangeRefusal(j: { docNo: string; jobType: string; stage: string; warrantyId: string | null; assessment: string | null; exchange: boolean }): string | null {
+  if (j.jobType !== 'WARRANTY' || !j.warrantyId) return `${j.docNo} is not a claim on a registered unit.`;
+  if (j.exchange) return `${j.docNo} is a one-to-one exchange already.`;
+  if (!['NOT_BOOKED', 'BOOKED'].includes(j.stage)) return `${j.docNo} is done already.`;
+  return j.assessment === 'COVERED' ? null : 'Only a claim decided as Covered is exchanged one-to-one.';
+}
+
 export interface ReturnLine {
   itemCode: string;
   qty: string;

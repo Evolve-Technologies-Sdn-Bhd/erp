@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
 import { ClockService } from '../../platform/clock/clock.service';
 import type { RequestContext } from '../../platform/context/request-context';
@@ -65,7 +65,7 @@ export class OpenOrdersQuery {
             const onHand = sum(stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === o.warehouseCode).map((s) => dec(s.onHand)));
             const cancel = cancelBy.get(l.id) ?? null;
             const waiting = waitingState({
-              isBuyToOrder: l.isBuyToOrder, isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK', balance: open, onHand,
+              isBuyToOrder: l.isBuyToOrder, isStock: isCountedStock(items.find((i) => i.code === l.itemCode)), balance: open, onHand,
               unpaidProformaNo: proforma?.proforma.docNo ?? null, purchaseReady: purchaseReady(l),
             });
             const reason = openReason({ orderStatus: o.status, openQty: open, cancellingQty: cancel?.qty ?? 0, waiting });

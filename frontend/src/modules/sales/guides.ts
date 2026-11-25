@@ -1,4 +1,4 @@
-import { account, addItem, admin, agent, approve, askApproval, CUSTOMER, CUSTOMERS, installDate, INVOICE, newOrder, NEW_ORDER, ORDER, ORDERS, pickCustomer, RECEIPT, RECEIPTS, recordPayment, release, saveDraft, toOrders, toReceipts, toSalesFlow, FLOW } from '@/tours/guide.sales'
+import { account, addItem, admin, agent, approve, askApproval, CUSTOMER, CUSTOMERS, deliveryOnly, installDate, INVOICE, newOrder, NEW_ORDER, ORDER, ORDERS, pickCustomer, RECEIPT, RECEIPTS, recordPayment, release, saveDraft, toOrders, toReceipts, toSalesFlow, FLOW } from '@/tours/guide.sales'
 import { be, openCore, openDoc, openFromHome, openModule, openPage, status } from '@/tours/guide.steps'
 import type { Guide, Tour, TourStep } from '@/tours/types'
 
@@ -43,6 +43,7 @@ const HOUSEHOLD_ORDER: Tour = {
       address: '8 Jalan Cempaka, Taman Megah, Petaling Jaya',
       postcode: '47810',
       state: 'Selangor',
+      voucher: 'a voucher that is running',
       voucherAmount: '50.00',
       voucherEffect: 'RM 50.00 and the tax on it',
     },
@@ -69,7 +70,7 @@ const HOUSEHOLD_ORDER: Tour = {
       page: { code: 'S34' },
       title: 'The Prices card',
       text: 'Look at this card.',
-      expect: '“Salespeople set prices within a range” is on or off: it decides journey C.',
+      expect: 'Whether prices come from the price list, vouchers from the voucher list (guide Q), or salespeople set prices within a range (guide C).',
     },
     {
       target: 'flow:installation',
@@ -185,6 +186,18 @@ const HOUSEHOLD_ORDER: Tour = {
     {
       target: 'so:voucher',
       page: NEW_ORDER,
+      when: ['sales:voucherControl'],
+      wait: { kind: 'appear', selector: '[data-tour="so:voucher"][data-filled="true"]' },
+      waiting: 'Waiting for you to pick a voucher.',
+      title: 'Pick the voucher',
+      text: 'Pick {voucher} from the list in the row.',
+      why: 'Sales Support keeps the list (guide Q). The amount is never typed.',
+      placement: 'top',
+    },
+    {
+      target: 'so:voucher',
+      page: NEW_ORDER,
+      when: ['sales:freeVouchers'],
       wait: { kind: 'use' },
       title: 'Type the voucher',
       text: 'Type these in the highlighted row, then Next.',
@@ -331,8 +344,8 @@ const PRICE_OUTSIDE: Tour = {
   module: 'sales',
   journey: true,
   pages: 'any',
-  // Its first step turns the range on and its last turns it off, so it is offered to a company that sells in the field.
-  requires: ['dev', 'sales:askInstallation'],
+  // Its first step turns the range on and its last turns it off, so it is offered to a company that sells in the field and lets its salespeople type prices.
+  requires: ['dev', 'sales:askInstallation', 'sales:freePrices'],
   minutes: 6,
   startAt: '/sales/orders',
   guide: {
@@ -524,7 +537,7 @@ const PAYMENTS: Tour = {
 const REVISIONS: Tour = {
   id: 'guide.field-sales.h',
   title: 'A change after submitting: order revisions',
-  summary: 'A released order is changed under the same number; a price change needs the Sales Manager.',
+  summary: 'A released order is changed under the same number; a lower price or a voucher needs the Sales Manager.',
   module: 'sales',
   journey: true,
   pages: 'any',
@@ -536,7 +549,7 @@ const REVISIONS: Tour = {
     letter: 'H',
     rows: 8,
     cast: 'Administrator, Sales agent, Sales manager',
-    values: { customer: 'a customer of yours', item: 'an item in stock', price: 'a little less than the price list' },
+    values: { customer: 'a customer of yours', item: 'an item in stock', price: 'a little less than the price list', voucher: 'a voucher that is running' },
   },
   steps: [
     { title: 'A change after submitting', text: 'Eight steps, as three people. The salesperson changes a released order twice.' },
@@ -595,14 +608,16 @@ const REVISIONS: Tour = {
       text: 'Type why, then click Start revision.',
       type: [{ field: 'Why', value: 'Small discount' }],
     },
-    { target: 'so:price', page: ORDER, wait: { kind: 'use' }, title: 'A lower price', text: 'Change the unit price, then Next.', type: [{ field: 'Unit price', value: '{price}' }] },
+    { target: 'action:add-voucher', page: ORDER, when: ['sales:fixedPrices'], wait: { kind: 'appear', selector: '[data-tour="so:voucher"]' }, title: 'A voucher', text: 'Click Add voucher.', why: 'Prices come from the price list, so a voucher is how something comes off.' },
+    { target: 'so:voucher', page: ORDER, when: ['sales:fixedPrices'], wait: { kind: 'appear', selector: '[data-tour="so:voucher"][data-filled="true"]' }, waiting: 'Waiting for the voucher.', title: 'Which voucher', text: 'Pick {voucher}.', placement: 'top' },
+    { target: 'so:price', page: ORDER, when: ['sales:freePrices'], wait: { kind: 'use' }, title: 'A lower price', text: 'Change the unit price, then Next.', type: [{ field: 'Unit price', value: '{price}' }] },
     saveDraft(ORDER),
-    { target: 'so:approval', page: ORDER, title: 'Revision needs approval', text: 'A price changed.', expect: '“Revision needs approval: a price changed”. There is no Release button.', placement: 'top' },
+    { target: 'so:approval', page: ORDER, title: 'Revision needs approval', text: 'It is worth less than before.', expect: '“Revision needs approval”, with what changed. There is no Release button.', placement: 'top' },
 
     ...askApproval('Agreed with the customer', { reason: 6 }),
     { target: 'page-header', page: ORDER, title: 'Waiting for the Sales Manager', text: 'The order is locked until someone decides.', expect: 'Pending approval.' },
 
-    ...approve('salesManager', 'order', 7, 'Which price changed, and why.'),
+    ...approve('salesManager', 'order', 7, 'What changed, and why.'),
 
     agent('hqAgent', { row: 8 }),
     ...toOrders(),
@@ -797,4 +812,81 @@ const INVOICE_PAID: Tour = {
   ],
 }
 
-export const SALES_GUIDES: Tour[] = [HOUSEHOLD_ORDER, PRICE_OUTSIDE, PAYMENTS, REVISIONS, PRE_ORDER, WHATSAPP, INVOICE_PAID]
+const VOUCHERS = { code: 'S37' }
+const support = (extra: Partial<TourStep> = {}) => be('SALES_SUPPORT', 'support', 'Sales Support person', extra)
+
+const VOUCHER_LIST: Tour = {
+  id: 'guide.field-sales.q',
+  title: 'Vouchers, and prices from the list',
+  summary: 'Sales Support adds a voucher; the salesperson picks it and cannot type a price.',
+  module: 'sales',
+  journey: true,
+  pages: 'any',
+  requires: ['dev', 'sales:askInstallation', 'sales:fixedPrices', 'sales:voucherControl'],
+  minutes: 5,
+  startAt: '/sales/orders',
+  guide: {
+    ...FIELD_SALES,
+    letter: 'Q',
+    rows: 5,
+    cast: 'Administrator, Sales Support, Sales agent',
+    values: { customer: 'a customer of yours', item: 'an item' },
+  },
+  steps: [
+    { title: 'Vouchers, and prices from the list', text: 'Five steps, as three people.' },
+
+    admin({ row: 1 }),
+    ...toSalesFlow(),
+    { target: 'flow:prices', page: FLOW, title: 'The Prices card', text: 'Look at this card.', expect: '“Prices come from the price list and cannot be typed” and “Vouchers come from the voucher list” are on.' },
+
+    support({ row: 2 }),
+    ...openPage('policies', 'Operation Policies', 'vouchers', 'Vouchers', VOUCHERS),
+    {
+      target: 'vc:form',
+      page: VOUCHERS,
+      wait: { kind: 'use' },
+      title: 'A voucher for one order',
+      text: 'Type these, then Next.',
+      type: [
+        { field: 'Voucher number', value: '{newVoucher}' },
+        { field: 'Name on the order', value: 'Cash voucher RM 50' },
+        { field: 'Amount off', value: '50.00' },
+        { field: 'Orders', value: '1' },
+      ],
+      placement: 'left',
+    },
+    { target: 'vc:save', page: VOUCHERS, wait: { kind: 'click' }, title: 'Add it', text: 'Click Add voucher.', placement: 'left' },
+    { target: 'list', page: VOUCHERS, title: 'It is running', text: 'Salespeople can pick it from now.', expect: '{newVoucher}, Running, 0 of 1 orders.', placement: 'top' },
+
+    agent('hqAgent', { row: 3 }),
+    ...toOrders(),
+    newOrder(),
+    pickCustomer(),
+    ...addItem(),
+    { target: 'so:price', page: NEW_ORDER, title: 'The price', text: 'Look at the price and the discount.', expect: 'The price list price, as plain text: neither can be typed.' },
+    { target: 'action:add-voucher', page: NEW_ORDER, wait: { kind: 'appear', selector: '[data-tour="so:voucher"]' }, title: 'A voucher', text: 'Click Add voucher.' },
+    {
+      target: 'so:voucher',
+      page: NEW_ORDER,
+      wait: { kind: 'appear', selector: '[data-tour="so:voucher"][data-filled="true"]' },
+      waiting: 'Waiting for you to pick a voucher.',
+      title: 'Pick it',
+      text: 'Pick {newVoucher} from the list in the row.',
+      expect: 'Its name and RM 50.00, filled in.',
+      placement: 'top',
+    },
+    { target: 'so:totals', page: NEW_ORDER, title: 'The total drops', text: 'Before tax, so the tax is less too.', expect: 'Vouchers −50.00.', placement: 'left' },
+
+    { ...deliveryOnly(), row: 4 },
+    saveDraft(NEW_ORDER),
+    release(),
+    { target: 'page-header', page: ORDER, remember: 'order', title: '{order} is released', text: 'No approval was needed: the price is the list price.', expect: 'Released.' },
+
+    support({ row: 5 }),
+    ...openPage('policies', 'Operation Policies', 'vouchers', 'Vouchers', VOUCHERS),
+    { target: 'status-tabs', page: VOUCHERS, pick: 'Ended or used up', wait: { kind: 'click' }, title: 'Where it went', text: 'Click Ended or used up.' },
+    { target: 'list', page: VOUCHERS, title: 'Used up', text: 'No other order can take it. Cancelling {order} would give it back.', expect: '1 of 1 orders, Used up.', placement: 'top' },
+  ],
+}
+
+export const SALES_GUIDES: Tour[] = [HOUSEHOLD_ORDER, PRICE_OUTSIDE, PAYMENTS, REVISIONS, PRE_ORDER, WHATSAPP, INVOICE_PAID, VOUCHER_LIST]

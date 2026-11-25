@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SalCancelOrder, SalCancelOrderLine, SalSalesOrder, SalSalesOrderLine } from '@prisma/client';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
-import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
 import type { RequestContext } from '../../platform/context/request-context';
@@ -135,7 +135,7 @@ export class CancelOrdersQuery {
           const proforma = unpaid.get(o.id) ?? null;
           const states = open.map(({ l, balance }) => {
             const onHand = sum(stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === o.warehouseCode).map((s) => dec(s.onHand)));
-            return { l, state: waitingState({ isBuyToOrder: l.isBuyToOrder, isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK', balance, onHand, unpaidProformaNo: proforma?.proforma.docNo ?? null }) };
+            return { l, state: waitingState({ isBuyToOrder: l.isBuyToOrder, isStock: isCountedStock(items.find((i) => i.code === l.itemCode)), balance, onHand, unpaidProformaNo: proforma?.proforma.docNo ?? null }) };
           });
           const first = states[0]!;
           const waitingFor =

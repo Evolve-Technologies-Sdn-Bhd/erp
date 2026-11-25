@@ -6,7 +6,7 @@ import { STOCK_PORT, type StockPort } from '../../integration/integration.ports'
 import { JobStockService } from '../stock/job-stock.service';
 import { notReady, shortText } from '../stock/stock.rules';
 import { unfinished } from '../returns/returns.rules';
-import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ClockService } from '../../platform/clock/clock.service';
 import type { RequestContext } from '../../platform/context/request-context';
@@ -66,7 +66,7 @@ export class StockCheckService implements OnApplicationShutdown {
         include: { items: true },
       });
       const due = booked.filter((j) => j.jobDate && j.slotStart !== null && (j.atRiskSince || dueForCheck({ jobDate: iso(j.jobDate), slotStart: j.slotStart }, now)));
-      const confirms = await this.jobStock.confirms(tenantId);
+      const { confirms, pickAndSign } = await this.jobStock.setting(tenantId);
       if (!due.length) return confirms ? { ...done, deliveries: [] } : done;
       const codes = [...new Set(due.flatMap((j) => j.items.map((i) => i.itemCode)))];
       const [items, stock] = await Promise.all([this.masterData.findItems(tenantId, codes), this.stock.listStock(tenantId, codes)]);
@@ -80,8 +80,8 @@ export class StockCheckService implements OnApplicationShutdown {
         const onHand = (code: string) => stock.filter((s) => s.itemCode === code && (!j.warehouseCode || s.warehouseCode === j.warehouseCode)).reduce((sum, s) => sum + Number(s.onHand), 0);
         const short = held
           ? notReady({ confirms, confirmed: Boolean(j.stockConfirmedAt), short: shortText(held.get(j.id) ?? []) })
-          : stockShort(j.items.map((i) => ({ itemCode: i.itemCode, qty: i.qty.toString(), onHand: String(onHand(i.itemCode)), isStock: items.find((x) => x.code === i.itemCode)?.type === 'STOCK' })));
-        if (confirms && (await this.prisma.$transaction((tx) => this.jobStock.askForDelivery(tx, ctx, j)))) asked.push(j.docNo);
+          : stockShort(j.items.map((i) => ({ itemCode: i.itemCode, qty: i.qty.toString(), onHand: String(onHand(i.itemCode)), isStock: isCountedStock(items.find((x) => x.code === i.itemCode)) })));
+        if (confirms && (await this.prisma.$transaction((tx) => this.jobStock.askForDelivery(tx, ctx, j, pickAndSign)))) asked.push(j.docNo);
         const when = `${shortDay(iso(j.jobDate!))} · ${slotLabel(j.slotStart!, j.slotEnd!)}`;
         if (short && !j.atRiskSince) {
           await this.prisma.$transaction(async (tx) => {

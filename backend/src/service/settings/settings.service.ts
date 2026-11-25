@@ -45,7 +45,7 @@ export class ServiceSettingsService {
     ]);
     return {
       /** Phase 5: the warehouse confirms a booked job's stock before its delivery order. Off by default. */
-      general: { warehouseConfirms: general?.warehouseConfirms ?? false },
+      general: { warehouseConfirms: general?.warehouseConfirms ?? false, pickAndSign: general?.pickAndSign ?? false, warrantyLocation: general?.warrantyLocation ?? 'WNTY' },
       people: people.map(personView),
       slotGroups: groups.map(slotGroupView),
       /** The roles, and the jobs a new person with that role starts with. Each person then keeps their own list. */
@@ -57,17 +57,29 @@ export class ServiceSettingsService {
   }
 
   async saveGeneral(ctx: RequestContext, dto: GeneralSettingsDto) {
-    const before = (await this.prisma.svcSetting.findUnique({ where: { tenantId: ctx.tenantId } }))?.warehouseConfirms ?? false;
-    if (before !== dto.warehouseConfirms) {
+    const now = await this.prisma.svcSetting.findUnique({ where: { tenantId: ctx.tenantId } });
+    const before = { warehouseConfirms: now?.warehouseConfirms ?? false, pickAndSign: now?.pickAndSign ?? false, warrantyLocation: now?.warrantyLocation ?? 'WNTY' };
+    // Picking and signing is the warehouse's confirmation, so it goes off with it.
+    const after = {
+      warehouseConfirms: dto.warehouseConfirms, pickAndSign: dto.warehouseConfirms && (dto.pickAndSign ?? before.pickAndSign),
+      warrantyLocation: (dto.warrantyLocation ?? before.warrantyLocation).toUpperCase(),
+    };
+    const word = (v: boolean) => (v ? 'On' : 'Off');
+    const changes = [
+      ...(before.warehouseConfirms !== after.warehouseConfirms ? [`The warehouse confirms stock before the delivery order: ${word(before.warehouseConfirms)} → ${word(after.warehouseConfirms)}`] : []),
+      ...(before.pickAndSign !== after.pickAndSign ? [`The warehouse picks and signs: ${word(before.pickAndSign)} → ${word(after.pickAndSign)}`] : []),
+      ...(before.warrantyLocation !== after.warrantyLocation ? [`Warranty location: ${before.warrantyLocation} → ${after.warrantyLocation}`] : []),
+    ];
+    if (changes.length) {
       await this.prisma.$transaction(async (tx) => {
         await tx.svcSetting.upsert({
           where: { tenantId: ctx.tenantId },
-          update: { warehouseConfirms: dto.warehouseConfirms, updatedBy: ctx.user.code },
-          create: { tenantId: ctx.tenantId, warehouseConfirms: dto.warehouseConfirms, updatedBy: ctx.user.code },
+          update: { ...after, updatedBy: ctx.user.code },
+          create: { tenantId: ctx.tenantId, ...after, updatedBy: ctx.user.code },
         });
         await this.activity.log(tx, ctx, {
           entityType: ENTITY.SETTING, entityId: ctx.tenantId, docNo: 'Service', action: 'saved',
-          message: `The warehouse confirms stock before the delivery order: ${before ? 'On' : 'Off'} → ${dto.warehouseConfirms ? 'On' : 'Off'}`, comment: null,
+          message: changes.join('; '), comment: null,
         });
       });
     }

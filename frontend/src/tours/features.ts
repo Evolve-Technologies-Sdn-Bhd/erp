@@ -34,6 +34,9 @@ export function meets(requirement: Requirement | string, forCompany = false): bo
   if (requirement === 'service' || requirement === 'wms') return (forCompany ? state.built : state.open).has(requirement)
   if (requirement.startsWith('sales:')) {
     loadSalesFlow()
+    // Prices and vouchers the salesperson types, the other way of fixedPrices and voucherControl.
+    if (requirement === 'sales:freePrices') return !salesFlow.value.fixedPrices
+    if (requirement === 'sales:freeVouchers') return !salesFlow.value.voucherControl
     return Boolean(salesFlow.value[requirement.slice('sales:'.length) as keyof SalesFlowSwitches])
   }
   return false

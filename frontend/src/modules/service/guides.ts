@@ -362,8 +362,8 @@ const CLAIMS_GUIDE: Tour = {
 const STOCK_AND_DELIVERY: Tour = {
   ...base,
   id: 'guide.field-sales.m',
-  title: 'Stock for jobs, and the delivery order 24 hours before',
-  summary: 'A booked job holds its stock; once the store confirms it, the delivery order makes itself.',
+  title: 'Stock for jobs, and the delivery order',
+  summary: 'A booked job holds its stock; once the store picks and signs (or confirms), the delivery order makes itself.',
   requires: ['dev', 'service', 'sales:holdStock', 'sales:autoDelivery'],
   minutes: 8,
   startAt: '/sales/orders',
@@ -372,7 +372,7 @@ const STOCK_AND_DELIVERY: Tour = {
     letter: 'M',
     rows: 6,
     cast: 'Sales agent, Administrator, Store',
-    values: { customer: 'a customer of yours', item: 'an item in stock', installer: 'an installer' },
+    values: { customer: 'a customer of yours', item: 'an item in stock', installer: 'an installer', part: 'a small part', signer: 'the name of whoever signs' },
   },
   steps: [
     { title: 'Stock for jobs', text: 'Six steps, as three people.' },
@@ -391,7 +391,7 @@ const STOCK_AND_DELIVERY: Tour = {
     ...serviceFrom('board', 'Planning Board', BOARD),
     { target: 'svc:not-booked', page: BOARD, pick: '{order}', wait: { kind: 'appear', selector: '[data-tour="svc:pick"]' }, title: 'Pick the job', text: 'Click the job of {order}.', placement: 'right' },
     { target: 'svc:day', page: BOARD, wait: { kind: 'use' }, title: 'Tomorrow', text: 'Click › until the day is {tomorrow}, then Next.' },
-    bookSlot({ why: 'In a slot less than 24 hours from now, its delivery order is made as soon as the store confirms. A later slot gets it at the hourly check, 24 hours before.' }),
+    bookSlot({ why: 'Where the warehouse picks and signs, its delivery order is made then. Where it only confirms: at once in a slot less than 24 hours from now, else at the hourly check 24 hours before.' }),
     { target: 'svc:unfinished', page: BOARD, optional: true, title: 'Unfinished', text: 'People with an old job not finished say so under their name.', expect: 'Unfinished, with the job’s number.', placement: 'right' },
 
     ...salesOrdersFrom().map((s, i) => (i === 0 ? { ...s, row: 3 } : s)),
@@ -414,16 +414,21 @@ const STOCK_AND_DELIVERY: Tour = {
     ...serviceFrom('stock', 'Stock for Jobs', STOCK),
     { target: 'svc:stock-day', page: STOCK, title: 'Tomorrow’s jobs', text: 'The store checks what each booked job needs.', expect: 'The job of {order}, with Needed, On hand, Held by earlier jobs and Free.', placement: 'top' },
 
-    { row: 5, target: 'svc:stock-day', page: STOCK, pick: '{order} > Confirm stock', wait: { kind: 'click' }, title: 'Confirm the stock', text: 'Click Confirm stock on the job of {order}.', placement: 'left' },
+    { row: 5, target: 'svc:stock-day', page: STOCK, pick: '{order}', title: 'Prepare the goods', text: 'This is the job of {order}. Pick list, top right, prints what to take.', placement: 'top' },
+    { target: 'svc:stock-day', page: STOCK, pick: '{order} > Add a part', optional: true, wait: { kind: 'appear', selector: '[data-tour="svc:part-dialog"]' }, title: 'A part or accessory', text: 'Click Add a part on the job of {order}.', placement: 'left' },
+    { target: 'svc:part-dialog', page: STOCK, optional: true, wait: { kind: 'gone', selector: '[data-tour="svc:part-dialog"]' }, waiting: 'Waiting for the part.', title: 'Which part', text: 'Type {part}, pick it, keep 1, then click Add the part.', type: [{ field: 'Part', value: '{part}' }], why: 'It goes with this job only: not on the order, the delivery order or the invoice.' },
+    { target: 'svc:stock-day', page: STOCK, pick: '{order} > Pick & sign', optional: true, wait: { kind: 'appear', selector: '[data-tour="svc:pick-sign"]' }, title: 'Pick and sign', text: 'Click Pick & sign on the job of {order}.', placement: 'left' },
+    { target: 'svc:pick-sign', page: STOCK, optional: true, wait: { kind: 'gone', selector: '[data-tour="svc:pick-sign"]' }, waiting: 'Waiting for the signature.', title: 'Who signed', text: 'Type who signed, then click Pick and sign.', type: [{ field: 'Signed by', value: '{signer}' }] },
+    { target: 'svc:stock-day', page: STOCK, pick: '{order} > Confirm stock', optional: true, wait: { kind: 'click' }, title: 'Confirm the stock', text: 'Click Confirm stock on the job of {order}.', placement: 'left' },
     ...toService('jobs', 'Jobs', JOBS),
     ...findJob('order'),
     {
       target: 'svc:stock',
       page: JOB,
       title: 'Its delivery order',
-      text: 'Made by itself a few seconds after the store confirmed.',
-      expect: 'Delivery order, with its number. Not there yet? Wait a few seconds and open the job again. In a slot more than 24 hours away it comes at the hourly check.',
-      why: 'A job not confirmed 24 hours before is At risk and gets no delivery order.',
+      text: 'Made by itself a few seconds after the store was done.',
+      expect: 'Who picked and signed (or confirmed), and Delivery order with its number. Not there yet? Wait a few seconds and open the job again.',
+      why: 'A job not ready 24 hours before is At risk and gets no delivery order.',
       placement: 'left',
     },
 
@@ -554,21 +559,21 @@ const WARRANTY: Tour = {
   ...base,
   id: 'guide.field-sales.p',
   title: 'Warranty',
-  summary: 'The unit registered by the visit, its serial number, and a claim decided and repaired.',
+  summary: 'The unit registered by the visit, its serial number, and a claim: a one-to-one exchange.',
   requires: ['dev', 'service'],
   minutes: 6,
   startAt: '/service/jobs',
   guide: {
     ...book,
     letter: 'P',
-    rows: 4,
-    cast: 'Administrator',
+    rows: 6,
+    cast: 'Administrator, Store',
     after: ['N'],
     from: { order: { guide: 'guide.field-sales.m', key: 'order' } },
     values: { order: 'the order from guide M', installer: 'the warranty person', part: 'a part' },
   },
   steps: [
-    { title: 'Warranty', text: 'Four steps, as the administrator. The visit of guide N registered the unit of {order}.' },
+    { title: 'Warranty', text: 'Six steps, as the administrator and the store. The visit of guide N registered the unit of {order}.' },
 
     admin({ row: 1 }),
     ...toService('warranties', 'Warranties', WARRANTIES),
@@ -585,14 +590,78 @@ const WARRANTY: Tour = {
     { target: 'svc:assess', page: JOB, wait: { kind: 'gone', selector: '[data-tour="svc:assess"]' }, waiting: 'Waiting for the decision.', title: 'Covered', text: 'Pick Covered, then click Save the decision.', why: 'Chargeable asks why and points to a sales order; Rejected asks why and cancels the job.' },
     { target: 'svc:warranty', page: JOB, title: 'Decided', text: 'It never blocks the booking.', expect: 'Covered, with your name.', placement: 'left' },
 
-    { row: 4, target: 'svc:book-link', page: JOB, wait: { kind: 'page', to: BOARD }, title: 'Book it', text: 'Click Book on the board.' },
+    { row: 4, target: 'action:exchange', page: JOB, wait: { kind: 'gone', selector: '[data-tour="action:exchange"]' }, waiting: 'Waiting for the exchange.', title: 'Exchange one-to-one', text: 'Click Exchange one-to-one, then Exchange in the question that opens.', why: 'Only a covered claim on a registered unit can be exchanged. Leave it, and the unit is repaired at the site instead.', placement: 'left' },
+    { target: 'svc:warranty', page: JOB, title: 'A new unit goes out', text: 'The warehouse sees it in Stock for Jobs on the day it is booked.', expect: 'One-to-one exchange: A new unit goes out.', placement: 'left' },
+
+    { row: 5, target: 'svc:book-link', page: JOB, wait: { kind: 'page', to: BOARD }, title: 'Book it', text: 'Click Book on the board.' },
     { target: 'svc:day', page: BOARD, wait: { kind: 'use' }, title: 'Tomorrow', text: 'Click › until the day is {tomorrow}, then Next.' },
     bookSlot(),
     { target: 'svc:people', page: BOARD, pick: '{job}', wait: { kind: 'page', to: JOB }, title: 'Open the job', text: 'Click {job} on the board.', placement: 'top' },
     addPhoto(),
     ...recordVisit('Complete is picked. Pick No charge, add {part} under Parts used, then click Save the visit.'),
     { target: 'svc:parts', page: JOB, title: 'Parts used', text: 'Recorded only: stock is not taken yet.', expect: 'The part you added.', placement: 'left' },
+    { target: 'svc:returns', page: JOB, title: 'The faulty unit comes back', text: 'The store is told.', expect: 'One-to-one exchange, not received yet.', placement: 'left' },
+
+    store({ row: 6 }),
+    ...toService('returns', 'Returned Parts', { path: '^/service/returns$' }),
+    { target: 'list', page: { path: '^/service/returns$' }, pick: '{job} > Receive', wait: { kind: 'appear', selector: '[data-tour="svc:receive"]' }, title: 'Receive the faulty unit', text: 'Click Receive on {job}.', placement: 'top' },
+    { target: 'svc:receive', page: { path: '^/service/returns$' }, wait: { kind: 'gone', selector: '[data-tour="svc:receive"]' }, waiting: 'Waiting for it to be received.', title: 'Damaged', text: 'Type 0 under Good and all of it under Damaged, then click Receive.' },
+    { target: 'list', page: { path: '^/service/returns$' }, title: 'Its goods receipt', text: 'For the warranty technician.', expect: 'A GRN-W number, to the warranty location.', placement: 'top' },
   ],
 }
 
-export const SERVICE_GUIDES: Tour[] = [JOB_APPEARS, PLANNING, VISIT, REMINDERS, CATEGORIES, CLAIMS_GUIDE, STOCK_AND_DELIVERY, SIGNED_DELIVERY, WARRANTY]
+const POSTPONED_GOODS: Tour = {
+  ...base,
+  id: 'guide.field-sales.r',
+  title: 'Postponed: the goods come back',
+  summary: 'A picked job is postponed; the store receives the goods and the delivery order waits again.',
+  requires: ['dev', 'service', 'sales:holdStock', 'sales:autoDelivery', 'sales:signedDelivery'],
+  minutes: 7,
+  startAt: '/sales/orders',
+  guide: {
+    ...book,
+    letter: 'R',
+    rows: 5,
+    cast: 'Sales agent, Administrator, Store',
+    values: { customer: 'a customer of yours', item: 'an item in stock', installer: 'an installer', signer: 'the name of whoever signs' },
+  },
+  steps: [
+    { title: 'Postponed: the goods come back', text: 'Five steps, as three people, for a company whose warehouse picks and signs.' },
+
+    agent('hqAgent', { row: 1 }),
+    ...toOrders(),
+    newOrder(),
+    pickCustomer(),
+    ...addItem(),
+    installDate('Keep Installation, pick tomorrow ({tomorrow}), then Next.'),
+    saveDraft(NEW_ORDER),
+    release(),
+    { target: 'page-header', page: ORDER, remember: 'order', title: '{order} is released', text: 'Its job waits to be booked.', expect: 'Released.' },
+
+    admin({ row: 2 }),
+    ...serviceFrom('board', 'Planning Board', BOARD),
+    { target: 'svc:not-booked', page: BOARD, pick: '{order}', wait: { kind: 'appear', selector: '[data-tour="svc:pick"]' }, title: 'Pick the job', text: 'Click the job of {order}.', placement: 'right' },
+    { target: 'svc:day', page: BOARD, wait: { kind: 'use' }, title: 'Tomorrow', text: 'Click › until the day is {tomorrow}, then Next.' },
+    bookSlot(),
+
+    store({ row: 3 }),
+    ...toService('stock', 'Stock for Jobs', STOCK),
+    { target: 'svc:stock-day', page: STOCK, pick: '{order} > Pick & sign', wait: { kind: 'appear', selector: '[data-tour="svc:pick-sign"]' }, title: 'Pick and sign', text: 'Click Pick & sign on the job of {order}.', placement: 'left' },
+    { target: 'svc:pick-sign', page: STOCK, wait: { kind: 'gone', selector: '[data-tour="svc:pick-sign"]' }, waiting: 'Waiting for the signature.', title: 'Who signed', text: 'Type who signed, then click Pick and sign.', type: [{ field: 'Signed by', value: '{signer}' }] },
+
+    admin({ row: 4 }),
+    ...toService('jobs', 'Jobs', JOBS),
+    ...findJob('order'),
+    { target: 'action:record-visit', page: JOB, remember: 'job', wait: { kind: 'appear', selector: '[data-tour="svc:record"]' }, title: 'The customer is not home', text: 'Click Record the visit.' },
+    { target: 'svc:record', page: JOB, wait: status('NOT_BOOKED'), waiting: 'Waiting for the visit to be saved.', title: 'Postponed', text: 'Pick Postponed, type why, then click Save the visit.', type: [{ field: 'Why', value: 'Nobody home' }] },
+    { target: 'svc:returns', page: JOB, title: 'Everything comes back', text: 'The store is told.', expect: 'Each item picked, Job postponed, not received yet.', placement: 'left' },
+
+    store({ row: 5 }),
+    ...toService('returns', 'Returned Parts', { path: '^/service/returns$' }),
+    { target: 'list', page: { path: '^/service/returns$' }, pick: '{job} > Receive', wait: { kind: 'appear', selector: '[data-tour="svc:receive"]' }, title: 'Receive it', text: 'Click Receive on {job}.', placement: 'top' },
+    { target: 'svc:receive', page: { path: '^/service/returns$' }, wait: { kind: 'gone', selector: '[data-tour="svc:receive"]' }, waiting: 'Waiting for it to be received.', title: 'Good or damaged', text: 'Keep it under Good, then click Receive.' },
+    { target: 'list', page: { path: '^/service/returns$' }, title: 'Back at the store', text: 'The job waits to be booked, then picked and signed again, on the same delivery order.', expect: '1 good. A delivery order that was collected is checked in by itself.', why: 'The stock in the warehouse system changes when the goods are scanned there.', placement: 'top' },
+  ],
+}
+
+export const SERVICE_GUIDES: Tour[] = [JOB_APPEARS, PLANNING, VISIT, REMINDERS, CATEGORIES, CLAIMS_GUIDE, STOCK_AND_DELIVERY, SIGNED_DELIVERY, WARRANTY, POSTPONED_GOODS]

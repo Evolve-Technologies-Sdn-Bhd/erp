@@ -12,7 +12,7 @@ import { ChevronLeft, Mail, Minus, Plus, Printer } from '@lucide/vue'
  * Chrome and Edge count for a document running over several pages.
  */
 const props = defineProps<{
-  module: 'sales' | 'purchase'
+  module: 'sales' | 'purchase' | 'service'
   backTo: string
   backLabel: string
   heading: string

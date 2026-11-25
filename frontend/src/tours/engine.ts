@@ -408,8 +408,15 @@ function loop(): void {
   if (!raf) raf = requestAnimationFrame(frame)
 }
 
+/** A step for a company that works another way (TourStep.when) is left out. */
+const leftOut = (step: TourStep | undefined) => Boolean(step?.when && !step.when.every((r) => meets(r, true)))
+
 function show(index: number): void {
   stopStep(true)
+  if (leftOut(run.tour!.steps[index])) {
+    if (!run.skipped.includes(index)) run.skipped.push(index)
+    return goTo(index + 1)
+  }
   run.index = index
   run.status = 'finding'
   startedAt = performance.now()
@@ -669,6 +676,7 @@ function previousHere(): number | null {
   const where = here()
   for (let j = run.index - 1; j >= 0; j--) {
     const s = run.tour!.steps[j]!
+    if (leftOut(s)) continue
     if (s.page && !pageMatches(s.page, where)) return null
     if (!s.target || findTarget(s.target)) return j
     if (!s.optional) return null

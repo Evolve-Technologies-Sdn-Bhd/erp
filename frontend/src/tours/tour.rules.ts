@@ -41,6 +41,10 @@ export const REQUIREMENTS = [
   'sales:askInstallation',
   'sales:agentsAddCustomers',
   'sales:priceRange',
+  'sales:fixedPrices',
+  'sales:freePrices',
+  'sales:voucherControl',
+  'sales:freeVouchers',
   'sales:useReceipts',
   'sales:reviseOrders',
   'sales:preOrders',
@@ -121,6 +125,7 @@ export function tourProblems(tour: Tour): string[] {
     if (!tour.guide && !step.handover && isInteractive(step) && step.target && isSensitiveTargetId(step.target)) {
       problems.push(`${where}: "${step.target}" changes records; a tour may only explain it or hand it over, never wait for it to be pressed`)
     }
+    for (const r of step.when ?? []) if (!(REQUIREMENTS as readonly string[]).includes(r)) problems.push(`${where}: needs "${r}", which no feature check knows`)
     if (step.pick && !step.target) problems.push(`${where}: pick only makes sense with a target`)
     if (step.optional && !step.target) problems.push(`${where}: optional only makes sense with a target`)
     if (step.go?.startsWith('@') && !remembered.has(step.go.slice(1))) problems.push(`${where}: "${step.go}" is not remembered before this step`)
@@ -241,6 +246,7 @@ export function fitsPart(person: Pick<Person, 'roles' | 'branchCodes'> | null | 
 export function peopleFor(people: readonly Person[], role: string, branch?: string): string {
   const names = people.filter((p) => fitsPart(p, role, branch)).map((p) => p.name)
   if (!names.length) return 'someone with that role'
+  if (names.length > 5) return `${names.slice(0, 3).join(', ')} or one of ${names.length - 3} others`
   return names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`
 }
 

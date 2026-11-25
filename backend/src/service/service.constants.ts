@@ -10,11 +10,14 @@ export const SVC_ENTITY = {
 export const SVC_DOC_TYPE = {
   JOB: 'SVC_JOB',
   CLAIM: 'SVC_CLAIM',
+  /** The goods receipt of a unit exchanged under warranty: GRN-W-0001. */
+  EXCHANGE_GRN: 'SVC_GRN',
 } as const;
 
 export const SVC_SEQUENCES = [
   { docType: SVC_DOC_TYPE.JOB, name: 'Service job', prefix: 'JB-', digits: 4 },
   { docType: SVC_DOC_TYPE.CLAIM, name: 'Installer claim', prefix: 'CL-', digits: 4 },
+  { docType: SVC_DOC_TYPE.EXCHANGE_GRN, name: 'Goods receipt of an exchanged unit', prefix: 'GRN-W-', digits: 4 },
 ] as const;
 
 /** Events the Service module publishes. No module listens yet; the phone app and Finance will. */
@@ -28,6 +31,8 @@ export const SVC_EVENT = {
   JOB_EXTENDED: 'service.job.extended',
   /** A booked job is within 24 hours and its stock is confirmed: Sales drafts its delivery order (phase 5). */
   JOB_DELIVERY_DUE: 'service.job.delivery_due',
+  /** The picked goods of a postponed job are all back at the store: Sales checks its delivery order in (phase 5). */
+  GOODS_BACK: 'service.job.goods_back',
   /** The store received a part an installer brought back (phase 5): good and damaged. Inventory later. */
   PARTS_RETURNED: 'service.parts.returned',
   /** A complete installation registered its units under warranty (phase 5). */

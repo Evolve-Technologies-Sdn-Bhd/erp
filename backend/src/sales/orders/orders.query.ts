@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SalOrderVoucher, SalSalesOrder, SalSalesOrderLine } from '@prisma/client';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
-import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ApprovalsService } from '../../platform/approvals/approvals.service';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
@@ -138,7 +138,7 @@ export class OrdersQuery {
       const held = await this.heldStock.held(tenantId, o.lines.map((l) => l.itemCode), o.id);
       const shortNow = stockShortfall(o.lines.map((l) => ({
         held: held(l.itemCode, o.warehouseCode),
-        itemCode: l.itemCode, qty: open(l), isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
+        itemCode: l.itemCode, qty: open(l), isStock: isCountedStock(items.find((i) => i.code === l.itemCode)) && !l.isBuyToOrder,
         onHand: sum(stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === o.warehouseCode).map((s) => dec(s.onHand))),
       })));
       const state = preOrderState({ isPreOrder: o.isPreOrder, status: o.status }, shortNow);
@@ -278,7 +278,7 @@ export class OrdersQuery {
     const held = await this.heldStock.held(ctx.tenantId, codes, order.id);
     const shortfall = stockShortfall(order.lines.map((l) => ({
       held: held(l.itemCode, order.warehouseCode),
-      itemCode: l.itemCode, qty: l.orderedQty, onHand: onHand(l.itemCode), isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
+      itemCode: l.itemCode, qty: l.orderedQty, onHand: onHand(l.itemCode), isStock: isCountedStock(items.find((i) => i.code === l.itemCode)) && !l.isBuyToOrder,
     })));
     const releaseNote = activity.find((a) => a.action === 'stock_warning')?.message ?? null;
     // Installation (phase 5): a draft is judged on stock now; a released order keeps what release decided.

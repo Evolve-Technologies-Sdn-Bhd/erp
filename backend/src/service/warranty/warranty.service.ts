@@ -104,6 +104,15 @@ export class WarrantyService {
     return r.count;
   }
 
+  /** A one-to-one exchange: the warranty goes on with the new unit, whose serial number is not known yet. */
+  async exchanged(tx: Tx, ctx: RequestContext, job: { docNo: string; warrantyId: string | null }): Promise<void> {
+    if (!job.warrantyId) return;
+    const w = await tx.svcWarranty.findFirst({ where: { tenantId: ctx.tenantId, id: job.warrantyId } });
+    if (!w) return;
+    await tx.svcWarranty.update({ where: { id: w.id }, data: { serialNo: null, version: { increment: 1 }, updatedBy: ctx.user.code } });
+    await this.log(tx, ctx, w, 'warranty_exchanged', `${w.itemCode} exchanged one-to-one on ${job.docNo}: the warranty goes on to ${iso(w.endOn)} with the new unit${w.serialNo ? `; type its serial number (was ${w.serialNo})` : ''}`, null);
+  }
+
   async update(ctx: RequestContext, id: string, dto: UpdateWarrantyDto) {
     const w = await this.find(ctx.tenantId, id);
     if (w.status === 'VOID') throw new BusinessRuleError('ACTION_NOT_ALLOWED', `The warranty of ${w.itemCode} is void.`);

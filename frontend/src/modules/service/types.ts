@@ -88,7 +88,7 @@ export interface JobDetail extends JobRow {
   salesOrderId: string | null
   cancelReason: string | null
   cancelledAt: string | null
-  items: { lineNo: number; itemCode: string; itemName: string; qty: string; uomCode: string; serialNo: string | null }[]
+  items: { lineNo: number; itemCode: string; itemName: string; qty: string; uomCode: string; serialNo: string | null; extra: boolean }[]
   activity: { id: string; action: string; message: string; comment: string | null; userName: string; at: string }[]
   booking: {
     personId: string | null
@@ -107,7 +107,7 @@ export interface JobDetail extends JobRow {
     runsInto: string[]
   } | null
   /** The stock the job needs, free once earlier jobs have theirs, and the warehouse's confirmation (phase 5). */
-  stock: { confirms: boolean; items: JobStockItem[]; confirmedAt: string | null; confirmedBy: string | null }
+  stock: { confirms: boolean; pickAndSign: boolean; items: JobStockItem[]; confirmedAt: string | null; confirmedBy: string | null; signedBy: string | null }
   /** The delivery order Sales made for the job (phase 5). */
   delivery: { id: string; docNo: string | null; delivered: boolean } | null
   /** Parts the installer said come back (phase 5). */
@@ -115,7 +115,7 @@ export interface JobDetail extends JobRow {
   /** Parts used on a service, warranty or repair job (phase 5). */
   parts: { itemCode: string; itemName: string; uomCode: string; qty: string }[]
   /** The warranty claim (phase 5); null on other jobs. */
-  warranty: { unit: Warranty | null; suggested: Assessment; assessment: Assessment | null; assessmentLabel: string | null; note: string | null; by: string | null; at: string | null; canAssess: boolean } | null
+  warranty: { unit: Warranty | null; suggested: Assessment; assessment: Assessment | null; assessmentLabel: string | null; note: string | null; by: string | null; at: string | null; canAssess: boolean; exchange: boolean; canExchange: boolean } | null
   doneAt: string | null
   doneNote: string | null
   closedAt: string | null
@@ -220,6 +220,8 @@ export interface JobStockItem {
   earlier: string
   free: string
   short: boolean
+  /** Off: no RFID tag, so nobody counts it and it is never short. */
+  counted: boolean
 }
 
 export type Assessment = 'COVERED' | 'CHARGEABLE' | 'REJECTED'
@@ -268,6 +270,12 @@ export interface ReturnedPart {
   receivedAt: string | null
   receivedBy: string | null
   receivedText: string | null
+  /** Not used, Job postponed, or One-to-one exchange. */
+  reason: 'UNUSED' | 'POSTPONED' | 'EXCHANGE'
+  reasonLabel: string
+  /** Where an exchanged unit or damaged goods went, like WNTY. */
+  location: string | null
+  grnNo: string | null
   createdAt: string
   version: number
   canReceive?: boolean
@@ -281,7 +289,12 @@ export interface StockJob {
   branchCode: string
   customerName: string
   salesOrderNo: string | null
+  personId: string | null
   personName: string | null
+  siteAddress: string | null
+  phone: string | null
+  /** A one-to-one exchange under warranty. */
+  exchange: boolean
   slotText: string
   warehouseCode: string | null
   items: JobStockItem[]
@@ -290,6 +303,10 @@ export interface StockJob {
   atRiskNote: string | null
   confirmedAt: string | null
   confirmedBy: string | null
+  pickSignedBy: string | null
+  /** Parts and accessories the warehouse added. */
+  extras: { id: string; itemCode: string; itemName: string; qty: string; uomCode: string }[]
+  canChangeParts: boolean
   deliveryId: string | null
   deliveryNo: string | null
   version: number
@@ -303,6 +320,10 @@ export interface StockDay {
   today: string
   /** The company's warehouse confirms stock (Slots and Stages). */
   on: boolean
+  /** The warehouse picks and signs: the delivery order is made then. */
+  pickAndSign: boolean
+  /** Today and the three days after. */
+  days: { date: string; text: string; jobs: number; toDo: number }[]
   stockConnected: boolean
   counts: { jobs: number; confirmed: number; short: number }
   jobs: StockJob[]
@@ -310,7 +331,7 @@ export interface StockDay {
 
 export interface ServiceSettings {
   /** Service's own switches (phase 5). */
-  general: { warehouseConfirms: boolean }
+  general: { warehouseConfirms: boolean; pickAndSign: boolean; warrantyLocation: string }
   people: Person[]
   slotGroups: SlotGroup[]
   /** The roles, and the jobs a new person with that role starts with. */

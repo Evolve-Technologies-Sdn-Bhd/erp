@@ -17,6 +17,8 @@ import type { BookJobDto, CancelJobDto, CreateJobDto, ExtendJobDto, RecordVisitD
 import { extendErrors, momentText, parseTime, runsInto, stickyOverdue, type JobTiming } from './timing.rules';
 import { visitErrors, visitText } from './visit.rules';
 import { ReturnsService } from '../returns/returns.service';
+import { exchangeRefusal } from '../returns/returns.rules';
+import { JobStockService } from '../stock/job-stock.service';
 import { WarrantyService } from '../warranty/warranty.service';
 import { ASSESSMENT_LABEL, assessErrors, claimRefusal, partErrors, WARRANTY_STATE_LABEL, type Assessment } from '../warranty/warranty.rules';
 import type { AssessJobDto, WarrantyJobDto } from '../warranty/warranty.dto';
@@ -34,7 +36,7 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 /** What taking a job off the board clears, the expected completion and its extension with it. */
 const FREE_SLOT = {
   personId: null, personName: null, jobDate: null, slotStart: null, slotEnd: null, slotGroupCode: null, bookedAt: null, expectedEnd: null, extendReason: null,
-  atRiskSince: null, atRiskNote: null, stockConfirmedAt: null, stockConfirmedBy: null,
+  atRiskSince: null, atRiskNote: null, stockConfirmedAt: null, stockConfirmedBy: null, pickSignedBy: null,
 } as const;
 /** A job's timing, for the rules in timing.rules.ts. */
 const timing = (j: { stage: string; jobDate: Date | null; slotEnd: number | null; expectedEnd: number | null; overdueSince: Date | null }): JobTiming => ({
@@ -60,6 +62,7 @@ export class JobsService {
     private readonly notifications: NotificationsService,
     private readonly returns: ReturnsService,
     private readonly warranties: WarrantyService,
+    private readonly jobStock: JobStockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -203,7 +206,7 @@ export class JobsService {
         stage: 'BOOKED', personId: person.id, personName: person.name, jobDate: day(dto.date), slotStart: dto.start, slotEnd: end,
         slotGroupCode: group.code, bookedAt: this.clock.now(), expectedEnd: end, extendReason: null, overdueSince,
         // Another day: the warehouse confirms the stock again, unless the delivery order is already made.
-        ...(moving && isoDay(job.jobDate!) !== dto.date && !job.deliveryNo && { stockConfirmedAt: null, stockConfirmedBy: null }),
+        ...(moving && isoDay(job.jobDate!) !== dto.date && !job.deliveryNo && { stockConfirmedAt: null, stockConfirmedBy: null, pickSignedBy: null }),
       }, ['NOT_BOOKED', 'BOOKED']);
       await this.log(tx, ctx, job.id, job.docNo, moving ? 'moved' : 'booked', `${moving ? 'Moved to' : 'Booked for'} ${person.name}, ${shortDay(dto.date)}, ${slotLabel(dto.start, end)}`);
       // A rescheduled installation (phase 5): the salesperson hears of it, to tell the customer.
@@ -302,6 +305,11 @@ export class JobsService {
     // Service reminders (F6): a complete visit starts one for each item with a service interval in Core.
     const items = dto.result === 'COMPLETE' && job.items.length ? await this.masterData.findItems(ctx.tenantId, [...new Set(job.items.map((i) => i.itemCode))]) : [];
     const intervals = new Map(items.map((i) => [i.code, i.serviceIntervalMonths]));
+    // Parts the warehouse added are not what the customer bought: no warranty, no reminder.
+    const bought = { ...job, items: job.items.filter((i) => !i.extra) };
+    const { pickAndSign } = await this.jobStock.setting(ctx.tenantId);
+    // Where the warehouse picks and signs, the goods of a postponed job come back to be received.
+    const picked = dto.result === 'POSTPONED' && pickAndSign && job.stockConfirmedAt ? await this.masterData.findItems(ctx.tenantId, [...new Set(job.items.map((i) => i.itemCode))]) : null;
 
     await this.prisma.$transaction(async (tx) => {
       if (dto.result === 'POSTPONED') {
@@ -313,6 +321,13 @@ export class JobsService {
         await this.publishUnbooked(tx, ctx, job, `Postponed${reason ? `: ${reason}` : ''}`);
         await this.alert(tx, ctx, job, 'service.job.postponed', `${job.docNo} postponed`,
           `${job.customerName}${job.salesOrderNo ? ` (${job.salesOrderNo})` : ''}: ${reason ?? 'postponed at the visit'}. It waits to be booked again${dto.nextDate ? `; the customer asks for ${shortDay(dto.nextDate)}` : ''}.`);
+        if (picked) {
+          const back = await this.returns.addPostponed(tx, ctx, job, picked, job.postponedCount + 1);
+          if (back) {
+            await this.log(tx, ctx, job.id, job.docNo, 'returns_listed', `Goods coming back to the store: ${back}`);
+            await this.warehouseAlert(tx, ctx, job, `${job.docNo} postponed: goods coming back`, `${job.personName} brings back ${back}. Receive it in Returned Parts.`);
+          }
+        }
         return;
       }
       await this.bump(tx, ctx, job.id, dto.version, {
@@ -324,7 +339,17 @@ export class JobsService {
       }, 'BOOKED');
       await this.log(tx, ctx, job.id, job.docNo, 'done', `${text} · ${photos} photo${photos === 1 ? '' : 's'}, recorded by ${by}${overdueSince ? ` · late: overdue since ${momentText(overdueSince)}` : ''}`, dto.note?.trim() || reason);
       const returned = await this.returns.add(tx, ctx, job, back);
-      if (returned) await this.log(tx, ctx, job.id, job.docNo, 'returns_listed', `Parts coming back to the store: ${returned}`);
+      if (returned) {
+        await this.log(tx, ctx, job.id, job.docNo, 'returns_listed', `Parts coming back to the store: ${returned}`);
+        if (pickAndSign) await this.warehouseAlert(tx, ctx, job, `${job.docNo}: parts coming back`, `${job.personName} brings back ${returned} (${text}). Receive it in Returned Parts.`);
+      }
+      // A one-to-one exchange: the faulty unit comes back, and its warranty goes on with the new one.
+      if (dto.result === 'COMPLETE' && job.exchange) {
+        const faulty = await this.returns.addExchange(tx, ctx, bought);
+        await this.warranties.exchanged(tx, ctx, job);
+        await this.log(tx, ctx, job.id, job.docNo, 'exchanged', `Exchanged one-to-one; the faulty unit comes back: ${faulty}`);
+        await this.warehouseAlert(tx, ctx, job, `${job.docNo}: exchanged unit coming back`, `${job.personName} brings back ${faulty} for the warranty technician. Receive it in Returned Parts.`);
+      }
       if (used.length) {
         await tx.svcJobPart.createMany({
           data: used.map((u, i) => {
@@ -336,10 +361,10 @@ export class JobsService {
       }
       // The warranty register (phase 5): a complete installation registers its units from the visit day.
       if (dto.result === 'COMPLETE' && job.jobType === 'INSTALLATION') {
-        const registered = await this.warranties.register(tx, ctx, job, job.jobDate ? isoDay(job.jobDate) : this.clock.today(), new Map(items.map((i) => [i.code, i.warrantyMonths])));
+        const registered = await this.warranties.register(tx, ctx, bought, job.jobDate ? isoDay(job.jobDate) : this.clock.today(), new Map(items.map((i) => [i.code, i.warrantyMonths])));
         if (registered) await this.log(tx, ctx, job.id, job.docNo, 'warranty_registered', `Warranty registered: ${registered}`);
       }
-      if (dto.result === 'COMPLETE') await this.startReminders(tx, ctx, job, intervals);
+      if (dto.result === 'COMPLETE') await this.startReminders(tx, ctx, bought, intervals);
       await this.outbox.publish(tx, ctx, [{
         name: SVC_EVENT.JOB_DONE, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
         payload: {
@@ -363,7 +388,7 @@ export class JobsService {
         contactName: job.contactName, phone: job.phone, siteAddress: job.siteAddress, postcode: job.postcode, state: job.state, area: job.area, source: 'MANUAL',
         salesOrderId: undefined, salesOrderNo: job.salesOrderNo ?? undefined, preferredDate: null,
         note: `Follow-up of ${job.docNo}: ${job.resultReason ?? 'finish the work'}`, followUpOfId: job.id, followUpOfNo: job.docNo, siteType: job.siteType,
-      }, job.items.map((i) => ({ itemCode: i.itemCode, itemName: i.itemName, qty: i.qty.toString(), uomCode: i.uomCode })), `Follow-up of ${job.docNo}, added by ${ctx.user.name}`);
+      }, job.items.filter((i) => !i.extra).map((i) => ({ itemCode: i.itemCode, itemName: i.itemName, qty: i.qty.toString(), uomCode: i.uomCode })), `Follow-up of ${job.docNo}, added by ${ctx.user.name}`);
       await this.log(tx, ctx, job.id, job.docNo, 'follow_up', `Follow-up job ${next.docNo} added by ${ctx.user.name}`);
       return next;
     });
@@ -415,10 +440,23 @@ export class JobsService {
     const rejected = result === 'REJECTED';
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, job.id, dto.version, {
+        ...(result !== 'COVERED' && { exchange: false }),
         assessment: result, assessNote: note, assessedBy: ctx.user.name, assessedAt: this.clock.now(),
         ...(rejected && { stage: 'CANCELLED', cancelReason: `Warranty claim rejected: ${note}`.slice(0, 300), cancelledAt: this.clock.now(), ...FREE_SLOT }),
       }, ['NOT_BOOKED', 'BOOKED']);
       await this.log(tx, ctx, job.id, job.docNo, 'assessed', `${ASSESSMENT_LABEL[result]}, decided by ${ctx.user.name}${rejected ? '; the job is cancelled' : result === 'CHARGEABLE' ? '; a sales order is needed' : ''}`, note);
+    });
+    return this.query.detail(ctx, id);
+  }
+
+  /** A covered claim becomes a one-to-one exchange: the unit is taken from the stock, and the faulty one comes back. */
+  async exchange(ctx: RequestContext, id: string, dto: VersionDto) {
+    const job = await this.query.load(ctx.tenantId, id);
+    const refusal = exchangeRefusal(job);
+    if (refusal) throw new BusinessRuleError('ACTION_NOT_ALLOWED', refusal);
+    await this.prisma.$transaction(async (tx) => {
+      await this.bump(tx, ctx, job.id, dto.version, { exchange: true }, ['NOT_BOOKED', 'BOOKED']);
+      await this.log(tx, ctx, job.id, job.docNo, 'exchange', `One-to-one exchange, decided by ${ctx.user.name}: a new unit goes out and the faulty one comes back`);
     });
     return this.query.detail(ctx, id);
   }
@@ -441,7 +479,7 @@ export class JobsService {
         agentCode: order.agentCode ?? job.agentCode, agentName: order.agentName ?? job.agentName, warehouseCode: order.warehouseCode ?? job.warehouseCode,
         ...(waiting && { preferredDate: order.preferredDate ? day(order.preferredDate) : null, afterStock: order.afterStock }),
         items: {
-          deleteMany: {},
+          deleteMany: { extra: false }, // parts the warehouse added stay
           create: order.lines.map((l, i) => ({
             tenantId: ctx.tenantId, lineNo: i + 1, itemCode: l.itemCode, itemName: items.find((x) => x.code === l.itemCode)?.name ?? l.itemCode, qty: dec(l.qty), uomCode: l.uomCode,
           })),
@@ -478,6 +516,12 @@ export class JobsService {
    * An alert about a job (phase 5): to the people who book jobs at its branch (the Sales Admin), opening the job, and
    * to the salesperson of its order, opening the order. The person who acted is left out.
    */
+  private async warehouseAlert(tx: Tx, ctx: RequestContext, job: { id: string; branchCode: string }, title: string, body: string) {
+    await this.notifications.send(tx, ctx, {
+      to: await this.notifications.whoCan(ctx.tenantId, P.STOCK_CONFIRM, job.branchCode), kind: 'service.returns.expected', link: '/service/returns?status=expected', title, body, entityType: SVC_ENTITY.JOB, entityId: job.id,
+    });
+  }
+
   async alert(tx: Tx, ctx: RequestContext, job: { id: string; branchCode: string; agentCode: string | null; salesOrderId: string | null }, kind: string, title: string, body: string) {
     const office = await this.notifications.whoCan(ctx.tenantId, P.JOB_BOOK, job.branchCode);
     await this.notifications.send(tx, ctx, { to: office, kind, title, body, link: `/service/jobs/${job.id}`, entityType: SVC_ENTITY.JOB, entityId: job.id });

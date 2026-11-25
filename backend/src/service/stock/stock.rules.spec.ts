@@ -1,4 +1,4 @@
-import { deliveryDue, goesFirst, itemStock, notReady, shortText, type BookedJob } from './stock.rules';
+import { deliveryDue, goesFirst, goodsOf, itemStock, notReady, partRefusal, shortText, signedByError, type BookedJob } from './stock.rules';
 
 const job = (docNo: string, jobDate: string, slotStart: number, qty: string, warehouseCode = 'HQ-MAIN'): BookedJob => ({
   id: docNo, docNo, jobDate, slotStart, warehouseCode, items: [{ itemCode: 'TB-DIN-06', itemName: 'Dining table', qty, uomCode: 'PCS' }],
@@ -46,5 +46,28 @@ describe('stock of booked jobs', () => {
     expect(deliveryDue({ ...due, confirmed: false })).toBe(false);
     expect(deliveryDue({ ...due, salesOrderId: null })).toBe(false);
     expect(deliveryDue({ ...due, deliveryNo: 'DO-0001' })).toBe(false);
+  });
+
+  it('never calls an item without a tag short, because nobody counts it', () => {
+    const rows = itemStock(job('JB-0001', '2026-10-01', 600, '3'), [], stock('0'), all, () => false);
+    expect(rows).toMatchObject([{ needed: '3', free: '0', short: false, counted: false }]);
+    expect(shortText(rows)).toBeNull();
+    expect(itemStock(job('JB-0001', '2026-10-01', 600, '3'), [], stock('0'), all)).toMatchObject([{ short: true, counted: true }]);
+  });
+
+  it('takes the unit of a claim only as an exchange, and the parts the warehouse added always', () => {
+    const items = [{ code: 'TB-DIN-06', extra: false }, { code: 'SCREW', extra: true }];
+    expect(goodsOf({ jobType: 'INSTALLATION', exchange: false, items })).toHaveLength(2);
+    expect(goodsOf({ jobType: 'WARRANTY', exchange: false, items })).toEqual([items[1]]);
+    expect(goodsOf({ jobType: 'WARRANTY', exchange: true, items })).toHaveLength(2);
+  });
+
+  it('needs who signed, and changes parts only before that', () => {
+    expect(signedByError(' ')).toBe('Type who picked and signed.');
+    expect(signedByError('Faris')).toBeNull();
+    const j = { docNo: 'JB-0001', stage: 'BOOKED', confirmed: false };
+    expect(partRefusal(j)).toBeNull();
+    expect(partRefusal({ ...j, stage: 'DONE' })).toBe('JB-0001 is not booked.');
+    expect(partRefusal({ ...j, confirmed: true })).toContain('picked already');
   });
 });

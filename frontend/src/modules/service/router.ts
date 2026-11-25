@@ -39,6 +39,12 @@ export const serviceRoutes: RouteRecordRaw[] = [
     meta: { code: 'V09', title: 'Stock for Jobs', module: 'service', layout: 'module', menuGroup: 'planning', menuItem: 'stock' },
   },
   {
+    path: '/service/stock/print',
+    name: 'service-pick-list',
+    component: () => import('./views/PickListPrintView.vue'),
+    meta: { code: 'V12', title: 'Pick list', module: 'service', layout: 'bare', menuGroup: 'planning', menuItem: 'stock', parent: { title: 'Stock for Jobs', to: '/service/stock' } },
+  },
+  {
     path: '/service/returns',
     name: 'service-returns',
     component: () => import('./views/ReturnsView.vue'),

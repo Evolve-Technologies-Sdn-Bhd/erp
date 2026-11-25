@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SvcJob, SvcJobItem, SvcJobStage } from '@prisma/client';
 import { JobStockService } from '../stock/job-stock.service';
+import { exchangeRefusal } from '../returns/returns.rules';
 import { returnView } from '../returns/returns.service';
 import { WarrantyService } from '../warranty/warranty.service';
 import { ASSESSMENT_LABEL, suggestedAssessment, type Assessment } from '../warranty/warranty.rules';
@@ -116,6 +117,7 @@ export class JobsQuery {
     ]);
     const end = booked ? busyEnd({ slotEnd: job.slotEnd!, expectedEnd: job.expectedEnd }) : null;
     const branches = await this.masterData.listBranches(ctx.tenantId);
+    const stockSetting = await this.jobStock.setting(ctx.tenantId);
     return {
       ...this.row(job, this.now()),
       branch: { code: job.branchCode, name: branches.find((b) => b.code === job.branchCode)?.name ?? job.branchCode },
@@ -137,7 +139,7 @@ export class JobsQuery {
       salesOrderId: job.salesOrderId,
       cancelReason: job.cancelReason,
       cancelledAt: job.cancelledAt?.toISOString() ?? null,
-      items: job.items.map((i) => ({ lineNo: i.lineNo, itemCode: i.itemCode, itemName: i.itemName, qty: toQty(i.qty), uomCode: i.uomCode, serialNo: i.serialNo })),
+      items: job.items.map((i) => ({ lineNo: i.lineNo, itemCode: i.itemCode, itemName: i.itemName, qty: toQty(i.qty), uomCode: i.uomCode, serialNo: i.serialNo, extra: i.extra })),
       activity,
       version: job.version,
       booking: job.jobDate && job.slotStart !== null && job.slotEnd !== null
@@ -158,7 +160,9 @@ export class JobsQuery {
         : null,
       /** The warehouse's check and the delivery order (phase 5). `confirms` false: the company does not use it. */
       stock: {
-        confirms: await this.jobStock.confirms(ctx.tenantId),
+        confirms: stockSetting.confirms,
+        pickAndSign: stockSetting.pickAndSign,
+        signedBy: job.pickSignedBy,
         items: booked ? ((await this.jobStock.stockOf(ctx.tenantId, [job])).get(job.id) ?? []) : [],
         confirmedAt: job.stockConfirmedAt?.toISOString() ?? null,
         confirmedBy: job.stockConfirmedBy,
@@ -171,6 +175,7 @@ export class JobsQuery {
             return {
               unit, suggested: unit ? suggestedAssessment(unit.state) : ('CHARGEABLE' as const), assessment: job.assessment, assessmentLabel: job.assessment ? ASSESSMENT_LABEL[job.assessment as Assessment] : null,
               note: job.assessNote, by: job.assessedBy, at: job.assessedAt?.toISOString() ?? null,
+              exchange: job.exchange, canExchange: this.permissions.has(ctx.user.roles, P.JOB_EDIT) && !exchangeRefusal(job),
               canAssess: this.permissions.has(ctx.user.roles, P.JOB_EDIT) && (job.stage === 'NOT_BOOKED' || job.stage === 'BOOKED'),
             };
           })()

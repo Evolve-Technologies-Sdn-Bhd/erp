@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, SalDelivery, SalDeliveryLine, SalSalesOrder, SalSalesOrderLine } from '@prisma/client';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
-import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ApprovalsService } from '../../platform/approvals/approvals.service';
 import { AttachmentsService } from '../../platform/attachments/attachments.service';
@@ -170,7 +170,7 @@ export class DeliveriesQuery {
             purchaseOrderNo: l.purchaseOrderNo,
             purchase: buyToOrderStatus(l),
             state: waitingState({
-              isBuyToOrder: l.isBuyToOrder, isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK', balance, onHand,
+              isBuyToOrder: l.isBuyToOrder, isStock: isCountedStock(items.find((i) => i.code === l.itemCode)), balance, onHand,
               unpaidProformaNo: proforma?.docNo ?? null, purchaseReady: purchaseReady(l),
             }),
             proforma,

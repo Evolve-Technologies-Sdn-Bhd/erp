@@ -10,9 +10,11 @@ export const serviceApi = {
   home: () => api<ServiceHome>('/service/home'),
   customers: (q: string) => api<{ items: ServiceCustomerOption[] }>('/service/lookups/customers', { query: { q } }),
   items: (q: string) => api<{ items: { code: string; name: string; uomCode: string }[] }>('/service/lookups/items', { query: { q } }),
+  /** Any active stock item, also one not for sale: the parts the warehouse adds. */
+  stockItems: (q: string) => api<{ items: { code: string; name: string; uomCode: string }[] }>('/service/lookups/items', { query: { q, stock: '1' } }),
   board: (date?: string) => api<Board>('/service/board', { query: { date } }),
   settings: () => api<ServiceSettings>('/service/settings'),
-  saveGeneral: (body: ServiceSettings['general']) => api<ServiceSettings>('/service/settings/general', { method: 'PUT', body }),
+  saveGeneral: (body: { warehouseConfirms: boolean; pickAndSign?: boolean; warrantyLocation?: string }) => api<ServiceSettings>('/service/settings/general', { method: 'PUT', body }),
   addPerson: (body: PersonInput) => api<ServiceSettings>('/service/settings/people', { method: 'POST', body }),
   updatePerson: (id: string, body: PersonInput & { isActive: boolean; version: number }) => api<ServiceSettings>(`/service/settings/people/${id}`, { method: 'PATCH', body }),
   addSlotGroup: (body: SlotGroupInput) => api<ServiceSettings>('/service/settings/slot-groups', { method: 'POST', body }),
@@ -64,13 +66,16 @@ export const serviceJobsApi = {
     return api<JobPhoto>('/attachments', { method: 'POST', body: form })
   },
   assess: (id: string, body: { version: number; result: Assessment; note?: string }) => api<JobDetail>(`/service/jobs/${id}/assess`, { method: 'POST', body }),
+  exchange: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/exchange`, { method: 'POST', body: { version } }),
   close: (id: string, version: number) => api<JobDetail>(`/service/jobs/${id}/close`, { method: 'POST', body: { version } }),
 }
 
 /** Stock for Jobs (phase 5) — /api/v1/service/stock. */
 export const serviceStockApi = {
   day: (date?: string) => api<StockDay>('/service/stock', { query: { date } }),
-  confirm: (id: string, version: number) => api<StockDay>(`/service/stock/${id}/confirm`, { method: 'POST', body: { version } }),
+  confirm: (id: string, version: number, signedBy?: string) => api<StockDay>(`/service/stock/${id}/confirm`, { method: 'POST', body: { version, signedBy } }),
+  addPart: (id: string, body: { version: number; itemCode: string; qty: string }) => api<StockDay>(`/service/stock/${id}/parts`, { method: 'POST', body }),
+  removePart: (id: string, itemId: string, version: number) => api<StockDay>(`/service/stock/${id}/parts/${itemId}`, { method: 'DELETE', query: { version } }),
   undo: (id: string, version: number) => api<StockDay>(`/service/stock/${id}/undo`, { method: 'POST', body: { version } }),
 }
 

@@ -21,7 +21,7 @@ describe('sales flow rules (S34)', () => {
       'Cancel an order with no receipt and no delivery after a number of days: Off → On',
       'Share the sales order with the customer on WhatsApp: Off → On',
       'Hold stock for booked installations: Off → On',
-      'Make the delivery order 24 hours before the installation: Off → On',
+      'Make the delivery order for the installation: Off → On',
       'The customer signs the delivery order: Off → On',
       'Draft the invoice when the installation is delivered: Off → On',
       'Verified receipts pay the invoices of their order: Off → On',

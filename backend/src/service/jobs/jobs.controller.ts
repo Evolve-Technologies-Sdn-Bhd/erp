@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { CurrentContext, RequirePermission } from '../../platform/context/context.decorators';
 import type { RequestContext } from '../../platform/context/request-context';
@@ -18,6 +18,11 @@ class SearchQuery {
   @IsString()
   @MaxLength(100)
   q?: string;
+
+  /** 1: every active stock item, also one that is not for sale: the parts the warehouse adds. */
+  @IsOptional()
+  @IsIn(['1'])
+  stock?: string;
 }
 
 /** V03 · Jobs and V04 · Job — /api/v1/service/jobs. */
@@ -108,6 +113,13 @@ export class ServiceJobsController {
     return this.service.assess(ctx, id, dto);
   }
 
+  /** A covered claim as a one-to-one exchange (phase 5). */
+  @Post(':id/exchange')
+  @RequirePermission(P.JOB_EDIT)
+  exchange(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
+    return this.service.exchange(ctx, id, dto);
+  }
+
   @Post(':id/close')
   @RequirePermission(P.JOB_BOOK)
   close(@CurrentContext() ctx: RequestContext, @Param('id', ParseUUIDPipe) id: string, @Body() dto: VersionDto) {
@@ -143,8 +155,9 @@ export class ServiceHomeController {
   @Get('lookups/items')
   @RequirePermission(P.VIEW)
   async items(@CurrentContext() ctx: RequestContext, @Query() query: SearchQuery) {
-    const rows = await this.masterData.searchSellableItems(ctx.tenantId, { q: query.q, limit: 20 });
-    return { items: rows.map((i) => ({ code: i.code, name: i.name, uomCode: i.uomCode })) };
+    const stock = query.stock === '1';
+    const rows = await this.masterData.searchSellableItems(ctx.tenantId, { q: query.q, limit: 20, sellableOnly: !stock });
+    return { items: rows.filter((i) => !stock || i.type === 'STOCK').map((i) => ({ code: i.code, name: i.name, uomCode: i.uomCode })) };
   }
 
   @Get('lookups/customers')

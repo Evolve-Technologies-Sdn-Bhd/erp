@@ -38,6 +38,7 @@ export const ITEM_LABELS: Record<string, string> = {
   standardCost: 'Standard cost',
   serviceIntervalMonths: 'Service every (months)',
   warrantyMonths: 'Warranty (months)',
+  hasTag: 'Has an RFID tag',
   conversions: 'Conversions',
 };
 
@@ -151,6 +152,7 @@ export interface ItemRecord {
   standardCost: DecimalInput | null;
   serviceIntervalMonths: number | null;
   warrantyMonths: number | null;
+  hasTag: boolean;
   status: string;
 }
 
@@ -190,6 +192,7 @@ export function itemSnapshot(item: ItemRecord, conversions: Conversion[]) {
     standardCost: qty(item.standardCost),
     serviceIntervalMonths: item.serviceIntervalMonths,
     warrantyMonths: item.warrantyMonths,
+    hasTag: item.hasTag,
     status: item.status,
     conversions: conversions.map((c) => ({ fromUom: c.fromUom, toUom: c.toUom, factor: dec(c.factor).toString() })),
   };

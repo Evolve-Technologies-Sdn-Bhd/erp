@@ -83,7 +83,8 @@ Screens read the event status to say "Inventory is not connected yet" or "Accoun
 | `mdm.customer.created` | Core | When the payload names an enquiry (`enquiryNo`) that has no customer yet, links it to the new customer so it can be quoted, and writes that in the enquiry's activity (Phase 3 decision 7) |
 | `service.job.booked` | Service | Keeps the installer's booking on the order (`installBooking`, "Thu, 1 Oct · 10 AM – 12 PM · Hafiz Rahman") with a line in its activity; a revision after booking needs the Sales Manager (phase 5) |
 | `service.job.unbooked`, `service.job.cancelled` | Service | Clears the booking on the order, with a line in its activity |
-| `service.job.delivery_due` | Service | With *Make the delivery order 24 hours before the installation* on: drafts the delivery order for what the order still has to deliver, or says why not (phase 5). Asked each hour; answered with `sales.delivery.drafted` |
+| `service.job.delivery_due` | Service | With *Make the delivery order for the installation* on: drafts the delivery order for what the order still has to deliver, or says why not (phase 5). Asked each hour, or at once when the warehouse picked and signed (`picked`); answered with `sales.delivery.drafted` |
+| `service.job.goods_back` | Service | Checks the collected delivery order back in: the goods of a postponed job are all at the store again (phase 5) |
 
 Sales never bumps the order's version for these: they are Purchase's and Service's facts, not edits.
 
@@ -118,8 +119,9 @@ The Service module (phase 5) runs only where the server has `SERVICE_MODULE=on`.
 |---|---|---|---|
 | `service.job.created` | A job made from a released order or added by the office | jobNo, jobType, typeLabel, branchCode, customerCode, salesOrderNo or null, preferredDate, afterStock | Phone app, Sales (the job on the order) — later |
 | `service.job.booked` | A job booked or moved on the Planning Board | jobNo, jobType, personId, personName, date, start and end (minutes from midnight), moved, salesOrderId, salesOrderNo, bookingText | **Sales** (the booking on the order); phone app — later |
-| `service.job.delivery_due` | A booked job from a sales order is within 24 hours and the warehouse has confirmed its stock; each hour until it has a delivery order | jobNo, salesOrderId, salesOrderNo, date, start, end, personName, bookingText | **Sales** (drafts the delivery order) |
-| `service.parts.returned` | The store received a part an installer brought back (phase 5) | jobNo, itemCode, uomCode, warehouseCode, goodQty, damagedQty | Inventory (later) |
+| `service.job.delivery_due` | A booked job from a sales order is within 24 hours and the warehouse has confirmed its stock; each hour until it has a delivery order. Where the warehouse picks and signs: at once | jobNo, salesOrderId, salesOrderNo, date, start, end, personName, picked, bookingText | **Sales** (drafts the delivery order) |
+| `service.job.goods_back` | The store received all the goods of a postponed job that was picked (phase 5) | jobNo, salesOrderId, salesOrderNo, receivedBy | **Sales** (checks the delivery order in) |
+| `service.parts.returned` | The store received a part an installer brought back (phase 5) | jobNo, itemCode, uomCode, warehouseCode, goodQty, damagedQty, reason (UNUSED, POSTPONED, EXCHANGE), location or null, grnNo or null | Inventory (later) |
 | `service.warranty.registered` | A complete installation registered its units under warranty (phase 5) | jobNo, salesOrderNo, customerCode, units: itemCode, qty, startOn, endOn, status | None yet |
 | `service.job.unbooked` | A booked job taken off the board, or its visit postponed | jobNo, salesOrderId, salesOrderNo, reason | **Sales** (clears the booking) |
 | `service.job.done` | A visit recorded as complete or partly done | jobNo, jobType, personId, personName, date, result, paidStatus, salesOrderNo, customerCode | Fees and commission (F5) — later |
@@ -162,6 +164,7 @@ Stored in `sys_event_handled.handler`. The seed marks its own history as handled
 | `sales.install-booked` | `service.job.booked` |
 | `sales.install-unbooked` | `service.job.unbooked` |
 | `sales.install-delivery` | `service.job.delivery_due` |
+| `sales.install-goods-back` | `service.job.goods_back` |
 | `service.job-delivery`, `service.job-delivery-removed`, `service.job-delivered` | `sales.delivery.drafted`, `sales.delivery.removed`, `sales.delivery.delivered` (only with `SERVICE_MODULE=on`) |
 | `service.job-order-closed` | `sales.order.balance_cancelled` (only with `SERVICE_MODULE=on`) |
 | `sales.invoice-delivered` | `sales.delivery.delivered` (Sales' own: drafts the invoice where the company asks for it) |

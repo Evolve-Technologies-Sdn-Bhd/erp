@@ -18,11 +18,20 @@ const { state, user, switchUser } = useSession()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
 const switching = ref(false)
+// A company with many people: find one by name, code, role or branch.
+const MANY = 12
+const q = ref('')
+const shown = computed(() => {
+  const words = q.value.trim().toLowerCase()
+  if (!words) return state.users
+  return state.users.filter((u) => [u.name, u.code, ...u.roles.map(roleLabel), ...u.branchCodes].some((t) => t.toLowerCase().includes(words)))
+})
 
 const userInitials = computed(() => initials(user.value?.name ?? ''))
 
 async function pick(code: string) {
   open.value = false
+  q.value = ''
   switching.value = true
   try {
     await switchUser(code)
@@ -91,8 +100,11 @@ const avatarClass = computed(
       <div class="border-b border-erp-row bg-erp-head px-4 py-2.5 text-xs text-erp-muted">
         <strong class="text-erp-text">Dev user switcher</strong> · sign-in is off. Act as:
       </div>
+      <div v-if="state.users.length > MANY" class="border-b border-erp-row px-3 py-2">
+        <input v-model="q" class="erp-input h-8 w-full text-[13px]" placeholder="Find by name, code, role or branch" aria-label="Find a user" />
+      </div>
       <ul class="m-0 max-h-[420px] list-none overflow-y-auto p-1">
-        <li v-for="u in state.users" :key="u.code">
+        <li v-for="u in shown" :key="u.code">
           <button
             type="button"
             role="menuitemradio"
@@ -112,6 +124,7 @@ const avatarClass = computed(
             <Check v-if="u.code === state.userCode" :size="16" class="text-mod-accent" aria-hidden="true" />
           </button>
         </li>
+        <li v-if="!shown.length" class="px-3 py-3 text-[13px] text-erp-muted">Nobody found.</li>
       </ul>
       <div class="border-t border-erp-row p-1">
         <RouterLink to="/account" role="menuitem" class="block rounded-lg px-3 py-2 text-[13px] text-erp-text hover:bg-erp-head" @click="open = false">My account</RouterLink>

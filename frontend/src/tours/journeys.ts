@@ -196,9 +196,9 @@ export const ORDER_TO_AFTER_SALES: Tour = {
       go: '/service/stock',
       page: { code: 'V09' },
       optional: true,
-      title: '4 · Warehouse: confirm the stock',
-      text: 'The warehouse sees tomorrow’s jobs, what each needs and what is free once earlier jobs have theirs, and confirms each one.',
-      why: 'Where the company uses it, the delivery order of a confirmed job is made by itself 24 hours before, and the order can no longer be revised. A job not confirmed by then is marked At risk.',
+      title: '4 · Warehouse: prepare the stock',
+      text: 'The warehouse sees tomorrow’s jobs, what each needs and what is free once earlier jobs have theirs, and confirms each one, or picks it and signs.',
+      why: 'Where the company uses it, the delivery order is made by itself: when the warehouse picked and signed, or 24 hours before for a job it only confirmed. From then on the order can no longer be revised. A job not ready 24 hours before is marked At risk.',
       placement: 'top',
     },
     {

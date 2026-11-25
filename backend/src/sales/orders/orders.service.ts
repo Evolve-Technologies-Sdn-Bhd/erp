@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
-import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
 import { ApprovalsService, type DecisionResult } from '../../platform/approvals/approvals.service';
 import { ClockService } from '../../platform/clock/clock.service';
@@ -302,7 +302,7 @@ export class OrdersService {
     const held = await this.heldStock.held(ctx.tenantId, order.lines.map((l) => l.itemCode), order.id);
     const shortfall = stockShortfall(order.lines.map((l) => ({
       held: held(l.itemCode, order.warehouseCode),
-      itemCode: l.itemCode, qty: l.orderedQty, isStock: items.find((i) => i.code === l.itemCode)?.type === 'STOCK' && !l.isBuyToOrder,
+      itemCode: l.itemCode, qty: l.orderedQty, isStock: isCountedStock(items.find((i) => i.code === l.itemCode)) && !l.isBuyToOrder,
       onHand: stock.filter((s) => s.itemCode === l.itemCode && s.warehouseCode === order.warehouseCode).reduce((sum, s) => sum.add(dec(s.onHand)), dec(0)),
     })));
     // Installation (phase 5): the date is needed when every item is in stock; short or bought-to-order items wait for stock.

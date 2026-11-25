@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
 import { HeldStock } from '../shared/held-stock.service';
-import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
+import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ClockService } from '../../platform/clock/clock.service';
 import { CurrentContext, RequirePermission } from '../../platform/context/context.decorators';
 import type { RequestContext } from '../../platform/context/request-context';
@@ -142,9 +142,9 @@ export class SalesLookupsController {
           taxCode: tax?.code ?? '', taxName: tax?.name ?? '', taxRate: tax?.rate ?? '0.0000',
           listPrice: blocked || !price ? null : toPrice(price.unitPrice),
           lastSold: blocked || !last ? null : { price: toPrice(last.unitPrice), date: iso(last.invoice.docDate), docNo: last.invoice.docNo },
-          inStock: i.type === 'STOCK' ? toQty(inStock) : null,
-          heldQty: i.type === 'STOCK' && heldQty.gt(0) ? toQty(heldQty) : null,
-          state: blocked ?? (i.type === 'STOCK' && inStock.lte(0) && !i.isBuyToOrder ? 'OUT_OF_STOCK' : 'ACTIVE'),
+          inStock: isCountedStock(i) ? toQty(inStock) : null,
+          heldQty: isCountedStock(i) && heldQty.gt(0) ? toQty(heldQty) : null,
+          state: blocked ?? (isCountedStock(i) && inStock.lte(0) && !i.isBuyToOrder ? 'OUT_OF_STOCK' : 'ACTIVE'),
           reason: blocked === 'EXCLUDED' ? ex!.reason : null,
         };
       }),

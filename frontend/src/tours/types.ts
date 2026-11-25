@@ -60,6 +60,8 @@ export interface TourStep {
   page?: PageMatch
   /** Left out quietly when its element is not on the screen (a part of the page the person does not have). */
   optional?: boolean
+  /** Only where these features are on (Tour.requires' words); left out elsewhere. */
+  when?: string[]
   placement?: Placement
   /**
    * A real action (Save, Release, Book, Verify …). The tour explains it; the person chooses "I'll do it now", which

@@ -26,6 +26,7 @@ const saving = ref(false)
 const errors = ref<Record<string, string>>({})
 onMounted(async () => {
   data.value = await serviceApi.settings()
+  location.value = data.value.general.warrantyLocation
 })
 
 const ROLES: { value: PersonRole; label: string }[] = [
@@ -37,10 +38,12 @@ const typeLabel = (t: string) => JOB_TYPE_OPTIONS.find((o) => o.value === t)?.la
 const activePeople = computed(() => data.value?.people.filter((p) => p.isActive) ?? [])
 
 // ── People ───────────────────────────────────────────────────────────────────
-async function saveGeneral(warehouseConfirms: boolean) {
+const location = ref('')
+async function saveGeneral(change: { warehouseConfirms?: boolean; pickAndSign?: boolean; warrantyLocation?: string }) {
   saving.value = true
   try {
-    data.value = await serviceApi.saveGeneral({ warehouseConfirms })
+    data.value = await serviceApi.saveGeneral({ ...data.value!.general, ...change })
+    location.value = data.value.general.warrantyLocation
     toast.add({ severity: 'success', summary: 'Saved', life: 2500 })
   } finally {
     saving.value = false
@@ -136,9 +139,17 @@ async function saveGroup() {
       <h2 class="m-0 text-[15px] font-bold">Warehouse</h2>
       <div class="flex items-center justify-between gap-4">
         <span><span class="block text-[13px] font-bold">The warehouse confirms stock before the delivery order</span><span class="text-xs text-erp-subtle">Stock for Jobs lists the next day's jobs to confirm. A job not confirmed 24 hours before is at risk and gets no delivery order.</span></span>
-        <SwitchToggle :model-value="data.general.warehouseConfirms" label="The warehouse confirms stock before the delivery order" :disabled="!canManage || saving" @update:model-value="saveGeneral" />
+        <SwitchToggle :model-value="data.general.warehouseConfirms" label="The warehouse confirms stock before the delivery order" :disabled="!canManage || saving" @update:model-value="saveGeneral({ warehouseConfirms: $event })" />
       </div>
-      <p class="m-0 text-xs text-erp-muted">The delivery order itself is made by Sales: turn on <em>Make the delivery order 24 hours before the installation</em> in Sales › Operation Policies › Sales Flow.</p>
+      <div v-if="data.general.warehouseConfirms" class="flex items-center justify-between gap-4">
+        <span><span class="block text-[13px] font-bold">The warehouse picks and signs</span><span class="text-xs text-erp-subtle">Instead of confirming: the warehouse can add parts, someone signs, and the delivery order is made then, not 24 hours before. The goods of a postponed job come back through Returned Parts.</span></span>
+        <SwitchToggle :model-value="data.general.pickAndSign" label="The warehouse picks and signs" :disabled="!canManage || saving" @update:model-value="saveGeneral({ pickAndSign: $event })" />
+      </div>
+      <div class="flex items-center justify-between gap-4">
+        <span><span class="block text-[13px] font-bold">Warranty location</span><span class="text-xs text-erp-subtle">Where an exchanged unit goes when it is received, and damaged goods where the warehouse picks and signs.</span></span>
+        <input v-model="location" class="erp-input w-32 uppercase" maxlength="20" aria-label="Warranty location" :disabled="!canManage || saving" @change="saveGeneral({ warrantyLocation: location.trim() })" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">The delivery order itself is made by Sales: turn on <em>Make the delivery order for the installation</em> in Sales › Operation Policies › Sales Flow.</p>
     </section>
 
     <section data-tour="set:people" class="erp-card flex flex-col gap-3 px-5 py-[18px]">

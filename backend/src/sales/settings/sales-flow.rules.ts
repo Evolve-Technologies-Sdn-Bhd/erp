@@ -15,7 +15,7 @@ export const FLOW_SWITCHES = {
   autoCancel: 'Cancel an order with no receipt and no delivery after a number of days',
   shareWhatsapp: 'Share the sales order with the customer on WhatsApp',
   holdStock: 'Hold stock for booked installations',
-  autoDelivery: 'Make the delivery order 24 hours before the installation',
+  autoDelivery: 'Make the delivery order for the installation',
   signedDelivery: 'The customer signs the delivery order',
   autoInvoice: 'Draft the invoice when the installation is delivered',
   receiptsPayInvoices: 'Verified receipts pay the invoices of their order',

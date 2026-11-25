@@ -169,6 +169,7 @@ export class ItemsQuery {
       reorderLevel: qty(item.reorderLevel),
       serviceIntervalMonths: item.serviceIntervalMonths,
       warrantyMonths: item.warrantyMonths,
+      hasTag: item.hasTag,
       pictureId: item.pictureId,
       pictureUrl: pictureUrl(item.pictureId),
       packSize: item.packSize.toFixed(4),

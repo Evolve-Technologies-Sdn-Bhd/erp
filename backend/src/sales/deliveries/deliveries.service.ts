@@ -66,7 +66,7 @@ export class DeliveriesService {
 
   /**
    * Drafts a delivery order for everything still open on the order, in the caller's transaction: the store's button, or
-   * the system 24 hours before the installation (phase 5, InstallDeliveryListener).
+   * the system for the installation (phase 5, InstallDeliveryListener).
    */
   async draft(tx: Tx, ctx: RequestContext, order: OrderWithLines, docDate: string, message: string, extra: { driver?: string | null } = {}): Promise<{ id: string; docNo: string }> {
     const cancelling = await tx.salCancelOrderLine.findMany({

@@ -67,6 +67,8 @@ export interface MdItem {
   serviceIntervalMonths: number | null;
   /** Warranty in months from the installation (phase 5). Null: none. */
   warrantyMonths: number | null;
+  /** Off: no RFID tag (phase 5), so the warehouse system does not count it and it is never called short. */
+  hasTag: boolean;
   /** The picture shown when picking (phase 5): an attachment id, or null. */
   pictureId: string | null;
   status: 'ACTIVE' | 'BLOCKED' | 'DISCONTINUED';
@@ -216,3 +218,6 @@ export interface MasterDataPort {
   /** Packages that can be sold on a date (YYYY-MM-DD), by code. */
   listRunningPackages(tenantId: string, onDate: string): Promise<MdPackage[]>;
 }
+
+/** A stock item the warehouse counts: short stock is only said of these. */
+export const isCountedStock = (i: { type: string; hasTag?: boolean } | null | undefined): boolean => i?.type === 'STOCK' && i.hasTag !== false;

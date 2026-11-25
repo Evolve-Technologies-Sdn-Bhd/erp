@@ -63,7 +63,7 @@ describe('Service jobs (end to end)', () => {
     const job = await api.get<Job>(`service/jobs/${row.id}`);
     expect(job).toMatchObject({ source: 'SALES_ORDER', preferredDate: '2026-10-01', afterStock: false, contactName: 'Mr. Daniel Wong', allowedActions: ['edit', 'cancel', 'book'] });
     expect(job.siteAddress).toContain('Villa Damai Resort');
-    expect(job.items).toEqual([{ lineNo: 1, itemCode: 'TB-DIN-06', itemName: expect.any(String), qty: '1.0000', uomCode: 'PCS', serialNo: null }]);
+    expect(job.items).toEqual([{ lineNo: 1, itemCode: 'TB-DIN-06', itemName: expect.any(String), qty: '1.0000', uomCode: 'PCS', serialNo: null, extra: false }]);
     expect(job.activity[0]).toMatchObject({ action: 'created', message: `Created from ${so.docNo}` });
     const event = await api.prisma.sysOutbox.findFirstOrThrow({ where: { name: 'service.job.created', aggregateId: row.id } });
     expect(event.payload).toMatchObject({ jobNo: 'JB-0001', jobType: 'INSTALLATION', salesOrderNo: so.docNo, preferredDate: '2026-10-01' });

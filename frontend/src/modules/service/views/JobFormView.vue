@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DatePicker from 'primevue/datepicker'
 import Dialog from 'primevue/dialog'
+import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Check } from '@lucide/vue'
 import { ApiError } from '@/api/http'
@@ -26,6 +27,7 @@ import { JOB_TYPE_OPTIONS, SITE_TYPE_OPTIONS, STAGE_GROUP } from './stages'
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const confirm = useConfirm()
 const setCrumb = usePageCrumb()
 const { can, today } = useSession()
 
@@ -255,6 +257,23 @@ async function saveAssess() {
   } finally {
     saving.value = false
   }
+}
+function exchange() {
+  const j = job.value!
+  confirm.require({
+    header: `Exchange one-to-one on ${j.docNo}?`,
+    message: 'The warehouse prepares a new unit for this job. The faulty one comes back and is received on its own goods receipt.',
+    acceptLabel: 'Exchange', rejectLabel: 'Cancel',
+    accept: async () => {
+      saving.value = true
+      try {
+        show(await serviceJobsApi.exchange(j.id, j.version))
+        toast.add({ severity: 'success', summary: `${j.docNo} is a one-to-one exchange`, life: 3000 })
+      } finally {
+        saving.value = false
+      }
+    },
+  })
 }
 const partPick = ref<{ code: string; name: string; uomCode: string } | null>(null)
 const searchItems = async (q: string) => (await serviceApi.items(q)).items
@@ -518,11 +537,11 @@ const asksFor = computed(() => {
           <div class="flex flex-col gap-1.5 text-[13px]">
             <template v-if="job.booking && job.stock.confirms">
               <div v-for="i in job.stock.items" :key="i.itemCode" class="flex justify-between gap-3">
-                <span>{{ i.itemCode }}</span><span :class="i.short ? 'font-semibold text-chip-cancelled-text' : ''">{{ formatQty(i.free) }} free, {{ formatQty(i.needed) }} needed</span>
+                <span>{{ i.itemCode }}</span><span :class="i.short ? 'font-semibold text-chip-cancelled-text' : ''">{{ i.counted ? `${formatQty(i.free)} free, ${formatQty(i.needed)} needed` : `${formatQty(i.needed)} needed, not counted` }}</span>
               </div>
               <div class="flex justify-between gap-3">
                 <span class="text-erp-muted">Warehouse</span>
-                <span class="text-right" :class="job.stock.confirmedAt ? 'font-semibold text-chip-done-text' : 'text-attention'">{{ job.stock.confirmedAt ? `Confirmed by ${job.stock.confirmedBy}` : 'Not confirmed' }}</span>
+                <span class="text-right" :class="job.stock.confirmedAt ? 'font-semibold text-chip-done-text' : 'text-attention'">{{ job.stock.signedBy ? `Picked by ${job.stock.confirmedBy}, signed by ${job.stock.signedBy}` : job.stock.confirmedAt ? `Confirmed by ${job.stock.confirmedBy}` : job.stock.pickAndSign ? (job.doneAt ? 'Not picked' : 'Not picked yet') : 'Not confirmed' }}</span>
               </div>
             </template>
             <div v-if="job.delivery" class="flex justify-between gap-3"><span class="text-erp-muted">{{ job.delivery.delivered ? 'Delivered' : 'Delivery order' }}</span><RouterLink :to="`/sales/deliveries/${job.delivery.id}`" class="erp-link font-semibold">{{ job.delivery.docNo }}</RouterLink></div>
@@ -539,9 +558,11 @@ const asksFor = computed(() => {
             <p v-else class="m-0 text-xs text-erp-muted">Not linked to a registered unit. Start claims from Service › Warranties to see what is covered.</p>
             <div class="flex justify-between gap-3"><span class="text-erp-muted">Decision</span><span class="text-right font-semibold">{{ job.warranty.assessmentLabel ?? 'Not decided yet' }}</span></div>
             <p v-if="job.warranty.note" class="m-0 text-xs text-erp-muted">“{{ job.warranty.note }}” · {{ job.warranty.by }}</p>
+            <div v-if="job.warranty.exchange" class="flex justify-between gap-3"><span class="text-erp-muted">One-to-one exchange</span><span class="text-right font-semibold">{{ job.doneAt ? 'Exchanged' : 'A new unit goes out' }}</span></div>
             <RouterLink v-if="job.warranty.assessment === 'CHARGEABLE'" to="/sales/orders/new" class="erp-link text-xs">Make the sales order for {{ job.customer.name }}</RouterLink>
           </div>
           <button v-if="job.warranty.canAssess" type="button" data-tour="action:assess" class="erp-btn erp-btn-secondary mt-1 justify-center" :disabled="saving" @click="openAssess">{{ job.warranty.assessment ? 'Change the decision' : 'Decide the claim' }}</button>
+          <button v-if="job.warranty.canExchange" type="button" data-tour="action:exchange" class="erp-btn erp-btn-secondary mt-1 justify-center" data-tour-sensitive :disabled="saving" @click="exchange">Exchange one-to-one</button>
         </SideCard>
         <SideCard v-if="job?.parts.length" data-tour="svc:parts" title="Parts used">
           <div v-for="p in job.parts" :key="p.itemCode" class="flex justify-between gap-3 text-[13px]"><span>{{ p.itemCode }} <span class="text-xs text-erp-muted">{{ p.itemName }}</span></span><span>{{ formatQty(p.qty) }} {{ p.uomCode }}</span></div>
@@ -549,7 +570,7 @@ const asksFor = computed(() => {
         </SideCard>
         <SideCard v-if="job?.returns.length" data-tour="svc:returns" title="Parts coming back">
           <div v-for="r in job.returns" :key="r.id" class="flex justify-between gap-3 text-[13px]">
-            <span>{{ formatQty(r.qty) }} {{ r.itemCode }}</span><span class="text-right" :class="r.receivedAt ? 'text-chip-done-text' : 'text-attention'">{{ r.receivedText ?? 'Not received yet' }}</span>
+            <span>{{ formatQty(r.qty) }} {{ r.itemCode }} <span class="block text-xs text-erp-muted">{{ r.reasonLabel }}<template v-if="r.grnNo"> · {{ r.grnNo }}</template><template v-if="r.location"> · {{ r.location }}</template></span></span><span class="text-right" :class="r.receivedAt ? 'text-chip-done-text' : 'text-attention'">{{ r.receivedText ?? 'Not received yet' }}</span>
           </div>
         </SideCard>
         <SideCard v-if="job?.doneAt" title="Done">

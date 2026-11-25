@@ -118,6 +118,8 @@ export interface ItemInput {
   serviceIntervalMonths: number | null
   /** Warranty in months from the installation (phase 5). */
   warrantyMonths: number | null
+  /** Off: no RFID tag (phase 5), so the warehouse system does not count it. */
+  hasTag: boolean
   /** The picture shown when picking (phase 5): an uploaded file's id. */
   pictureId: string | null
   conversions: Conversion[]

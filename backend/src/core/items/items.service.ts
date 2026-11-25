@@ -54,6 +54,7 @@ const record = (row: MdmItem): ItemRecord => ({
   standardCost: row.standardCost,
   serviceIntervalMonths: row.serviceIntervalMonths,
   warrantyMonths: row.warrantyMonths,
+  hasTag: row.hasTag,
   status: row.status,
 });
 
@@ -258,6 +259,7 @@ export class ItemsService {
       standardCost: dto.standardCost ? dec(dto.standardCost) : null,
       serviceIntervalMonths: dto.serviceIntervalMonths ?? null,
       warrantyMonths: dto.warrantyMonths ?? null,
+      ...(dto.hasTag !== undefined && { hasTag: dto.hasTag }),
     };
   }
 

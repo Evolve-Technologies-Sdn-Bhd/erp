@@ -7,6 +7,16 @@ import { JOB_TYPES } from '../jobs/jobs.rules';
 export class GeneralSettingsDto {
   @IsBoolean()
   warehouseConfirms!: boolean;
+
+  /** Not sent: kept as it is. */
+  @IsOptional()
+  @IsBoolean()
+  pickAndSign?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9-]{1,20}$/, { message: 'Use letters, numbers and dashes, up to 20.' })
+  warrantyLocation?: string;
 }
 
 /** A person the office books (V05 · People). */

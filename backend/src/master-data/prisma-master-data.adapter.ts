@@ -75,6 +75,7 @@ function toItem(row: MdmItem): MdItem {
     reorderLevel: row.reorderLevel?.toFixed(4) ?? null,
     serviceIntervalMonths: row.serviceIntervalMonths ?? null,
     warrantyMonths: row.warrantyMonths ?? null,
+    hasTag: row.hasTag,
     pictureId: row.pictureId ?? null,
     packSize: row.packSize.toFixed(4),
     isPurchasable: row.isPurchasable,

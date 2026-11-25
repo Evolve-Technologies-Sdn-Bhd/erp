@@ -66,6 +66,7 @@ const form = reactive({
   standardCost: '',
   serviceIntervalMonths: '',
   warrantyMonths: '',
+  hasTag: true,
   pictureId: null as string | null,
   conversions: [] as ConversionRow[],
 })
@@ -101,6 +102,7 @@ function fill(i: ItemDetail | null) {
       standardCost: i.standardCost === null ? '' : Number(i.standardCost).toFixed(2),
       serviceIntervalMonths: i.serviceIntervalMonths === null ? '' : String(i.serviceIntervalMonths),
       warrantyMonths: i.warrantyMonths === null ? '' : String(i.warrantyMonths),
+      hasTag: i.hasTag,
       pictureId: i.pictureId,
       conversions: i.conversions.map((c) => ({ key: nextKey++, fromUom: c.fromUom, toUom: c.toUom, factor: String(Number(c.factor)) })),
     })
@@ -108,7 +110,7 @@ function fill(i: ItemDetail | null) {
     Object.assign(form, {
       code: '', name: '', itemGroup: '', type: 'STOCK', baseUom: '', barcode: '', einvoiceClassification: '', isPurchasable: true, isBuyToOrder: false,
       purchaseUom: '', purchaseTaxCode: '', preferredSupplier: null, reorderLevel: '', packSize: '1', isSellable: false, salesUom: '', salesTaxCode: '',
-      standardCost: '', serviceIntervalMonths: '', warrantyMonths: '', pictureId: null, conversions: [],
+      standardCost: '', serviceIntervalMonths: '', warrantyMonths: '', hasTag: true, pictureId: null, conversions: [],
     })
   }
   saved.value = snapshot()
@@ -174,6 +176,7 @@ function body(): ItemInput {
     standardCost: canSeeCost.value ? form.standardCost.trim() || null : item.value?.standardCost ?? null,
     serviceIntervalMonths: form.serviceIntervalMonths.trim() ? Number(form.serviceIntervalMonths.trim()) : null,
     warrantyMonths: form.warrantyMonths.trim() ? Number(form.warrantyMonths.trim()) : null,
+    hasTag: form.hasTag,
     pictureId: form.pictureId,
     conversions: form.conversions.map((c) => ({ fromUom: c.fromUom, toUom: c.toUom, factor: c.factor.trim() })),
   }
@@ -329,6 +332,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
               </select>
             </FormField>
           </div>
+          <span v-if="form.type === 'STOCK'" data-tour="core:has-tag" class="inline-flex items-center gap-2 text-[13px] font-medium"><SwitchToggle v-model="form.hasTag" label="Has an RFID tag" :disabled="!editable" /><span class="whitespace-nowrap">Has an RFID tag</span> <span class="text-xs font-normal text-erp-muted">Off for small parts with no tag: the warehouse system does not count them, so they are never called short.</span></span>
         </section>
 
         <!-- Buying -->

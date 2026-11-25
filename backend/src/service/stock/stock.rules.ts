@@ -26,6 +26,8 @@ export interface ItemStock {
   /** On hand less what earlier jobs hold, never below 0. */
   free: string;
   short: boolean;
+  /** Off: no RFID tag, so nobody counts it and it is never short. */
+  counted: boolean;
 }
 
 /** Whether a goes before b: by day, then slot, then number. */
@@ -36,7 +38,7 @@ export function goesFirst(a: Pick<BookedJob, 'jobDate' | 'slotStart' | 'docNo'>,
 }
 
 /** Each stock item of the job once, with what is needed, on hand, held by earlier jobs and free. */
-export function itemStock(job: BookedJob, others: BookedJob[], onHand: (itemCode: string, warehouseCode: string | null) => string, isStock: (itemCode: string) => boolean): ItemStock[] {
+export function itemStock(job: BookedJob, others: BookedJob[], onHand: (itemCode: string, warehouseCode: string | null) => string, isStock: (itemCode: string) => boolean, isCounted: (itemCode: string) => boolean = () => true): ItemStock[] {
   const earlier = others.filter((o) => o.id !== job.id && o.warehouseCode === job.warehouseCode && goesFirst(o, job));
   const out = new Map<string, ItemStock>();
   for (const i of job.items.filter((x) => isStock(x.itemCode))) {
@@ -47,10 +49,27 @@ export function itemStock(job: BookedJob, others: BookedJob[], onHand: (itemCode
     const free = left.gt(0) ? left : dec(0);
     out.set(i.itemCode, {
       itemCode: i.itemCode, itemName: i.itemName, uomCode: i.uomCode, needed: needed.toString(), onHand: dec(onHand(i.itemCode, job.warehouseCode)).toString(),
-      earlier: held.toString(), free: free.toString(), short: free.lt(needed),
+      earlier: held.toString(), free: free.toString(), short: isCounted(i.itemCode) && free.lt(needed), counted: isCounted(i.itemCode),
     });
   }
   return [...out.values()];
+}
+
+/** The items a job takes from the store: what it installs, and any part the warehouse added. A warranty claim takes its unit only as a one-to-one exchange. */
+export function goodsOf<T extends { extra: boolean }>(job: { jobType: string; exchange: boolean; items: T[] }): T[] {
+  return job.items.filter((i) => i.extra || job.jobType !== 'WARRANTY' || job.exchange);
+}
+
+/** Who signed for the picked goods, where the warehouse picks and signs. */
+export function signedByError(signedBy: string | null | undefined): string | null {
+  return signedBy?.trim() ? null : 'Type who picked and signed.';
+}
+
+/** Why the warehouse cannot add or take off a part, or null. */
+export function partRefusal(j: { docNo: string; stage: string; confirmed: boolean }): string | null {
+  if (j.stage !== 'BOOKED') return `${j.docNo} is not booked.`;
+  if (j.confirmed) return `${j.docNo} is picked already. Undo it to change its parts.`;
+  return null;
 }
 
 /** "CH-DIN-01: 1 free (2 held by earlier jobs), 2 needed". Null when everything is there. */

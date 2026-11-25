@@ -122,6 +122,11 @@ class ItemFieldsDto {
   @Max(240, { message: 'Warranty is 1 to 240 months.' })
   warrantyMonths?: number | null;
 
+  /** Off: no RFID tag (phase 5). Not sent: kept as it is. */
+  @IsOptional()
+  @IsBoolean()
+  hasTag?: boolean;
+
   /** The picture shown when picking (phase 5): uploaded first (POST /attachments), or null to take it off. Not sent: kept as it is. */
   @IsOptional()
   @IsUUID('all', { message: 'Upload the picture again.' })

@@ -720,6 +720,7 @@ model MdmItem {
   einvoiceClassification String?       @db.VarChar(10) // LHDN classification code (SRS FR-MST-008)
   serviceIntervalMonths  Int? // a filter or part to change every so many months after installation (phase 5, F6)
   warrantyMonths         Int? // warranty from the installation, in months (phase 5); null: none
+  hasTag                 Boolean  @default(true) // off: no RFID tag, so the warehouse system does not count it and it is never called short (phase 5)
   pictureId              String?       @db.Char(36) // sys_attachment: the picture shown when picking (phase 5)
   status                 MdmItemStatus @default(ACTIVE)
   createdAt              DateTime      @default(now()) @db.DateTime(3)
@@ -3124,6 +3125,8 @@ model SvcJob {
   // The warehouse's check before the delivery order, and the delivery order Sales made (phase 5).
   stockConfirmedAt DateTime?   @db.DateTime(3)
   stockConfirmedBy String?     @db.VarChar(100)
+  pickSignedBy   String?      @db.VarChar(100) // who signed for the picked goods, where the warehouse picks and signs (phase 5)
+  exchange       Boolean      @default(false) // a one-to-one exchange under warranty: the unit is replaced, the faulty one comes back (phase 5)
   deliveryId     String?      @db.Char(36) // from Sales' events; Service never reads sal_ tables
   deliveryNo     String?      @db.VarChar(30)
   deliveredAt    DateTime?    @db.DateTime(3) // signed, or accepted unsigned, or confirmed by the store
@@ -3247,6 +3250,10 @@ model SvcReturn {
   itemName     String    @db.VarChar(150)
   uomCode      String    @db.VarChar(10)
   qty          Decimal   @db.Decimal(18, 4) // what the installer says comes back
+  reason       String    @default("UNUSED") @db.VarChar(12) // UNUSED (listed at the visit), POSTPONED (the picked goods of a postponed job), EXCHANGE (the faulty unit)
+  visitNo      Int       @default(0) // which visit of the job: a job may be postponed more than once
+  location     String?   @db.VarChar(40) // where what is damaged or exchanged goes, like WNTY
+  grnNo        String?   @db.VarChar(30) // GRN-W-0001, numbered when an exchanged unit is received
   goodQty      Decimal?  @db.Decimal(18, 4)
   damagedQty   Decimal?  @db.Decimal(18, 4)
   note         String?   @db.VarChar(300)
@@ -3256,7 +3263,7 @@ model SvcReturn {
   createdAt    DateTime  @default(now()) @db.DateTime(3)
   createdBy    String    @db.VarChar(20)
 
-  @@unique([jobId, itemCode])
+  @@unique([jobId, itemCode, reason, visitNo])
   @@index([tenantId, receivedAt])
   @@map("svc_return")
 }
@@ -3266,6 +3273,8 @@ model SvcSetting {
   id                String   @id @default(uuid()) @db.Char(36)
   tenantId          String   @unique @db.Char(36)
   warehouseConfirms Boolean  @default(false) // on: the warehouse confirms a booked job's stock before its delivery order
+  pickAndSign       Boolean  @default(false) // on: the warehouse picks and signs: the delivery order is made then, not 24 hours before, and a postponed job's goods come back
+  warrantyLocation  String   @default("WNTY") @db.VarChar(40) // where damaged and exchanged goods go for the warranty technician
   updatedAt         DateTime @updatedAt @db.DateTime(3)
   updatedBy         String   @db.VarChar(20)
 
@@ -3282,6 +3291,7 @@ model SvcJobItem {
   qty      Decimal @db.Decimal(18, 4)
   uomCode  String  @db.VarChar(10)
   serialNo String? @db.VarChar(60)
+  extra    Boolean @default(false) // a part or accessory the warehouse added when picking (phase 5): never on the order or the warranty register
   job      SvcJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, lineNo])

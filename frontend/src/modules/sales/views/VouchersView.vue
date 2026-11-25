@@ -154,7 +154,7 @@ function remove(v: VoucherRow) {
       <SideCard data-tour="vc:form" :title="editing ? `Change ${editing.voucherNo}` : 'Add a voucher'">
         <div class="flex flex-col gap-3">
           <FormField label="Voucher number" :error="errors.voucherNo" for="vc-no">
-            <input id="vc-no" v-model="form.voucherNo" class="erp-input uppercase" maxlength="30" placeholder="e.g. CV-2611-50" :aria-invalid="Boolean(errors.voucherNo)" />
+            <input id="vc-no" v-model="form.voucherNo" class="erp-input uppercase placeholder:normal-case" maxlength="30" placeholder="e.g. CV-2611-50" :aria-invalid="Boolean(errors.voucherNo)" />
           </FormField>
           <FormField label="Name on the order" :error="errors.description" for="vc-name">
             <input id="vc-name" v-model="form.description" class="erp-input" maxlength="100" placeholder="e.g. Cash voucher RM 50" :aria-invalid="Boolean(errors.description)" />

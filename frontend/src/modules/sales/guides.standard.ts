@@ -102,7 +102,7 @@ const QUOTATION_APPROVAL: Tour = {
   id: 'guide.sales.b',
   title: 'Quotation: approval, revise, lost',
   summary: 'A discount the Sales Manager approves, a new revision and a lost quotation.',
-  requires: ['dev'],
+  requires: ['dev', 'sales:freePrices'],
   minutes: 8,
   startAt: '/sales/orders',
   guide: { ...book, letter: 'B', rows: 5, cast: 'Sales agent, Sales manager', values: { customer: 'a customer of yours', customer2: 'another customer of yours', item: 'an item' } },
@@ -170,7 +170,7 @@ const OVER_LIMIT: Tour = {
     newOrder(),
     pickCustomer(),
     ...addItem('Search {item}, tick it, set the quantity to {qty} and click Add 1 item.'),
-    { target: 'so:price', page: NEW_ORDER, wait: { kind: 'use' }, title: 'The price', text: 'Type the unit price, then Next.', type: [{ field: 'Unit price', value: '{price}' }] },
+    { target: 'so:price', page: NEW_ORDER, when: ['sales:freePrices'], wait: { kind: 'use' }, title: 'The price', text: 'Type the unit price, then Next.', type: [{ field: 'Unit price', value: '{price}' }] },
     deliveryOnly(),
     saveDraft(NEW_ORDER),
     { target: 'so:approval', page: ORDER, remember: 'order', title: 'Credit check did not pass', text: '{order} cannot be released like this.', expect: 'Over the credit limit, with what the customer owes and their other open orders counted in. There is no Release button.', placement: 'top' },
@@ -590,7 +590,7 @@ const REPORTS: Tour = {
       const to = { path: `^/sales/reports/${key}$` }
       return i === 0 ? openPage('reports', 'Reports', `report-${key}`, label, to) : [{ target: `menu:report-${key}`, placement: 'right', wait: { kind: 'page', to }, title: label, text: `Click ${label}.` }]
     }),
-    { target: 'page-header', page: { path: '^/sales/reports/' }, optional: true, title: 'All seven', text: 'The documents of the guides are in them: the lost quotation in Quotation conversion, the unpaid invoice in Customer aging.', expect: 'Filters kept in the address, and Export to Excel for a CSV.' },
+    { target: 'page-header', page: { path: '^/sales/reports/' }, optional: true, title: 'All of them', text: 'The documents of the guides are in them: the lost quotation in Quotation conversion, the unpaid invoice in Customer aging.', expect: 'Filters kept in the address, and Export to Excel for a CSV.' },
 
     agent('hqAgent', { row: 2 }),
     { target: 'menu:report-open-orders', placement: 'right', wait: { kind: 'page', to: { path: '^/sales/reports/open-orders$' } }, title: 'Open orders', text: 'Click Open orders.' },
