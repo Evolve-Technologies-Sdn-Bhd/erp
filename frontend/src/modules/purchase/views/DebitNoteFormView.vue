@@ -16,6 +16,7 @@ import PageHeader from '@/components/erp/PageHeader.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { notifyApprovalsChanged } from '@/composables/useApprovalsCount'
+import { refreshPage } from '@/composables/usePageRefresh'
 import { usePageCrumb } from '@/composables/usePageCrumb'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatMoney, formatPrice, formatQty, formatRm } from '@/utils/format'
@@ -204,6 +205,7 @@ async function save(quiet = false): Promise<DebitNoteDetail | null> {
 }
 
 async function goAhead() {
+  const fresh = isNew.value
   const current = isNew.value || dirty.value ? await save(true) : row.value
   if (!current) return
   const approval = !current.chargeOnPo
@@ -219,6 +221,7 @@ async function goAhead() {
       try {
         const result = approval ? await debitNotesApi.submit(current.id, current.version) : await debitNotesApi.release(current.id, current.version)
         show(result)
+        if (fresh) refreshPage()
         if (approval) notifyApprovalsChanged()
         toast.add({ severity: 'success', summary: approval ? `${result.docNo} sent for approval` : `${result.docNo} released`, life: 3500 })
       } finally {

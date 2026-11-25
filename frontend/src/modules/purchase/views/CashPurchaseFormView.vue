@@ -17,6 +17,7 @@ import PageHeader from '@/components/erp/PageHeader.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
+import { refreshPage } from '@/composables/usePageRefresh'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatMoney, formatPrice, formatQty, formatRm, qtyWithUnit } from '@/utils/format'
 import { compareQty, isPositiveDecimal, previewLine, sumMoney, sumQty } from '@/utils/money'
@@ -175,6 +176,7 @@ async function save(quiet = false): Promise<CashPurchaseDetail | null> {
   }
 }
 async function release() {
+  const fresh = isNew.value
   const current = isNew.value || dirty.value ? await save(true) : row.value
   if (!current) return
   confirmDialog.require({
@@ -186,6 +188,7 @@ async function release() {
       busy.value = true
       try {
         show(await cashPurchasesApi.release(current.id, current.version))
+        if (fresh) refreshPage()
         toast.add({ severity: 'success', summary: `${current.docNo} released`, life: 3000 })
       } finally {
         busy.value = false

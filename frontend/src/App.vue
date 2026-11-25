@@ -7,6 +7,7 @@ import { onApiError } from '@/api/http'
 import ErpToast from '@/components/erp/ErpToast.vue'
 import ModuleHomeLayout from '@/components/erp/ModuleHomeLayout.vue'
 import ModuleLayout from '@/components/erp/ModuleLayout.vue'
+import { pageVersion } from '@/composables/usePageRefresh'
 import { useSession } from '@/composables/useSession'
 import { requiredPermission } from '@/modules/common/access'
 import NoAccessView from '@/modules/common/NoAccessView.vue'
@@ -55,8 +56,8 @@ const layout = computed(() => {
   return null
 })
 
-// Re-mount the page when the dev user changes, so it loads data as the new user.
-const pageKey = computed(() => `${session.state.version}:${route.path}`)
+// Re-mount the page when the dev user changes, so it loads data as the new user, and when it asks to be drawn again.
+const pageKey = computed(() => `${session.state.version}:${pageVersion.value}:${route.path}`)
 </script>
 
 <template>

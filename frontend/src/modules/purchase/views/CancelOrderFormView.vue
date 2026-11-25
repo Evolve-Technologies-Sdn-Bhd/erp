@@ -15,6 +15,7 @@ import PageHeader from '@/components/erp/PageHeader.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
+import { refreshPage } from '@/composables/usePageRefresh'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatDateTime, formatPrice, formatQty, formatRm, percentOf, qtyWithUnit } from '@/utils/format'
 import { compareQty, isQty, previewLine, subQty, sumMoney, sumQty } from '@/utils/money'
@@ -180,6 +181,7 @@ async function save(quiet = false): Promise<CancelOrderDetail | null> {
 }
 
 async function release() {
+  const fresh = isNew.value
   const current = isNew.value || dirty.value ? await save(true) : row.value
   if (!current) return
   confirmDialog.require({
@@ -192,6 +194,7 @@ async function release() {
       try {
         const result = await cancelOrdersApi.release(current.id, current.version)
         show(result)
+        if (fresh) refreshPage()
         toast.add({ severity: 'success', summary: `${result.docNo} released`, detail: `${result.po.docNo} is now ${(result.po.statusLabel ?? '').toLowerCase()}.`, life: 4000 })
       } finally {
         busy.value = false

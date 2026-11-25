@@ -17,6 +17,7 @@ import PageHeader from '@/components/erp/PageHeader.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
+import { refreshPage } from '@/composables/usePageRefresh'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatPrice, formatQty, qtyWithUnit } from '@/utils/format'
 import { isPositiveDecimal, previewLine, sumMoney } from '@/utils/money'
@@ -153,12 +154,14 @@ async function save(): Promise<RequestDetail | null> {
 }
 
 async function submit() {
-  const current = dirty.value || isNew.value ? await save() : request.value
+  const fresh = isNew.value
+  const current = dirty.value || fresh ? await save() : request.value
   if (!current) return
   saving.value = true
   try {
     const result = await requestsApi.submit(current.id, current.version)
     show(result)
+    if (fresh) refreshPage()
     toast.add({ severity: 'success', summary: `${result.docNo} submitted`, detail: 'Purchasing will turn it into an RFQ or a purchase order.', life: 4000 })
   } catch (error) {
     if (error instanceof ApiError) errors.value = { ...errors.value, ...error.fieldErrors }

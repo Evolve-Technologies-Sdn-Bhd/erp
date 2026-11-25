@@ -16,6 +16,7 @@ import PageHeader from '@/components/erp/PageHeader.vue'
 import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
+import { refreshPage } from '@/composables/usePageRefresh'
 import { useSession } from '@/composables/useSession'
 import { formatDate, formatDateTime, formatQty, qtyWithUnit } from '@/utils/format'
 import { compareQty, isQty, subQty, sumQty } from '@/utils/money'
@@ -251,6 +252,7 @@ async function save(quiet = false): Promise<ReceiptDetail | null> {
 }
 
 async function confirmReceipt() {
+  const fresh = isNew.value
   const current = isNew.value || dirty.value ? await save(true) : receipt.value
   if (!current) return
   confirmDialog.require({
@@ -263,6 +265,7 @@ async function confirmReceipt() {
       try {
         const result = await receiptsApi.confirm(current.id, current.version)
         show(result)
+        if (fresh) refreshPage()
         toast.add({ severity: 'success', summary: `${result.docNo} confirmed`, detail: `${result.po.docNo} is now ${result.po.statusLabel.toLowerCase()}.`, life: 4000 })
       } catch (error) {
         if (error instanceof ApiError) errors.value = error.fieldErrors
