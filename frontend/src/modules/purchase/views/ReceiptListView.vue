@@ -124,7 +124,7 @@ async function exportCsv() {
     />
   </div>
 
-  <section class="erp-card flex flex-col gap-2.5 px-5 py-4">
+  <section data-tour="grn:waiting" class="erp-card flex flex-col gap-2.5 px-5 py-4">
     <div class="flex items-center justify-between">
       <h2 class="m-0 text-[15px] font-bold">Waiting to be received</h2>
       <span class="text-xs text-erp-muted">Released and partially received orders</span>

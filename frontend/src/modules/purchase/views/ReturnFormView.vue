@@ -320,7 +320,7 @@ const lineError = (i: number) => errors.value[`lines[${i}].qty`]
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
         <section class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-4">
-          <FormField v-if="isNew" label="Goods receipt" class="col-span-3" :error="errors.grnId" for="prt-grn">
+          <FormField v-if="isNew" data-tour="prt:grn" label="Goods receipt" class="col-span-3" :error="errors.grnId" for="prt-grn">
             <select id="prt-grn" v-model="grnId" class="erp-input">
               <option value="">{{ receipts.length ? 'Pick the goods receipt' : 'No receipt has goods left to return' }}</option>
               <option v-for="g in receipts" :key="g.id" :value="g.id">{{ g.docNo }} · {{ formatDate(g.docDate) }} · {{ g.poNo }} · {{ g.supplierName }} · {{ g.returnableText }} can go back</option>
@@ -343,7 +343,7 @@ const lineError = (i: number) => errors.value[`lines[${i}].qty`]
             />
             <div v-else class="erp-input-ro">{{ formatDate(form.docDate) }}</div>
           </FormField>
-          <FormField label="Reason" for="prt-reason">
+          <FormField data-tour="prt:reason" label="Reason" for="prt-reason">
             <select v-if="editable" id="prt-reason" v-model="form.reason" class="erp-input">
               <option v-for="r in reasons" :key="r" :value="r">{{ r }}</option>
             </select>
@@ -370,7 +370,7 @@ const lineError = (i: number) => errors.value[`lines[${i}].qty`]
           </FormField>
         </section>
 
-        <section class="erp-card flex flex-col gap-2.5 px-5 py-4">
+        <section data-tour="prt:lines" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">What is going back</h2>
             <span v-if="errors.lines" class="text-xs font-medium text-note-error-text">{{ errors.lines }}</span>
@@ -417,7 +417,7 @@ const lineError = (i: number) => errors.value[`lines[${i}].qty`]
           <p class="m-0 text-xs text-erp-muted">You can never return more than was received, minus earlier returns.</p>
         </section>
 
-        <section class="erp-card flex flex-col gap-2.5 px-5 py-4">
+        <section data-tour="prt:photos" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <h2 class="m-0 text-[15px] font-bold">Photos</h2>
           <FileTiles :files="files" :editable="editable" :upload="upload" add-label="+ Add photo" />
         </section>
@@ -426,7 +426,7 @@ const lineError = (i: number) => errors.value[`lines[${i}].qty`]
       </div>
 
       <aside v-if="supplier" class="flex flex-col gap-3.5">
-        <SideCard :title="form.settleBy === 'CREDIT_NOTE' ? 'Credit expected (MYR)' : 'Value going back (MYR)'">
+        <SideCard data-tour="prt:credit" :title="form.settleBy === 'CREDIT_NOTE' ? 'Credit expected (MYR)' : 'Value going back (MYR)'">
           <div class="flex flex-col text-[13px] erp-num">
             <div class="flex justify-between gap-3 border-b border-erp-row py-[7px]"><span>Goods</span><span>{{ formatMoney(goods) }}</span></div>
             <div v-for="t in taxLines" :key="t.code" class="flex justify-between gap-3 border-b border-erp-row py-[7px]"><span>{{ t.name }}</span><span>{{ formatMoney(t.amount) }}</span></div>
@@ -479,7 +479,7 @@ const lineError = (i: number) => errors.value[`lines[${i}].qty`]
       </aside>
     </div>
 
-    <Dialog v-if="row" v-model:visible="settleOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }">
+    <Dialog v-if="row" v-model:visible="settleOpen" data-tour="prt:settle" modal :draggable="false" class="erp-dialog" :style="{ width: '480px' }">
       <template #header>
         <div>
           <h2 class="m-0 text-xl font-bold">{{ row.settleBy === 'CREDIT_NOTE' ? 'Record credit note' : 'Record replacement' }} · {{ row.docNo }}</h2>

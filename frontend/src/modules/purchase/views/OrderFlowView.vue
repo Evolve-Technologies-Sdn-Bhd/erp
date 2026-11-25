@@ -56,7 +56,7 @@ const auditOldestFirst = computed(() => flow.value?.audit ?? [])
       </template>
     </PageHeader>
 
-    <div class="flex items-stretch gap-2">
+    <div data-tour="po-flow:chain" class="flex items-stretch gap-2">
       <template v-for="(d, i) in flow.chain" :key="`${d.type}-${d.docNo}`">
         <ArrowRight v-if="i > 0" :size="16" class="shrink-0 self-center text-erp-muted" aria-hidden="true" />
         <component :is="docRoute(d.type, d.id) && !d.current ? 'RouterLink' : 'div'" :to="docRoute(d.type, d.id) ?? undefined" class="erp-node" :class="{ current: d.current }">
@@ -74,7 +74,7 @@ const auditOldestFirst = computed(() => flow.value?.audit ?? [])
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
-        <section v-if="flow.quantity" class="erp-card flex flex-col gap-3 px-5 py-4">
+        <section v-if="flow.quantity" data-tour="po-flow:quantity" class="erp-card flex flex-col gap-3 px-5 py-4">
           <h2 class="m-0 text-[15px] font-bold">
             Quantity through the chain · {{ flow.quantity.itemCode }} {{ flow.quantity.itemName }}
             <span v-if="flow.quantity.more" class="text-xs font-normal text-erp-muted">(first line; {{ flow.quantity.more }} more on the order)</span>

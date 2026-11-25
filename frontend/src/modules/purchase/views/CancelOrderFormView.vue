@@ -275,7 +275,7 @@ const items = computed(() => [...new Set(form.lines.filter((l) => compareQty(l.c
             />
             <div v-else class="erp-input-ro">{{ formatDate(form.docDate) }}</div>
           </FormField>
-          <FormField label="Reason" :error="errors.reason" for="pco-reason">
+          <FormField data-tour="pco:reason" label="Reason" :error="errors.reason" for="pco-reason">
             <select v-if="editable" id="pco-reason" v-model="form.reason" class="erp-input">
               <option v-for="r in reasons" :key="r" :value="r">{{ r }}</option>
             </select>
@@ -293,7 +293,7 @@ const items = computed(() => [...new Set(form.lines.filter((l) => compareQty(l.c
           </FormField>
         </section>
 
-        <section class="erp-card flex flex-col gap-2.5 px-5 py-4">
+        <section data-tour="pco:lines" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">What is being cancelled</h2>
             <span v-if="errors.lines" class="text-xs font-medium text-note-error-text">{{ errors.lines }}</span>

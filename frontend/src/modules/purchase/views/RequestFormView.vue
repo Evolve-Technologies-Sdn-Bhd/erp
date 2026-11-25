@@ -278,7 +278,7 @@ const historyNote = (h: { unitPrice: string; note: string | null }, index: numbe
           <FormField label="Request date">
             <div class="erp-input-ro">{{ formatDate(request?.docDate ?? today) }}</div>
           </FormField>
-          <FormField label="Needed by" :error="errors.neededBy" for="needed-by">
+          <FormField data-tour="req:needed" label="Needed by" :error="errors.neededBy" for="needed-by">
             <DatePicker
               v-if="editable"
               input-id="needed-by"
@@ -301,7 +301,7 @@ const historyNote = (h: { unitPrice: string; note: string | null }, index: numbe
             </select>
             <div v-else class="erp-input-ro">{{ form.priority === 'URGENT' ? 'Urgent' : 'Normal' }}</div>
           </FormField>
-          <FormField label="Reason" class="col-span-3" :error="errors.reason" for="reason">
+          <FormField data-tour="req:reason" label="Reason" class="col-span-3" :error="errors.reason" for="reason">
             <input
               v-if="editable"
               id="reason"
@@ -347,7 +347,7 @@ const historyNote = (h: { unitPrice: string; note: string | null }, index: numbe
                       />
                       <div v-if="errors[`lines[${i}].itemCode`]" class="mt-1 text-xs text-note-error-text">{{ errors[`lines[${i}].itemCode`] }}</div>
                     </td>
-                    <td class="num w-[110px]">
+                    <td data-tour="req:qty" class="num w-[110px]">
                       <input v-model="l.qty" class="erp-cell w-[72px]" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].qty`])" :aria-label="`Quantity, line ${i + 1}`" />
                       <div v-if="errors[`lines[${i}].qty`]" class="mt-1 text-left text-xs text-note-error-text">{{ errors[`lines[${i}].qty`] }}</div>
                     </td>

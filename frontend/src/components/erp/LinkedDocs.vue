@@ -19,7 +19,7 @@ defineProps<{
 </script>
 
 <template>
-  <SideCard title="Linked documents">
+  <SideCard data-tour="linked-docs" title="Linked documents">
     <p v-if="!docs.length" class="m-0 text-[13px] text-erp-muted">No other documents yet.</p>
     <div
       v-for="d in docs"

@@ -184,7 +184,7 @@ async function raise() {
 
   <NoticeBanner v-if="notConnected" kind="warning">{{ notConnected }}</NoticeBanner>
 
-  <section class="erp-card flex grow flex-col gap-3 px-5 py-4">
+  <section data-tour="demand:list" class="erp-card flex grow flex-col gap-3 px-5 py-4">
     <div class="grid grid-cols-4 gap-3">
       <input v-model="searchText" class="erp-input" placeholder="Search item" aria-label="Search item" />
       <select class="erp-input" aria-label="Reason" :value="filter.reason" @change="setFilter('reason', ($event.target as HTMLSelectElement).value)">

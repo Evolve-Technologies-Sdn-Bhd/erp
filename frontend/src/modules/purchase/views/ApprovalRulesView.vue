@@ -76,7 +76,7 @@ const err = (field: string) => errors.value[field]
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
-        <section class="erp-card flex flex-col gap-3 px-5 py-4">
+        <section data-tour="ar:limits" class="erp-card flex flex-col gap-3 px-5 py-4">
           <div class="flex items-center justify-between">
             <h2 class="m-0 text-[15px] font-bold">Approval limits</h2>
             <button v-if="!readOnly" type="button" class="erp-btn erp-btn-secondary h-8" @click="addRule"><Plus :size="14" aria-hidden="true" />Add rule</button>
@@ -89,7 +89,7 @@ const err = (field: string) => errors.value[field]
                   <td class="font-semibold">{{ r.branch }}</td>
                   <td>{{ r.document }}</td>
                   <td>
-                    <div v-if="r.thresholdAmount !== null" class="flex items-center gap-2 whitespace-nowrap">
+                    <div v-if="r.thresholdAmount !== null" data-tour="ar:limit" class="flex items-center gap-2 whitespace-nowrap">
                       <span>{{ r.conditionLabel }}</span>
                       <strong v-if="readOnly" class="erp-num">{{ formatMoney(r.thresholdAmount) }}</strong>
                       <input v-else v-model="form.rules[i]!.thresholdAmount" class="erp-input h-8 w-[100px] text-right" inputmode="decimal" :aria-invalid="!!err(`rules[${i}].thresholdAmount`)" :aria-label="`${r.branch} ${r.document} limit`" />
@@ -197,7 +197,7 @@ const err = (field: string) => errors.value[field]
       </div>
 
       <div class="flex flex-col gap-3.5">
-        <SideCard title="Change history">
+        <SideCard data-tour="ar:history" title="Change history">
           <p v-if="!data.history.length" class="m-0 text-[13px] text-erp-muted">No changes yet.</p>
           <div v-for="h in data.history" :key="h.id" class="flex flex-col gap-0.5 border-b border-erp-row pb-2 text-[13px] last:border-b-0 last:pb-0">
             <span class="text-xs text-erp-muted">{{ formatDayMonth(h.at.slice(0, 10)) }} · {{ h.userName }}</span>

@@ -112,7 +112,7 @@ function insertField(field: string) {
   </PageHeader>
 
   <div class="grid grow items-start gap-4 grid-cols-[260px_minmax(0,1fr)_300px]">
-    <section class="erp-card flex flex-col gap-1 px-3 py-4">
+    <section data-tour="pet:list" class="erp-card flex flex-col gap-1 px-3 py-4">
       <h2 class="m-0 mb-1.5 px-2 text-[15px] font-bold">Templates</h2>
       <button
         v-for="t in list"
@@ -143,7 +143,7 @@ function insertField(field: string) {
           <span v-if="errors.ccTemplate" class="font-normal text-note-error-text">{{ errors.ccTemplate }}</span>
         </label>
       </div>
-      <label class="flex flex-col gap-1 text-xs font-semibold text-erp-subtle">Subject
+      <label data-tour="pet:subject" class="flex flex-col gap-1 text-xs font-semibold text-erp-subtle">Subject
         <input v-model="form.subject" class="erp-input font-normal" :disabled="readOnly" :aria-invalid="!!errors.subject" />
         <span v-if="errors.subject" class="font-normal text-note-error-text">{{ errors.subject }}</span>
       </label>
@@ -169,13 +169,13 @@ function insertField(field: string) {
     <div v-else class="erp-card px-6 py-10 text-center text-[13px] text-erp-muted">Loading…</div>
 
     <div v-if="detail" class="flex flex-col gap-3.5">
-      <SideCard title="Fields you can use">
+      <SideCard data-tour="pet:fields" title="Fields you can use">
         <div class="flex flex-wrap gap-1.5">
           <button v-for="f in detail.fields" :key="f" type="button" class="rounded-md border border-erp-border bg-erp-head px-2 py-1 font-mono text-[11px]" :disabled="readOnly" :title="readOnly ? undefined : 'Add to the message'" @click="insertField(f)" v-text="braced(f)" />
         </div>
         <p class="m-0 text-xs text-erp-muted">Supplier fields come from Master Data. Company name and logo come from Master Data · Company.</p>
       </SideCard>
-      <SideCard title="Last sent">
+      <SideCard data-tour="pet:last" title="Last sent">
         <p v-if="!detail.lastSent.length" class="m-0 text-[13px] text-erp-muted">Not sent yet.</p>
         <div v-for="s in detail.lastSent" :key="s.id" class="flex justify-between gap-3 border-b border-erp-row pb-2 text-[13px] last:border-b-0 last:pb-0">
           <span class="min-w-0 truncate">{{ s.docNo }} · {{ s.to }}</span>

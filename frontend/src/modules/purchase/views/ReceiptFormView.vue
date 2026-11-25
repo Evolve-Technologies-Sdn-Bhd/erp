@@ -492,7 +492,7 @@ const chip = computed(() => {
 
       <!-- Right panel -->
       <aside class="flex flex-col gap-3.5">
-        <SideCard v-if="poAfter" :title="`${po.docNo} ${editable ? 'after this receipt' : 'now'}`">
+        <SideCard v-if="poAfter" data-tour="grn:po" :title="`${po.docNo} ${editable ? 'after this receipt' : 'now'}`">
           <div class="flex flex-col text-[13px] erp-num">
             <div class="flex justify-between gap-3 border-b border-erp-row py-[7px]"><span>Ordered</span><span>{{ poQty(poAfter.ordered) }}</span></div>
             <div class="flex justify-between gap-3 border-b border-erp-row py-[7px]"><span>Received</span><strong>{{ poQty(poAfter.received) }}</strong></div>

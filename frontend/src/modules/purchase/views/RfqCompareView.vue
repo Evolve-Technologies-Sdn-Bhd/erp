@@ -385,7 +385,7 @@ const toneClass = (tone: Tone) => (tone === 'good' ? 'text-chip-done-text' : ton
     </section>
 
     <section class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-4">
-      <FormField label="Suppliers to ask" class="col-span-3" :error="errors.supplierCodes" for="add-supplier">
+      <FormField data-tour="rfq:suppliers" label="Suppliers to ask" class="col-span-3" :error="errors.supplierCodes" for="add-supplier">
         <div class="flex flex-wrap items-center gap-2">
           <span
             v-for="s in draft.suppliers"
@@ -477,12 +477,12 @@ const toneClass = (tone: Tone) => (tone === 'good' ? 'text-chip-done-text' : ton
     </PageHeader>
 
     <!-- Side-by-side replies -->
-    <div class="erp-compare" :style="gridStyle">
+    <div data-tour="rfq:compare" class="erp-compare" :style="gridStyle">
       <div class="lab" />
       <div v-for="s in columns" :key="s.code" class="flex-col !items-start gap-1" :class="{ win: s.code === chosen }">
         <span class="text-[15px] font-bold">{{ s.name }}</span>
         <span class="text-xs text-erp-muted">{{ headerSub(s) }}</span>
-        <button v-if="can('recordReply')" type="button" class="erp-btn erp-btn-secondary mt-1 h-[28px] px-2.5 text-xs" @click="openReply(s)">
+        <button v-if="can('recordReply')" type="button" :aria-label="`${s.status === 'ASKED' ? 'Record reply' : 'Change reply'} of ${s.code}`" class="erp-btn erp-btn-secondary mt-1 h-[28px] px-2.5 text-xs" @click="openReply(s)">
           {{ s.status === 'ASKED' ? 'Record reply' : 'Change reply' }}
         </button>
       </div>
@@ -532,7 +532,7 @@ const toneClass = (tone: Tone) => (tone === 'good' ? 'text-chip-done-text' : ton
       <div class="flex grow flex-col gap-4">
         <section v-if="rfq.status !== 'CLOSED'" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <h2 class="m-0 text-[15px] font-bold">Why this supplier</h2>
-          <FormField label="Reason saved with the award" :error="errors.reason" for="award-reason">
+          <FormField data-tour="rfq:reason" label="Reason saved with the award" :error="errors.reason" for="award-reason">
             <textarea
               v-if="isOpen && can('award')"
               id="award-reason"

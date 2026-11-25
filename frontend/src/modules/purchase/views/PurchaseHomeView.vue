@@ -59,7 +59,7 @@ const kpis = computed(() => {
 
 <template>
   <!-- Group tiles -->
-  <div class="flex gap-4">
+  <div data-tour="home:tiles" class="flex gap-4">
     <RouterLink
       v-for="(g, i) in PURCHASE_MENU"
       :key="g.key"

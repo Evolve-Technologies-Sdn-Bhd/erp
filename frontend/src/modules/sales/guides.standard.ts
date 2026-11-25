@@ -1,5 +1,5 @@
 import { account, addItem, admin, agent, approve, approveIt, askApproval, CUSTOMER, CUSTOMERS, deliveryOnly, INVOICE, newOrder, NEW_ORDER, openRequest, ORDER, ORDERS, pickCustomer, reject, release, salesManager, saveDraft, toOrders } from '@/tours/guide.sales'
-import { be, openCore, openDoc, openFromHome, openModule, openPage, press, status } from '@/tours/guide.steps'
+import { be, confirmText, openCore, openDoc, openFromHome, openModule, openPage, press, row, status } from '@/tours/guide.steps'
 import type { Guide, Tour, TourStep } from '@/tours/types'
 
 /**
@@ -42,10 +42,6 @@ const store = (extra: Partial<TourStep> = {}) => be('SALES_STORE', 'store', 'sto
 const trans = (item: string, label: string, to: { path: string }) => openPage('transaction', 'Sales Transaction', item, label, to)
 const bill = (item: string, label: string, to: { path: string }) => openPage('billing', 'Billing', item, label, to)
 const policy = (item: string, label: string, to: { path: string }) => openPage('policies', 'Operation Policies', item, label, to)
-/** A run of steps whose first one starts a Handbook step. */
-const row = (n: number, steps: TourStep[]): TourStep[] => steps.map((s, i) => (i === 0 ? { ...s, row: n } : s))
-
-const confirmText = (button: string) => `Click ${button}, then ${button} again in the question that opens.`
 const released = (title: string, text = confirmText('Release'), page?: { path: string }): TourStep => press('Release', status('RELEASED'), title, text, { page, waiting: 'Waiting for it to be released.' })
 
 /** The item picker on a form that is not the order's. */

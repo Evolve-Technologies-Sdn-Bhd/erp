@@ -300,18 +300,18 @@ const supplierCode = computed(() => row.value?.supplier.code ?? supplier.value?.
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
         <section class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-4">
-          <FormField :label="supplierCode ? `Supplier · ${supplierCode}` : 'Supplier'" for="pdn-supplier">
+          <FormField :label="supplierCode ? `Supplier · ${supplierCode}` : 'Supplier'" for="pdn-supplier" data-tour="pdn:supplier">
             <MasterDataPicker v-if="isNew" :model-value="supplier" input-id="pdn-supplier" :search="searchSuppliers" placeholder="Type a supplier code or name" @picked="pickSupplier" />
             <div v-else class="erp-input-ro">{{ supplierName }}</div>
           </FormField>
-          <FormField label="Adds to invoice" :error="errors.invoiceId" for="pdn-invoice">
+          <FormField data-tour="pdn:invoice" label="Adds to invoice" :error="errors.invoiceId" for="pdn-invoice">
             <select v-if="isNew" id="pdn-invoice" v-model="form.invoiceId" class="erp-input" :disabled="!supplier">
               <option value="">{{ !supplier ? 'Pick the supplier first' : invoices.length ? 'Pick the invoice' : 'No invoice from this supplier' }}</option>
               <option v-for="i in invoices" :key="i.id" :value="i.id">{{ i.docNo }} · {{ i.supplierInvoiceNo }} · {{ i.statusLabel }}</option>
             </select>
             <div v-else class="erp-input-ro">{{ row?.invoice.docNo }}<template v-if="row?.invoice.supplierInvoiceNo"> · {{ row.invoice.supplierInvoiceNo }}</template></div>
           </FormField>
-          <FormField label="Their debit note no" :error="errors.theirNoteNo" for="pdn-their">
+          <FormField data-tour="pdn:no" label="Their debit note no" :error="errors.theirNoteNo" for="pdn-their">
             <input v-if="editable" id="pdn-their" v-model="form.theirNoteNo" class="erp-input" maxlength="50" />
             <div v-else class="erp-input-ro">{{ form.theirNoteNo }}</div>
           </FormField>
@@ -365,12 +365,12 @@ const supplierCode = computed(() => row.value?.supplier.code ?? supplier.value?.
             <tbody>
               <template v-if="editable">
                 <tr v-for="(l, i) in form.lines" :key="l.key">
-                  <td class="min-w-[220px]">
+                  <td data-tour="pdn:line-item" class="min-w-[220px]">
                     <MasterDataPicker :model-value="pickerValue(l)" :search="searchItems" placeholder="Type an item or service code" @picked="l.item = $event" />
                   </td>
                   <td class="num w-[90px]"><input v-model="l.qty" class="erp-cell w-[64px]" inputmode="decimal" :aria-label="`Quantity, charge ${i + 1}`" :aria-invalid="Boolean(errors[`lines[${i}].qty`])" /></td>
                   <td>{{ l.item?.uomCode }}</td>
-                  <td class="num w-[120px]"><input v-model="l.unitPrice" class="erp-cell w-[96px]" inputmode="decimal" :aria-label="`Unit price, charge ${i + 1}`" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" /></td>
+                  <td data-tour="pdn:line-price" class="num w-[120px]"><input v-model="l.unitPrice" class="erp-cell w-[96px]" inputmode="decimal" :aria-label="`Unit price, charge ${i + 1}`" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" /></td>
                   <td class="whitespace-nowrap">{{ l.item?.taxName ?? '—' }}</td>
                   <td class="num"><MoneyText :value="previews[i]?.amount ?? null" /></td>
                   <td class="w-8">
@@ -421,7 +421,7 @@ const supplierCode = computed(() => row.value?.supplier.code ?? supplier.value?.
       </div>
 
       <aside class="flex flex-col gap-3.5">
-        <SideCard v-if="check" :title="`Checked against ${check.po.docNo}`">
+        <SideCard v-if="check" data-tour="pdn:check" :title="`Checked against ${check.po.docNo}`">
           <NoticeBanner :kind="check.onPo ? 'info' : 'warning'">{{ check.message }}</NoticeBanner>
           <div class="flex flex-col gap-0.5">
             <span class="text-xs text-erp-muted">{{ check.onPo ? 'Next' : 'Goes to' }}</span>

@@ -73,7 +73,7 @@ const FLAGS = (t: DocumentTypesSettings['poTypes'][number]) =>
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
-        <section class="erp-card flex flex-col gap-3 px-5 py-4">
+        <section data-tour="pdt:numbers" class="erp-card flex flex-col gap-3 px-5 py-4">
           <h2 class="m-0 text-[15px] font-bold">Numbering</h2>
           <div class="overflow-x-auto">
             <table class="erp-table">

@@ -371,7 +371,7 @@ const warehouseName = computed(() => warehouses.value.find((w) => w.code === for
 
         <!-- Header fields (PoForm.html order) -->
         <section class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-[18px]">
-          <FormField :label="form.supplier ? `Supplier · ${form.supplier.code}` : 'Supplier'" :error="errors.supplierCode" for="supplier">
+          <FormField :label="form.supplier ? `Supplier · ${form.supplier.code}` : 'Supplier'" :error="errors.supplierCode" for="supplier" data-tour="po:supplier">
             <MasterDataPicker
               v-if="editable"
               v-model="form.supplier"
@@ -418,7 +418,7 @@ const warehouseName = computed(() => warehouses.value.find((w) => w.code === for
             <div class="erp-input-ro">{{ order?.buyer.name ?? user?.name }}</div>
           </FormField>
 
-          <FormField label="Deliver to" :error="errors.warehouseCode" for="deliver-to">
+          <FormField data-tour="po:deliver-to" label="Deliver to" :error="errors.warehouseCode" for="deliver-to">
             <select v-if="editable" id="deliver-to" v-model="form.warehouseCode" class="erp-input">
               <option v-for="w in warehouses" :key="w.code" :value="w.code">{{ w.name }}</option>
             </select>
@@ -474,7 +474,7 @@ const warehouseName = computed(() => warehouses.value.find((w) => w.code === for
                 <!-- Editable draft -->
                 <template v-if="editable">
                   <tr v-for="(l, i) in form.lines" :key="l.key">
-                    <td class="min-w-[280px]">
+                    <td data-tour="po:line-item" class="min-w-[280px]">
                       <MasterDataPicker
                         :model-value="pickerValue(l)"
                         :search="searchItems"
@@ -492,14 +492,14 @@ const warehouseName = computed(() => warehouses.value.find((w) => w.code === for
                       </MasterDataPicker>
                       <div v-if="errors[`lines[${i}].itemCode`]" class="mt-1 text-xs text-note-error-text">{{ errors[`lines[${i}].itemCode`] }}</div>
                     </td>
-                    <td class="num w-[130px]">
+                    <td data-tour="po:line-qty" class="num w-[130px]">
                       <div class="flex items-center gap-1.5">
                         <input v-model="l.qty" class="erp-cell" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].qty`])" :aria-label="`Quantity, line ${i + 1}`" />
                         <span class="w-9 text-left text-xs text-erp-muted">{{ l.item?.uomCode }}</span>
                       </div>
                       <div v-if="errors[`lines[${i}].qty`]" class="mt-1 text-left text-xs text-note-error-text">{{ errors[`lines[${i}].qty`] }}</div>
                     </td>
-                    <td class="num w-[120px]">
+                    <td data-tour="po:line-price" class="num w-[120px]">
                       <input v-model="l.unitPrice" class="erp-cell" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" :aria-label="`Unit price, line ${i + 1}`" />
                     </td>
                     <td class="whitespace-nowrap">{{ l.item?.taxName ?? '—' }}</td>
@@ -551,7 +551,7 @@ const warehouseName = computed(() => warehouses.value.find((w) => w.code === for
 
       <!-- Right panel -->
       <aside v-if="order" class="flex flex-col gap-4">
-        <SideCard v-if="order" title="Approval">
+        <SideCard v-if="order" data-tour="po:approval-card" title="Approval">
           <template #chip><StatusChip :status="approvalChip.status" :label="approvalChip.label" /></template>
           <p class="m-0 text-xs text-erp-muted">{{ order.approval.reason }}</p>
           <p v-if="order.approval.state === 'PENDING'" class="m-0 text-[13px] leading-normal">

@@ -148,7 +148,7 @@ async function decide(decision: 'approve' | 'reject') {
       <h1 class="m-0 text-xl font-bold">Purchase approvals</h1>
       <p class="mt-1 mb-0 text-xs text-erp-muted">Orders over the limit and supplier invoices that don't match. {{ signedInAs }}</p>
     </div>
-    <div class="flex gap-6" role="tablist">
+    <div data-tour="approvals:tabs" class="flex gap-6" role="tablist">
       <button
         v-for="t in TABS"
         :key="t.key"
@@ -166,7 +166,7 @@ async function decide(decision: 'approve' | 'reject') {
 
   <div class="grid grow grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-stretch gap-4">
     <!-- Left: cards and recent decisions -->
-    <div class="flex min-w-0 flex-col gap-3">
+    <div data-tour="approvals:list" class="flex min-w-0 flex-col gap-3">
       <div v-if="loadingList && !list" class="erp-card px-5 py-8 text-center text-[13px] text-erp-muted">Loading…</div>
       <div v-else-if="!list?.items.length" class="erp-card px-5 py-8 text-center text-[13px] text-erp-muted">
         {{ tab === 'waiting' ? 'Nothing is waiting for you.' : tab === 'approved' ? 'You have not approved anything yet.' : 'You have not rejected anything yet.' }}
@@ -215,7 +215,7 @@ async function decide(decision: 'approve' | 'reject') {
     </div>
 
     <!-- Right: the selected approval -->
-    <section class="erp-card flex min-w-0 flex-col gap-4 px-5 py-[18px]">
+    <section data-tour="approvals:detail" class="erp-card flex min-w-0 flex-col gap-4 px-5 py-[18px]">
       <div v-if="loadingDetail" class="py-10 text-center text-[13px] text-erp-muted">Loading…</div>
       <div v-else-if="!detail || !doc" class="py-10 text-center text-[13px] text-erp-muted">Pick an approval on the left to see the details.</div>
 
@@ -359,7 +359,7 @@ async function decide(decision: 'approve' | 'reject') {
         <template v-else>
           <NoticeBanner v-if="!detail.canDecide" kind="error">{{ detail.cannotDecideReason }}</NoticeBanner>
           <template v-else>
-            <label class="flex flex-col gap-1.5 text-xs font-medium text-erp-muted" for="decision-comment">
+            <label data-tour="approvals:comment" class="flex flex-col gap-1.5 text-xs font-medium text-erp-muted" for="decision-comment">
               Your comment
               <textarea
                 id="decision-comment"
@@ -372,9 +372,9 @@ async function decide(decision: 'approve' | 'reject') {
               <span v-if="commentError" class="text-note-error-text" role="alert">{{ commentError }}</span>
             </label>
             <div class="mt-auto flex flex-col gap-2 pt-2">
-              <div class="grid grid-cols-2 gap-2">
+              <div data-tour="approvals:decide" class="grid grid-cols-2 gap-2">
                 <button type="button" class="erp-btn erp-btn-danger h-10" :disabled="deciding" @click="decide('reject')">{{ rejectLabel }}</button>
-                <button type="button" class="erp-btn erp-btn-primary h-10" :disabled="deciding" @click="decide('approve')">{{ approveLabel }}</button>
+                <button type="button" data-tour="approvals:approve" class="erp-btn erp-btn-primary h-10" :disabled="deciding" @click="decide('approve')">{{ approveLabel }}</button>
               </div>
               <p class="m-0 text-xs text-erp-muted">{{ footnote }}</p>
             </div>

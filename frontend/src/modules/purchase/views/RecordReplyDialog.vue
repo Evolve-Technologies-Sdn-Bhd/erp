@@ -103,7 +103,7 @@ async function save() {
 </script>
 
 <template>
-  <Dialog v-model:visible="visible" modal :draggable="false" class="erp-dialog" :style="{ width: '640px' }">
+  <Dialog v-model:visible="visible" data-tour="rfq:reply" modal :draggable="false" class="erp-dialog" :style="{ width: '640px' }">
     <template #header>
       <div>
         <h2 class="m-0 text-xl font-bold">{{ title }} · {{ supplier?.shortName ?? supplier?.name }}</h2>

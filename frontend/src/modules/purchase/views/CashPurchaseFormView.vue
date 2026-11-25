@@ -243,7 +243,7 @@ const belowReorder = computed(() => Boolean(stock.value?.reorderLevel && compare
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
         <section class="erp-card grid grid-cols-4 gap-x-4 gap-y-3 px-5 py-4">
-          <FormField :label="supplier ? `Supplier · ${supplier.code}` : 'Supplier'" :error="errors.supplierCode" for="cp-supplier">
+          <FormField :label="supplier ? `Supplier · ${supplier.code}` : 'Supplier'" :error="errors.supplierCode" for="cp-supplier" data-tour="cp:supplier">
             <MasterDataPicker v-if="editable" v-model="supplier" input-id="cp-supplier" :search="searchSuppliers" placeholder="Shop or supplier" />
             <div v-else class="erp-input-ro">{{ supplier?.name }}</div>
           </FormField>
@@ -257,13 +257,13 @@ const belowReorder = computed(() => Boolean(stock.value?.reorderLevel && compare
           <FormField label="Branch">
             <div class="erp-input-ro">{{ row?.branch.name ?? method?.branchCode ?? '—' }}</div>
           </FormField>
-          <FormField label="Paid by" :error="errors.paymentMethodCode" for="cp-paid">
+          <FormField data-tour="cp:paid-by" label="Paid by" :error="errors.paymentMethodCode" for="cp-paid">
             <select v-if="editable" id="cp-paid" v-model="form.paymentMethodCode" class="erp-input">
               <option v-for="m in methods" :key="m.code" :value="m.code">{{ m.label }}</option>
             </select>
             <div v-else class="erp-input-ro">{{ row?.paidByLabel }}</div>
           </FormField>
-          <FormField label="Their receipt no" for="cp-receipt">
+          <FormField data-tour="cp:receipt-no" label="Their receipt no" for="cp-receipt">
             <input v-if="editable" id="cp-receipt" v-model="form.receiptNo" class="erp-input" maxlength="50" />
             <div v-else class="erp-input-ro">{{ form.receiptNo || '—' }}</div>
           </FormField>
@@ -288,16 +288,16 @@ const belowReorder = computed(() => Boolean(stock.value?.reorderLevel && compare
               </thead>
               <tbody>
                 <tr v-for="(l, i) in form.lines" :key="l.key">
-                  <td class="min-w-[220px]">
+                  <td data-tour="cp:line-item" class="min-w-[220px]">
                     <MasterDataPicker v-if="editable" :model-value="pickerValue(l)" :search="searchItems" placeholder="Type an item code or name" @picked="l.item = $event" />
                     <template v-else><div class="font-semibold whitespace-nowrap">{{ l.item?.code }}</div><div class="text-xs text-erp-muted">{{ l.item?.name }}</div></template>
                   </td>
-                  <td class="num w-[90px]">
+                  <td data-tour="cp:line-qty" class="num w-[90px]">
                     <input v-if="editable" v-model="l.qty" class="erp-cell w-[64px]" inputmode="decimal" :aria-label="`Quantity, line ${i + 1}`" :aria-invalid="Boolean(errors[`lines[${i}].qty`])" />
                     <template v-else>{{ formatQty(l.qty) }}</template>
                   </td>
                   <td>{{ l.item?.uomCode }}</td>
-                  <td class="num w-[120px]">
+                  <td data-tour="cp:line-price" class="num w-[120px]">
                     <input v-if="editable" v-model="l.unitPrice" class="erp-cell w-[96px]" inputmode="decimal" :aria-label="`Unit price, line ${i + 1}`" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" />
                     <template v-else>{{ formatPrice(l.unitPrice) }}</template>
                   </td>
@@ -325,10 +325,10 @@ const belowReorder = computed(() => Boolean(stock.value?.reorderLevel && compare
       </div>
 
       <aside class="flex flex-col gap-3.5">
-        <SideCard title="Receipt">
+        <SideCard data-tour="cp:photo" title="Receipt">
           <FileTiles :files="files" :editable="editable" :upload="upload" add-label="+ Add photo" accept="image/*" />
         </SideCard>
-        <ChecksList :checks="checks" />
+        <ChecksList data-tour="cp:checks" :checks="checks" />
         <SideCard v-if="stock" :title="`${stock.itemCode} stock`">
           <div class="flex flex-col text-[13px] erp-num">
             <div class="flex justify-between gap-3 border-b border-erp-row py-[7px]"><span>On hand now</span><span>{{ qtyWithUnit(stock.onHand, stock.uomCode) }}</span></div>

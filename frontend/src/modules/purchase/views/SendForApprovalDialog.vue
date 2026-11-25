@@ -78,7 +78,7 @@ async function send() {
 </script>
 
 <template>
-  <Dialog v-model:visible="visible" modal :draggable="false" class="erp-dialog" :style="{ width: '620px' }">
+  <Dialog v-model:visible="visible" data-tour="po:approval" modal :draggable="false" class="erp-dialog" :style="{ width: '620px' }">
     <template #header>
       <div>
         <h2 class="m-0 text-xl font-bold">Send {{ check?.docNo ?? '' }} for approval</h2>

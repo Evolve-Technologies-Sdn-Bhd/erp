@@ -82,3 +82,33 @@ export const openDoc = (list: PageMatch, word: string, to: PageMatch, title: str
 
 /** A document's status chip in its header: what a real button leads to. */
 export const status = (...codes: string[]): StepWait => ({ kind: 'appear', selector: codes.map((c) => `[data-tour="page-header"] [data-status="${c}"]`).join(', ') })
+
+/** The question that opens after a real button: "Click Release, then Release again in the question that opens." */
+export const confirmText = (button: string) => `Click ${button}, then ${button} again in the question that opens.`
+
+/** A run of steps whose first one starts a Handbook step. */
+export const row = (n: number, steps: TourStep[]): TourStep[] => steps.map((s, i) => (i === 0 ? { ...s, row: n } : s))
+
+/** The steps in a module's Approvals page. */
+export const inbox = (page: PageMatch) => ({
+  /** The request of a document, opened in Approvals. With optional, left out when nothing of it waits for this person. */
+  openRequest: (word: string, expect: string, extra: Partial<TourStep> = {}): TourStep[] => [
+    { target: 'approvals', wait: { kind: 'page', to: page }, title: 'Open Approvals', text: 'Click Approvals in the top bar.' },
+    { target: 'approvals:list', page, pick: `{${word}}`, wait: { kind: 'click' }, title: 'Pick the request', text: `Click the card of {${word}}.`, placement: 'right', ...extra },
+    { target: 'approvals:decide', page, title: 'What is asked', text: 'Read the request and its details above.', expect, placement: 'left', ...(extra.optional && { optional: true }) },
+  ],
+  approveIt: (extra: Partial<TourStep> = {}): TourStep => ({
+    target: 'approvals:approve',
+    page,
+    wait: { kind: 'gone', selector: '[data-tour="approvals:approve"]' },
+    waiting: 'Waiting for your decision.',
+    title: 'Approve it',
+    text: 'Click Approve.',
+    ...extra,
+  }),
+  /** Rejected with a comment, which the requester then sees. */
+  rejectIt: (comment: string): TourStep[] => [
+    { target: 'approvals:comment', page, wait: { kind: 'use' }, title: 'Say why', text: 'Type a comment, then Next.', type: [{ field: 'Your comment', value: comment }], placement: 'left' },
+    { target: 'approvals:decide', pick: 'Reject', page, wait: { kind: 'gone', selector: '[data-tour="approvals:approve"]' }, waiting: 'Waiting for your decision.', title: 'Reject it', text: 'Click Reject.', placement: 'left' },
+  ],
+})

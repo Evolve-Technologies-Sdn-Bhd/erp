@@ -473,7 +473,7 @@ const ruleText = computed(() =>
         Discount rejected by {{ quote.approval.decidedBy }}<template v-if="quote.approval.comment">: “{{ quote.approval.comment }}”</template>. Lower the discount or request approval again.
       </NoticeBanner>
       <NoticeBanner v-else-if="quote?.approval.state === 'APPROVED' && quote.status === 'DRAFT'">
-        Discount approved by {{ quote.approval.decidedBy }}<template v-if="quote.approval.comment"> · “{{ quote.approval.comment }}”</template>. You can release the quotation.
+        {{ range ? 'Price' : 'Discount' }} approved by {{ quote.approval.decidedBy }}<template v-if="quote.approval.comment"> · “{{ quote.approval.comment }}”</template>. You can release the quotation.
       </NoticeBanner>
 
       <!-- Header fields (QuotationForm.html order) -->

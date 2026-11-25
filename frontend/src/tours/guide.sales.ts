@@ -1,4 +1,4 @@
-import { be, openPage, status } from './guide.steps'
+import { be, inbox, openPage, status } from './guide.steps'
 import type { TourStep } from './types'
 
 /** The clicks in Sales that several guides repeat, in Sales' own guides and in Service's. */
@@ -78,30 +78,14 @@ export const askApproval = (reason: string, rows: { reason?: number } = {}): Tou
     text: 'Click Request approval.',
   },
 ]
-const APPROVALS = { code: 'S02' }
-/** The request of a document, opened in Approvals. With optional, left out when nothing of it waits for this person. */
-export const openRequest = (word: string, expect: string, extra: Partial<TourStep> = {}): TourStep[] => [
-  { target: 'approvals', wait: { kind: 'page', to: APPROVALS }, title: 'Open Approvals', text: 'Click Approvals in the top bar.' },
-  { target: 'approvals:list', page: APPROVALS, pick: `{${word}}`, wait: { kind: 'click' }, title: 'Pick the request', text: `Click the card of {${word}}.`, placement: 'right', ...extra },
-  { target: 'approvals:decide', page: APPROVALS, title: 'What is asked', text: 'Read the request and its details above.', expect, placement: 'left', ...(extra.optional && { optional: true }) },
-]
-export const approveIt = (extra: Partial<TourStep> = {}): TourStep => ({
-  target: 'approvals:approve',
-  page: APPROVALS,
-  wait: { kind: 'gone', selector: '[data-tour="approvals:approve"]' },
-  waiting: 'Waiting for your decision.',
-  title: 'Approve it',
-  text: 'Click Approve.',
-  ...extra,
-})
+export const { openRequest, approveIt, rejectIt } = inbox({ code: 'S02' })
 /** The Sales Manager approves a document in Approvals. */
 export const approve = (as: 'salesManager' | 'branchManager', word: string, row: number, expect: string): TourStep[] => [salesManager(as, { row }), ...openRequest(word, expect), approveIt()]
 /** Rejected with a comment, which the requester then sees. */
 export const reject = (as: 'salesManager' | 'branchManager', word: string, row: number, comment: string): TourStep[] => [
   salesManager(as, { row }),
   ...openRequest(word, 'Why it needs approval, and the note of the person who asks.'),
-  { target: 'approvals:comment', page: APPROVALS, wait: { kind: 'use' }, title: 'Say why', text: 'Type a comment, then Next.', type: [{ field: 'Your comment', value: comment }], placement: 'left' },
-  { target: 'approvals:decide', pick: 'Reject', page: APPROVALS, wait: { kind: 'gone', selector: '[data-tour="approvals:approve"]' }, waiting: 'Waiting for your decision.', title: 'Reject it', text: 'Click Reject.', placement: 'left' },
+  ...rejectIt(comment),
 ]
 /** An order that is delivered without installation, where the company asks for an installation. */
 export const deliveryOnly = (): TourStep => ({ target: 'so:installation', page: NEW_ORDER, optional: true, wait: { kind: 'use' }, title: 'No installation', text: 'Pick Delivery only, then Next.' })

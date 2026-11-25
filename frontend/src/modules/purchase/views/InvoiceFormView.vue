@@ -371,10 +371,10 @@ const difference = computed(() => (invoice.value ? subQty(invoice.value.totals.b
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
         <section class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-4">
-          <FormField :label="supplier ? `Supplier · ${supplier.code}` : 'Supplier'" for="inv-supplier">
+          <FormField :label="supplier ? `Supplier · ${supplier.code}` : 'Supplier'" for="inv-supplier" data-tour="pi:supplier">
             <MasterDataPicker :model-value="supplier" input-id="inv-supplier" :search="searchSuppliers" placeholder="Type a supplier code or name" @picked="pickSupplier" />
           </FormField>
-          <FormField label="Their invoice no" :error="errors.supplierInvoiceNo" for="their-no">
+          <FormField data-tour="pi:no" label="Their invoice no" :error="errors.supplierInvoiceNo" for="their-no">
             <input id="their-no" v-model="form.supplierInvoiceNo" class="erp-input" maxlength="50" :aria-invalid="Boolean(errors.supplierInvoiceNo)" />
           </FormField>
           <FormField label="Invoice date" :error="errors.invoiceDate" for="inv-date">
@@ -392,7 +392,7 @@ const difference = computed(() => (invoice.value ? subQty(invoice.value.totals.b
           <FormField :label="supplier ? `Due date · ${paymentTermDays} days` : 'Due date'">
             <div class="erp-input-ro">{{ supplier ? formatDate(dueDate) : '—' }}</div>
           </FormField>
-          <FormField label="Purchase order" class="col-span-2" :error="errors.poId" for="inv-po">
+          <FormField data-tour="pi:po" label="Purchase order" class="col-span-2" :error="errors.poId" for="inv-po">
             <select id="inv-po" v-model="poId" class="erp-input" :disabled="!supplier">
               <option value="">{{ !supplier ? 'Pick the supplier first' : orders.length ? 'Pick the purchase order' : 'Nothing received and not yet billed' }}</option>
               <option v-for="o in orders" :key="o.id" :value="o.id">{{ o.docNo }} · {{ formatDate(o.docDate) }} · {{ o.billableText }}</option>
@@ -403,7 +403,7 @@ const difference = computed(() => (invoice.value ? subQty(invoice.value.totals.b
           </FormField>
         </section>
 
-        <section v-if="template" class="erp-card flex flex-col gap-2.5 px-5 py-4">
+        <section v-if="template" data-tour="pi:lines" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">What they billed</h2>
             <span class="text-xs text-erp-muted">Received and not yet billed on {{ template.po.docNo }}<template v-if="template.grns.length"> ({{ template.grns.map((g) => g.docNo).join(', ') }})</template></span>
@@ -543,7 +543,7 @@ const difference = computed(() => (invoice.value ? subQty(invoice.value.totals.b
         </section>
 
         <!-- Three-way match -->
-        <section class="erp-card flex flex-col gap-2.5 px-5 py-4">
+        <section data-tour="pi:match" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <div class="flex items-center justify-between">
             <h2 class="m-0 text-[15px] font-bold">Three-way match</h2>
             <span class="text-xs text-erp-muted">
@@ -622,7 +622,7 @@ const difference = computed(() => (invoice.value ? subQty(invoice.value.totals.b
         <NoticeBanner v-if="editable && matched" kind="info">
           <strong>All three agree.</strong> Recording it queues the payable for Finance; nothing needs approval.
         </NoticeBanner>
-        <section v-else-if="editable" class="erp-card flex flex-col gap-2.5 px-5 py-4">
+        <section v-else-if="editable" data-tour="pi:choice" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <h2 class="m-0 text-[15px] font-bold">What should we record?</h2>
           <label class="erp-opt" :class="{ on: choice === 'record' }">
             <input v-model="choice" type="radio" value="record" />
