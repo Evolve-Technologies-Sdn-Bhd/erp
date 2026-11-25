@@ -325,7 +325,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
               <div v-else id="enquiry" class="erp-input-ro">{{ customer?.cameFromEnquiry ?? '—' }}</div>
             </FormField>
           </div>
-          <label class="flex items-center gap-2.5 text-[13px] font-medium">
+          <label data-tour="cus:all-branches" class="flex items-center gap-2.5 text-[13px] font-medium">
             <SwitchToggle v-model="form.visibleToAllBranches" label="Visible to all branches" :disabled="!detailsEditable" />
             Visible to all branches
             <span class="text-xs font-normal text-erp-muted">{{ form.visibleToAllBranches ? 'Users of every branch see this customer.' : 'Only users of its branch see this customer.' }}</span>

@@ -56,7 +56,7 @@ const TABS = [
   <section class="erp-card flex grow flex-col gap-4 px-6 py-[18px]">
     <PageHeader title="Who can do what" subtitle="What a person can do from all their roles, or how two roles differ. Read only: change permissions on the role." />
 
-    <div class="flex gap-6 border-b border-erp-border" role="tablist">
+    <div data-tour="perm:tabs" class="flex gap-6 border-b border-erp-border" role="tablist">
       <button
         v-for="t in TABS"
         :key="t.key"
@@ -87,7 +87,7 @@ const TABS = [
           {{ person.text }}
           <template v-if="person.roles.some((r) => !r.counts)"> Roles that have ended or not started yet give nothing today: {{ person.roles.filter((r) => !r.counts).map((r) => r.name).join(', ') }}.</template>
         </NoticeBanner>
-        <table class="erp-table">
+        <table data-tour="perm:person" class="erp-table">
           <thead>
             <tr><th>Module</th><th>What</th><th>Action</th><th>Permission</th><th>From</th></tr>
           </thead>
@@ -106,7 +106,7 @@ const TABS = [
 
     <!-- Compare two roles -->
     <template v-else>
-      <div class="grid grid-cols-3 gap-x-[18px]">
+      <div data-tour="perm:pick" class="grid grid-cols-3 gap-x-[18px]">
         <FormField label="Role" for="roleA">
           <select id="roleA" class="erp-input" :value="roleA" @change="setQuery({ a: ($event.target as HTMLSelectElement).value })">
             <option v-for="r in roles" :key="r.code" :value="r.code">{{ r.name }}</option>
@@ -127,7 +127,7 @@ const TABS = [
       <template v-if="comparison">
         <NoticeBanner kind="info">{{ comparison.text }}</NoticeBanner>
         <p v-if="!comparedRows.length" class="m-0 text-[13px] text-erp-muted">The two roles give exactly the same permissions.</p>
-        <table v-else class="erp-table">
+        <table v-else data-tour="perm:compare" class="erp-table">
           <thead>
             <tr><th>Module</th><th>What</th><th>Action</th><th>Permission</th><th>{{ comparison.a.name }}</th><th>{{ comparison.b.name }}</th></tr>
           </thead>

@@ -100,7 +100,7 @@ async function exportCsv() {
 
     <div class="flex items-center justify-between gap-3">
       <div class="flex gap-2">
-        <RouterLink v-if="lookups?.canEdit" to="/config/users/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new user</RouterLink>
+        <RouterLink v-if="lookups?.canEdit" to="/config/users/new" data-tour="cfg:new-user" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new user</RouterLink>
       </div>
       <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
     </div>

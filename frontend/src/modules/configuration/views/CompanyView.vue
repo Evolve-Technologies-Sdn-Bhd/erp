@@ -166,7 +166,7 @@ const addBranch = () => router.push({ path: '/config/branches', query: { new: '1
 
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_320px]">
       <div class="flex min-w-0 flex-col gap-4">
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="cfg:company" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Company</h2>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
             <FormField v-if="isNew" label="Code" for="code" :error="errors.code">

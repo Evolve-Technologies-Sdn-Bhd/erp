@@ -126,7 +126,7 @@ async function save() {
     </section>
 
     <!-- Wrong passwords -->
-    <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+    <section data-tour="set:lockout" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
       <h2 class="m-0 text-[15px] font-bold">Wrong passwords</h2>
       <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5 max-md:grid-cols-1">
         <FormField v-for="f in ['lockoutAttempts', 'lockoutMinutes'] as const" :key="f" :label="f === 'lockoutAttempts' ? 'Lock the account after' : 'For'" :for="f" :error="errors[f]">

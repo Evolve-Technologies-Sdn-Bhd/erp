@@ -171,7 +171,7 @@ const closedText = computed(() => {
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_320px]">
       <div class="flex min-w-0 flex-col gap-4">
         <!-- Role -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="role:general" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Role</h2>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
             <FormField v-if="isNew" label="Code" for="code" :error="errors.code">
@@ -205,12 +205,12 @@ const closedText = computed(() => {
             Sales documents: only for those customers
           </label>
           <span class="text-xs text-erp-muted">
-            On top of the branch scope every user has. A user holding this role is limited this way even if another of their roles is not. Data scopes are applied from step A7.
+            On top of the branch scope every user has. A user holding this role is limited this way even if another of their roles is not.
           </span>
         </section>
 
         <!-- Permissions -->
-        <section class="erp-card flex flex-col gap-3 px-[18px] py-4">
+        <section data-tour="role:permissions" class="erp-card flex flex-col gap-3 px-[18px] py-4">
           <div class="flex items-center justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">Permissions · {{ isAdmin ? 'all' : form.permissions.length }}</h2>
             <button
@@ -227,7 +227,7 @@ const closedText = computed(() => {
           <NoticeBanner v-if="isAdmin" kind="info">Administrator holds every permission and cannot be changed.</NoticeBanner>
           <span v-if="errors.permissions" class="text-xs font-medium text-note-error-text" role="alert">{{ errors.permissions }}</span>
 
-          <div v-for="m in openModules" :key="m.module" class="flex flex-col">
+          <div v-for="m in openModules" :key="m.module" :data-tour="`role:${m.module}`" class="flex flex-col">
             <div class="flex items-baseline justify-between border-b border-erp-row pt-1.5 pb-2">
               <h3 class="m-0 text-[13px] font-bold">{{ m.label }}</h3>
               <span class="text-xs text-erp-muted">{{ isAdmin ? sizeOf(m) : countIn(m) }} of {{ sizeOf(m) }}</span>
@@ -248,7 +248,7 @@ const closedText = computed(() => {
               </div>
             </div>
           </div>
-          <p v-if="closedModules.length" class="m-0 text-xs text-erp-muted">
+          <p v-if="closedModules.length" data-tour="role:closed" class="m-0 text-xs text-erp-muted">
             {{ closedText }}: nothing.
             <template v-if="editable">
               Open
@@ -262,7 +262,7 @@ const closedText = computed(() => {
       </div>
 
       <div class="flex min-w-0 flex-col gap-4">
-        <SideCard v-if="role" :title="`Held by ${role.users.length} user${role.users.length === 1 ? '' : 's'}`">
+        <SideCard v-if="role" data-tour="role:held" :title="`Held by ${role.users.length} user${role.users.length === 1 ? '' : 's'}`">
           <p v-if="!role.users.length" class="m-0 text-[13px] text-erp-muted">Nobody holds this role yet. Give it to someone on their user page.</p>
           <ul v-else class="m-0 list-none p-0">
             <li v-for="u in role.users" :key="u.id" class="flex items-center justify-between gap-3 border-b border-erp-row py-2 text-[13px] last:border-b-0">

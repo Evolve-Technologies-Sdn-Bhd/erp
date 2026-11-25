@@ -159,7 +159,7 @@ const others = computed(() => (account.value?.sessions ?? []).filter((s) => !s.c
     </section>
 
     <!-- Password -->
-    <form class="erp-card flex flex-col gap-3.5 px-[18px] py-4" novalidate @submit.prevent="changePassword">
+    <form data-tour="acc:password" class="erp-card flex flex-col gap-3.5 px-[18px] py-4" novalidate @submit.prevent="changePassword">
       <h2 class="m-0 text-[15px] font-bold">Password</h2>
       <input type="text" class="hidden" autocomplete="username" :value="account.me.email" readonly aria-hidden="true" tabindex="-1" />
       <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5 max-md:grid-cols-1">
@@ -180,7 +180,7 @@ const others = computed(() => (account.value?.sessions ?? []).filter((s) => !s.c
     </form>
 
     <!-- Two-factor -->
-    <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+    <section data-tour="acc:two-factor" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
       <h2 class="m-0 text-[15px] font-bold">Two-factor sign-in</h2>
 
       <div v-if="tfStep === 'idle'" class="flex items-center justify-between gap-4">
@@ -253,7 +253,7 @@ const others = computed(() => (account.value?.sessions ?? []).filter((s) => !s.c
     </section>
 
     <!-- Devices -->
-    <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+    <section data-tour="acc:devices" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
       <div class="flex items-center justify-between">
         <h2 class="m-0 text-[15px] font-bold">Where you are signed in</h2>
         <button type="button" class="erp-btn erp-btn-secondary" :disabled="!others" @click="endOthers">Sign out everywhere else</button>

@@ -13,6 +13,7 @@ import SideCard from '@/components/erp/SideCard.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import SwitchToggle from '@/components/erp/SwitchToggle.vue'
 import { usePageCrumb } from '@/composables/usePageCrumb'
+import { useSession } from '@/composables/useSession'
 import { formatDate, formatDateTime } from '@/utils/format'
 import { configUsersApi } from '../api/config'
 import type { UserAction, UserDetail, UserInput, UserLookups } from '../types'
@@ -23,6 +24,7 @@ const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 const setCrumb = usePageCrumb()
+const { reloadUsers } = useSession()
 
 const id = computed(() => String(route.params.id))
 const isNew = computed(() => id.value === 'new')
@@ -120,6 +122,7 @@ function show(u: UserDetail) {
   user.value = u
   fill(u)
   setCrumb(u.code)
+  void reloadUsers()
 }
 
 async function save() {
@@ -236,7 +239,7 @@ function setActive(action: 'deactivate' | 'activate') {
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_320px]">
       <div class="flex min-w-0 flex-col gap-4">
         <!-- Person -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="usr:person" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Person</h2>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
             <FormField v-if="isNew" label="User code" for="code" :error="errors.code">
@@ -265,7 +268,7 @@ function setActive(action: 'deactivate' | 'activate') {
         </section>
 
         <!-- Roles -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="usr:roles" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <div class="flex items-center justify-between">
             <h2 class="m-0 text-[15px] font-bold">Roles</h2>
             <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" @click="addRole"><Plus :size="14" aria-hidden="true" />Add role</button>
@@ -344,7 +347,7 @@ function setActive(action: 'deactivate' | 'activate') {
         </section>
 
         <!-- Branches -->
-        <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section data-tour="usr:branches" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Branches</h2>
           <div class="flex flex-wrap gap-x-6 gap-y-2.5">
             <label v-for="b in branchChoices" :key="b.code" class="flex items-center gap-2.5 text-[13px] font-medium">
@@ -365,7 +368,7 @@ function setActive(action: 'deactivate' | 'activate') {
         </section>
 
         <!-- Sign-in -->
-        <section v-if="user" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+        <section v-if="user" data-tour="usr:sign-in" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
           <h2 class="m-0 text-[15px] font-bold">Sign-in</h2>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
             <FormField label="Two-factor" for="twoFactor">
@@ -404,7 +407,7 @@ function setActive(action: 'deactivate' | 'activate') {
                   <span class="font-semibold">{{ e.subject }}</span>
                   <span class="text-erp-muted">to {{ e.to }} · {{ formatDateTime(e.at) }}</span>
                 </button>
-                <pre v-if="openEmail === e.id" class="mt-2 mb-0 rounded-lg bg-erp-bg px-3 py-2.5 font-sans text-xs leading-relaxed break-all whitespace-pre-wrap">{{ e.body }}</pre>
+                <pre v-if="openEmail === e.id" data-tour="usr:email" class="mt-2 mb-0 rounded-lg bg-erp-bg px-3 py-2.5 font-sans text-xs leading-relaxed break-all whitespace-pre-wrap">{{ e.body }}</pre>
               </li>
             </ul>
           </div>
@@ -412,12 +415,12 @@ function setActive(action: 'deactivate' | 'activate') {
       </div>
 
       <div class="flex min-w-0 flex-col gap-4">
-        <SideCard v-if="user" title="Effective permissions">
+        <SideCard v-if="user" data-tour="usr:effective" title="Effective permissions">
           <p class="m-0 text-[13px] text-erp-muted">{{ user.effective.text }}</p>
           <RouterLink :to="{ path: '/config/permissions', query: { user: user.code } }" class="erp-link text-[13px] font-semibold">See what they can do</RouterLink>
         </SideCard>
         <template v-if="user">
-          <ActivityList v-if="user.activity.length" :items="user.activity" />
+          <ActivityList v-if="user.activity.length" data-tour="usr:activity" :items="user.activity" />
           <SideCard v-else title="Activity">
             <p class="m-0 text-[13px] text-erp-muted">No changes yet. Loaded with the opening data.</p>
           </SideCard>

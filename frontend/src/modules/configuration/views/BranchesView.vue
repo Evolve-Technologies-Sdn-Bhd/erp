@@ -173,7 +173,7 @@ const tenantName = computed(() => session.state.tenantName || 'the company')
       <NoticeBanner v-if="branch?.demoNotice && !isNew" kind="warning">{{ branch.demoNotice }} Replace them with the branch's real ones.</NoticeBanner>
 
       <!-- Branch form -->
-      <section class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
+      <section data-tour="cfg:branch" class="erp-card flex flex-col gap-3.5 px-[18px] py-4">
         <h2 class="m-0 text-[15px] font-bold">{{ isNew ? 'New branch' : branch?.name }}</h2>
         <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">
           <FormField v-if="isNew" label="Code" for="code" :error="errors.code">
@@ -217,7 +217,7 @@ const tenantName = computed(() => session.state.tenantName || 'the company')
             <input id="myinvois" v-model="form.myinvoisBranchName" class="erp-input" maxlength="150" :disabled="!editable" />
           </FormField>
         </div>
-        <div v-if="!isNew" class="flex flex-col gap-1.5">
+        <div v-if="!isNew" data-tour="cfg:active" class="flex flex-col gap-1.5">
           <label class="flex items-center gap-2.5 text-[13px] font-medium">
             <SwitchToggle v-model="form.isActive" label="Active" :disabled="!editable" />
             Active
@@ -226,7 +226,7 @@ const tenantName = computed(() => session.state.tenantName || 'the company')
         </div>
       </section>
 
-      <SideCard v-if="branch && !isNew" title="In use">
+      <SideCard v-if="branch && !isNew" data-tour="cfg:in-use" title="In use">
         <p class="m-0 text-[13px] text-erp-muted">{{ branch.inUse.text }}</p>
       </SideCard>
     </div>

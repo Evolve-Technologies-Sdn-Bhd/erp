@@ -99,7 +99,7 @@ function exportCsv() {
     </div>
   </section>
 
-  <section v-if="open" class="erp-card flex flex-col gap-3 px-[18px] py-4">
+  <section v-if="open" data-tour="audit:change" class="erp-card flex flex-col gap-3 px-[18px] py-4">
     <h2 class="m-0 text-[15px] font-bold">Change {{ open.record }} · {{ formatDateTime(open.at) }}</h2>
     <table class="erp-table">
       <thead>

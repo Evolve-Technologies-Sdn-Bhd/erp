@@ -136,6 +136,16 @@ async function switchUser(code: string): Promise<void> {
   state.version += 1
 }
 
+/** Dev only: the people in the switcher, after a user was added, changed or deactivated. */
+async function reloadUsers(): Promise<void> {
+  if (state.mode !== 'dev') return
+  try {
+    state.users = (await sessionApi.devUsers()).items
+  } catch {
+    /* the list stays as it was */
+  }
+}
+
 /** A sign-in that is complete: the access token in memory, the refresh token already in its cookie. */
 async function finish(issued: Issued): Promise<void> {
   setAccessToken(issued.accessToken)
@@ -243,6 +253,7 @@ export function useSession() {
     state: readonly(state),
     start,
     switchUser,
+    reloadUsers,
     signIn,
     verifyTwoFactor,
     completeTwoFactorSetup,

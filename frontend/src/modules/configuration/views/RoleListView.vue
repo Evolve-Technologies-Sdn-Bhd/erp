@@ -24,7 +24,7 @@ onMounted(async () => {
     </PageHeader>
 
     <div v-if="!roles" class="py-10 text-center text-[13px] text-erp-muted">Loading…</div>
-    <table v-else class="erp-table">
+    <table v-else data-tour="list:roles" class="erp-table">
       <thead>
         <tr>
           <th>Role</th>

@@ -54,7 +54,7 @@ onMounted(async () => {
   </NoticeBanner>
 
   <template v-else>
-  <section class="flex flex-col gap-3">
+  <section data-tour="cfg:cards" class="flex flex-col gap-3">
     <div class="flex items-baseline justify-between gap-4">
       <h2 class="m-0 text-[15px] font-bold">Who works here and what they may do</h2>
       <span class="text-xs text-erp-muted">Every change here is logged with who made it and the old and new value.</span>
@@ -68,7 +68,7 @@ onMounted(async () => {
   </section>
 
   <div class="grid grid-cols-2 items-start gap-4">
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="cfg:attention" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-center justify-between gap-4">
         <h2 class="m-0 text-[15px] font-bold">Needs attention</h2>
         <span class="text-xs text-erp-muted">Checked when the page opens</span>
@@ -82,7 +82,7 @@ onMounted(async () => {
       </ul>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="cfg:security" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <div class="flex items-center justify-between gap-4">
         <h2 class="m-0 text-[15px] font-bold">Recent security events</h2>
         <RouterLink to="/config/security-log" class="erp-link text-xs font-semibold">Security log</RouterLink>
