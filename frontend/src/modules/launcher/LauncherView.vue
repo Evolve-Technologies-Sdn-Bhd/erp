@@ -25,7 +25,6 @@ const FALLBACK: ModuleTile[] = [
   { code: 'core', name: 'Core', tag: '', state: 'OPEN', route: '/core' },
   { code: 'purchase', name: 'Purchase', tag: '', state: 'OPEN', route: '/purchase' },
   { code: 'sales', name: 'Sales', tag: '', state: 'OPEN', route: '/sales' },
-  { code: 'mes', name: 'MES', tag: '', state: 'LATER', route: null },
   { code: 'wms', name: 'WMS', tag: '', state: 'EXISTING', route: null },
   { code: 'config', name: 'Configuration', tag: '', state: 'OPEN', route: '/config' },
 ]

@@ -31,6 +31,8 @@ export interface Env {
   WMS: { url: string; email: string; password: string; webUrl: string | null } | null;
   /** The Service module (installation jobs, phase 5): SERVICE_MODULE=on. Off: no tile, no routes, no jobs. */
   SERVICE_MODULE: boolean;
+  /** The launcher's MES tile ("Coming soon"): MES_TILE=off hides it, for a company that will not use MES. On by default. */
+  MES_TILE: boolean;
 }
 
 function toInt(name: string, value: unknown, fallback: number, problems: string[]): number {
@@ -83,6 +85,8 @@ export function validateEnv(raw: Record<string, unknown>): Env {
 
   const serviceModule = typeof raw.SERVICE_MODULE === 'string' ? raw.SERVICE_MODULE.trim().toLowerCase() : 'off';
   if (serviceModule !== 'on' && serviceModule !== 'off' && serviceModule !== '') problems.push(`SERVICE_MODULE must be "on" or "off" (got "${serviceModule}")`);
+  const mesTile = typeof raw.MES_TILE === 'string' ? raw.MES_TILE.trim().toLowerCase() : 'on';
+  if (mesTile !== 'on' && mesTile !== 'off' && mesTile !== '') problems.push(`MES_TILE must be "on" or "off" (got "${mesTile}")`);
   const wmsUrl = typeof raw.WMS_URL === 'string' ? raw.WMS_URL.trim().replace(/\/+$/, '') : '';
   const wmsEmail = typeof raw.WMS_EMAIL === 'string' ? raw.WMS_EMAIL.trim() : '';
   const wmsPassword = typeof raw.WMS_PASSWORD === 'string' ? raw.WMS_PASSWORD : '';
@@ -115,6 +119,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     DEV_TODAY: devToday,
     GUIDE_VALUES_FILE: typeof raw.GUIDE_VALUES_FILE === 'string' && raw.GUIDE_VALUES_FILE.trim() ? raw.GUIDE_VALUES_FILE.trim() : null,
     SERVICE_MODULE: serviceModule === 'on',
+    MES_TILE: mesTile !== 'off',
     WMS: wmsUrl ? { url: wmsUrl, email: wmsEmail, password: wmsPassword, webUrl: typeof raw.WMS_WEB_URL === 'string' && raw.WMS_WEB_URL.trim() ? raw.WMS_WEB_URL.trim() : null } : null,
   };
 

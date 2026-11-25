@@ -19,7 +19,7 @@ Screenshots of the same screens are in `docs/design/screenshots/`.
 |---|---|---|---|---|
 | 00 | Choose a module | `Launcher.html` | `/` | `GET /api/v1/me/modules` (static list for now) |
 
-Tiles: Core (Master Data, open since phase 3), Purchase (open), Sales (open), MES (later), WMS (existing, another team), Configuration (later). Core, Purchase and Sales are clickable.
+Tiles: Core (Master Data, open since phase 3), Purchase (open), Sales (open), MES (later; left out with `MES_TILE=off`), WMS (existing, another team), Configuration (later). Core, Purchase and Sales are clickable.
 
 **Help and guided tours (20 Nov 2026, no mockup; CLAUDE.md → *Guided tours*):** a *Help* button in every top bar (launcher, module homes, module screens; also the `?` key) opens the Help panel: the tours for this page and the others, Tutorial mode, *Start again*. A first-time person with Tutorial mode on sees the welcome card on the launcher (*Take the tour*, *Not now*, *I know my way around*). Each person's progress: `GET`, `PUT`, `DELETE /api/v1/me/tutorial`.
 

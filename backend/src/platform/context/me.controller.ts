@@ -55,7 +55,7 @@ export class MeController {
 
   /**
    * The launcher tiles for this person. A module they cannot view reads NO_ACCESS with no route, so its tile never opens
-   * a module that would only refuse them. The WMS tile exists only where a WMS is connected.
+   * a module that would only refuse them. The WMS tile opens only where a WMS is connected, and MES_TILE=off leaves MES out.
    */
   @Get('modules')
   modules(@CurrentContext() ctx: RequestContext) {
@@ -65,7 +65,8 @@ export class MeController {
       return !key || this.registry.has(ctx.user.roles, key);
     };
     const wmsConnected = !!this.config.get('WMS', { infer: true });
-    const tiles = this.config.get('SERVICE_MODULE', { infer: true }) ? [...MODULES, SERVICE_TILE] : MODULES;
+    const all = this.config.get('SERVICE_MODULE', { infer: true }) ? [...MODULES, SERVICE_TILE] : MODULES;
+    const tiles = this.config.get('MES_TILE', { infer: true }) ? all : all.filter((m) => m.code !== 'mes');
     return {
       items: tiles.map((m) => {
         const tile = m.code === 'wms' && wmsConnected ? { ...m, tag: 'Read only', state: 'OPEN', route: '/wms' } : m;

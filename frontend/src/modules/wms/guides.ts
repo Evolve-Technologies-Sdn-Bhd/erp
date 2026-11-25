@@ -96,7 +96,7 @@ const DATA: Tour = {
   steps: [
     { title: 'The data came from the WMS', text: 'Six steps, as the administrator. Nothing is changed.' },
     admin({ row: 1 }),
-    { target: 'launcher:tiles', page: LAUNCHER, title: 'The launcher', text: 'One tile for each module.', expect: 'Core, Purchase, Sales, Service, WMS and Configuration open. A module that is not built yet says Coming soon.', placement: 'top' },
+    { target: 'launcher:tiles', page: LAUNCHER, title: 'The launcher', text: 'One tile for each module.', expect: 'Core, Purchase, Sales, Service, WMS and Configuration open.', placement: 'top' },
 
     tile('Core', 'core', { row: 2 }),
     openCore('Items & Units', 'Open the items', ITEMS),

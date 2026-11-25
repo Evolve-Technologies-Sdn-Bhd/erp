@@ -17,6 +17,12 @@ describe('validateEnv', () => {
     expect(validateEnv(live)).toMatchObject({ AUTH_MODE: 'jwt', COOKIE_SECURE: true, DEV_TENANT_CODE: 'ACME', DEV_TODAY: null });
   });
 
+  it('shows the MES tile unless it is turned off', () => {
+    expect(validateEnv(base).MES_TILE).toBe(true);
+    expect(validateEnv({ ...base, MES_TILE: 'off' }).MES_TILE).toBe(false);
+    expect(() => validateEnv({ ...base, MES_TILE: 'maybe' })).toThrow('MES_TILE must be "on" or "off"');
+  });
+
   it.each([
     ['dev mode', { AUTH_MODE: 'dev' }, 'AUTH_MODE must be "jwt"'],
     ['plain cookies', { COOKIE_SECURE: 'off' }, 'COOKIE_SECURE must be "on"'],

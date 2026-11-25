@@ -3,6 +3,7 @@ process.env.WMS_URL = 'http://127.0.0.1:39517';
 process.env.WMS_EMAIL = 'erp@example.com';
 process.env.WMS_PASSWORD = 'not-a-real-password';
 process.env.WMS_WEB_URL = 'https://wms.example.com';
+process.env.MES_TILE = 'off';
 
 import { METHOD_METADATA } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
@@ -104,6 +105,12 @@ describe('WMS read-only view (end to end, fake WMS)', () => {
     const tile = async (user: string) => (await api.get<{ items: { code: string; state: string; route: string | null }[] }>('me/modules', user)).items.find((m) => m.code === 'wms');
     expect(await tile('ADM')).toMatchObject({ state: 'OPEN', route: '/wms' });
     expect(await tile('AR')).toMatchObject({ state: 'NO_ACCESS', tag: 'No access', route: null });
+  });
+
+  it('leaves the MES tile out with MES_TILE=off', async () => {
+    const tiles = (await api.get<{ items: { code: string }[] }>('me/modules', 'ADM')).items.map((m) => m.code);
+    expect(tiles).not.toContain('mes');
+    expect(tiles).toContain('core');
   });
 
   it('refuses a sales agent, who may only see their own customers', async () => {
