@@ -447,7 +447,7 @@ const warehouseName = computed(() => warehouses.value.find((w) => w.code === for
         </section>
 
         <!-- Lines -->
-        <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section data-tour="po:lines" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">Lines</h2>
             <span v-if="showReceived" class="text-xs text-erp-muted">Received and billed come from goods receipts and supplier invoices. They are never typed here.</span>

@@ -79,7 +79,7 @@ async function addType() {
       </template>
     </PageHeader>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="dt:numbers" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Numbering</h2>
       <table class="erp-table">
         <thead><tr><th>Document</th><th>Format</th><th>Next number</th><th>Restart</th><th>Separate per branch</th><th>Print template</th></tr></thead>

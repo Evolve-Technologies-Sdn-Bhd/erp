@@ -505,6 +505,7 @@ function frame(): void {
     if (one && one !== el) {
       el = one
       armedAt = now
+      judge(step)
       reveal(one)
     }
   }
@@ -566,6 +567,15 @@ function inRefused(target: Element): boolean {
   return !!target.closest(INVALID) || !!target.closest(DROPDOWNS) || !!target.closest('div:has(> [role="alert"])')
 }
 
+/** Whether the lit part changes records for real, and so whether it is only shown (a tour) or works (a guide). */
+function judge(step: TourStep): void {
+  const control = el?.matches(CONTROL) ? el : null
+  const sensitive = !!el && (control ? isSensitiveElement(control) : !!el.closest('[data-tour-sensitive]'))
+  const works = live() && isInteractive(step, true)
+  run.guarded = sensitive && !works
+  run.real = sensitive && works
+}
+
 /** The document on this page: its number once the title has it (a page still loading says only "Claim"). */
 function remember(key: string): void {
   const title = document.querySelector('[data-tour="page-header"] h1')?.textContent ?? ''
@@ -591,11 +601,7 @@ function arm(step: TourStep): void {
   if (!el) run.hole = null
   run.backHere = run.history.length ? null : previousHere()
   run.raised = !!el?.closest('.p-dialog, .p-drawer, .p-popover')
-  const control = el?.matches(CONTROL) ? el : null
-  const sensitive = !!el && (control ? isSensitiveElement(control) : !!el.closest('[data-tour-sensitive]'))
-  const works = live() && isInteractive(step, true)
-  run.guarded = sensitive && !works
-  run.real = sensitive && works
+  judge(step)
   // A hand-over is read first; the page is only given back when the person chooses to do it.
   run.interactive = !!el && isInteractive(step, live()) && !run.guarded && !step.handover
   run.userOk = userFits(step)

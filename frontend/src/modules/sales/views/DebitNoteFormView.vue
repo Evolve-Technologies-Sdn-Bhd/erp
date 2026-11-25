@@ -244,7 +244,7 @@ const released = computed(() => dn.value?.status === 'RELEASED')
               <DatePicker v-if="editable" input-id="dn-date" :model-value="isoToDate(form.docDate)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="form.docDate = dateToIso($event)" />
               <div v-else class="erp-input-ro">{{ formatDate(form.docDate) }}</div>
             </FormField>
-            <FormField label="Adds to invoice" :error="errors.invoiceId" for="dn-inv">
+            <FormField data-tour="dn:invoice" label="Adds to invoice" :error="errors.invoiceId" for="dn-inv">
               <select v-if="isNew" id="dn-inv" class="erp-input" :value="invoice?.invoiceId ?? ''" @change="pickInvoice(($event.target as HTMLSelectElement).value)">
                 <option value="">Pick an invoice</option>
                 <option v-if="invoice && !invoiceOptions.some((o) => o.id === invoice?.invoiceId)" :value="invoice.invoiceId ?? ''">{{ invoice.no }}</option>
@@ -265,17 +265,17 @@ const released = computed(() => dn.value?.status === 'RELEASED')
             </FormField>
           </section>
 
-          <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+          <section data-tour="dn:lines" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
             <div class="flex items-center justify-between gap-3">
               <h2 class="m-0 text-[15px] font-bold">Charges</h2>
-              <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add charge</button>
+              <button v-if="editable" type="button" data-tour="dn:add-charge" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add charge</button>
             </div>
             <span v-if="errors.lines" class="text-xs font-medium text-note-error-text">{{ errors.lines }}</span>
             <table class="erp-table">
               <thead><tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th>Tax</th><th class="num">Amount</th><th v-if="editable" aria-label="Remove" /></tr></thead>
               <tbody>
                 <tr v-if="!form.lines.length"><td :colspan="editable ? 7 : 6" class="text-center text-erp-muted">No charges yet. Click Add charge to pick a service or item from Master Data.</td></tr>
-                <tr v-for="(l, i) in form.lines" :key="l.key">
+                <tr v-for="(l, i) in form.lines" :key="l.key" data-tour="dn:line">
                   <td class="font-bold whitespace-nowrap">{{ l.itemCode }}</td>
                   <td>{{ l.itemName }}</td>
                   <td class="num w-[90px]">
@@ -320,7 +320,7 @@ const released = computed(() => dn.value?.status === 'RELEASED')
         </div>
 
         <aside class="flex flex-col gap-4">
-          <SideCard title="Totals (MYR)">
+          <SideCard data-tour="dn:totals" title="Totals (MYR)">
             <div class="flex flex-col text-[13px]">
               <div class="flex justify-between py-[5px]"><span class="text-erp-muted">Charges</span><MoneyText :value="totals.subtotal" /></div>
               <div v-for="t in totals.taxLines" :key="t.code" class="flex justify-between py-[5px]"><span class="text-erp-muted">Tax ({{ t.name }})</span><MoneyText :value="t.amount" /></div>

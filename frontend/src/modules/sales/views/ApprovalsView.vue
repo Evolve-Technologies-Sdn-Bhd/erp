@@ -269,7 +269,7 @@ async function decide(decision: 'approve' | 'reject') {
 
         <!-- Decision -->
         <template v-if="detail.status === 'PENDING' && detail.canDecide">
-          <label class="flex flex-col gap-1.5 text-[13px] font-semibold" for="approval-comment">
+          <label data-tour="approvals:comment" class="flex flex-col gap-1.5 text-[13px] font-semibold" for="approval-comment">
             Your comment
             <textarea id="approval-comment" v-model="comment" rows="3" class="erp-input h-auto py-2 font-normal" maxlength="1000" :aria-invalid="Boolean(commentError)" />
             <span v-if="commentError" class="text-xs font-normal text-note-error-text">{{ commentError }}</span>

@@ -77,7 +77,7 @@ const audit = computed(() => flow.value?.audit ?? [])
       </template>
     </PageHeader>
 
-    <div class="flex items-stretch gap-2 overflow-x-auto pb-1">
+    <div data-tour="flow:chain" class="flex items-stretch gap-2 overflow-x-auto pb-1">
       <template v-for="(d, i) in flow.chain" :key="`${d.type}-${d.docNo}`">
         <ArrowRight v-if="i > 0" :size="16" class="shrink-0 self-center text-erp-muted" aria-hidden="true" />
         <component :is="docRoute(d.type, d.id) && !d.current ? 'RouterLink' : 'div'" :to="docRoute(d.type, d.id) ?? undefined" class="erp-node min-w-[150px]" :class="{ current: d.current }">

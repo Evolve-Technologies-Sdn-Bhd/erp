@@ -1106,7 +1106,7 @@ const viewRows = computed<ViewRow[]>(() => {
         </section>
 
         <!-- S12 · Credit check failed -->
-        <section v-if="showCreditFailed && order && credit" class="flex flex-col gap-4 rounded-xl border-2 border-note-error-border bg-erp-card px-5 py-[18px]">
+        <section v-if="showCreditFailed && order && credit" data-tour="so:approval" class="flex flex-col gap-4 rounded-xl border-2 border-note-error-border bg-erp-card px-5 py-[18px]">
           <div>
             <h2 class="m-0 text-[15px] font-bold text-note-error-text">Credit check did not pass</h2>
             <p class="m-0 mt-0.5 text-xs text-erp-muted">{{ order.customer.name }} ({{ order.customer.code }}) · {{ order.docNo }} · checked {{ credit.scope === 'BRANCH' ? 'per branch' : 'group-wide' }}</p>

@@ -406,7 +406,7 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
                 <option v-for="t in options.creditTerms" :key="t.days" :value="t.days">{{ t.name }}</option>
               </select>
             </FormField>
-            <FormField label="Credit limit (RM)" for="creditLimit" :error="errors.creditLimit">
+            <FormField data-tour="core:credit-limit" label="Credit limit (RM)" for="creditLimit" :error="errors.creditLimit">
               <input id="creditLimit" v-model="form.creditLimit" class="erp-input" inputmode="decimal" placeholder="No limit" :disabled="!creditEditable" />
             </FormField>
             <FormField label="Overdue limit (RM)" for="overdueLimit" :error="errors.overdueLimit">

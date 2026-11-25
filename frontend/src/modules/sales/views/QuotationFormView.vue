@@ -478,7 +478,7 @@ const ruleText = computed(() =>
 
       <!-- Header fields (QuotationForm.html order) -->
       <section class="erp-card grid grid-cols-5 gap-x-4 gap-y-3 px-5 py-[18px]">
-        <FormField label="Customer" :error="errors.customerCode" for="qt-customer">
+        <FormField data-tour="qt:customer" :data-filled="form.customer ? 'true' : 'false'" label="Customer" :error="errors.customerCode" for="qt-customer">
           <MasterDataPicker
             v-if="isNew"
             v-model="form.customer"
@@ -499,7 +499,7 @@ const ruleText = computed(() =>
           <DatePicker v-if="editable" input-id="qt-date" :model-value="isoToDate(form.docDate)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="form.docDate = dateToIso($event)" />
           <div v-else class="erp-input-ro">{{ formatDate(form.docDate) }}</div>
         </FormField>
-        <FormField label="Valid until" :error="errors.validUntil" for="qt-valid">
+        <FormField data-tour="qt:valid" label="Valid until" :error="errors.validUntil" for="qt-valid">
           <DatePicker
             v-if="editable"
             input-id="qt-valid"
@@ -525,7 +525,7 @@ const ruleText = computed(() =>
       </section>
 
       <!-- Tabs: lines, terms, attachments, history -->
-      <section id="qt-lines" class="erp-card flex flex-col gap-3 px-5 pt-3.5 pb-[18px]">
+      <section id="qt-lines" data-tour="qt:lines" class="erp-card flex flex-col gap-3 px-5 pt-3.5 pb-[18px]">
         <div class="flex gap-6 border-b border-erp-border" role="tablist">
           <button
             v-for="t in [
@@ -569,7 +569,7 @@ const ruleText = computed(() =>
                   <td :colspan="editable ? 10 : 9" class="text-center text-erp-muted">No items yet. Click Add line to pick from Master Data.</td>
                 </tr>
                 <template v-for="(l, i) in form.lines" :key="l.key">
-                  <tr>
+                  <tr data-tour="qt:line">
                     <td class="text-erp-muted">{{ i + 1 }}</td>
                     <td class="font-bold whitespace-nowrap">{{ l.item.code }}</td>
                     <td>{{ l.item.name }}</td>
@@ -616,7 +616,7 @@ const ruleText = computed(() =>
             </table>
           </div>
           <div v-if="editable" class="flex gap-2">
-            <button type="button" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add line</button>
+            <button type="button" data-tour="qt:add-line" class="erp-btn erp-btn-secondary" @click="openPicker"><Plus :size="14" aria-hidden="true" />Add line</button>
             <button type="button" class="erp-btn erp-btn-secondary" @click="later('Heading line')"><Plus :size="14" aria-hidden="true" />Heading line</button>
             <button v-if="quote?.enquiry" type="button" class="erp-btn erp-btn-secondary" @click="copyFromEnquiry">Copy from enquiry</button>
           </div>
@@ -669,7 +669,7 @@ const ruleText = computed(() =>
       </section>
 
       <!-- Discount approval (rule 3: discount over 15% needs Sales Manager), or the price range (phase 5) -->
-      <section v-if="showDiscountPanel && quote" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
+      <section data-tour="qt:approval" v-if="showDiscountPanel && quote" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
         <div>
           <h2 class="m-0 text-[15px] font-bold text-note-warn-text">{{ range ? 'Price needs approval' : 'Discount needs approval' }}</h2>
           <p v-if="range" class="m-0 mt-0.5 text-xs text-erp-muted">
@@ -705,7 +705,7 @@ const ruleText = computed(() =>
         </section>
 
         <aside class="flex flex-col gap-4">
-        <SideCard title="Totals (MYR)">
+        <SideCard data-tour="qt:totals" title="Totals (MYR)">
           <div v-if="totals" class="flex flex-col text-[13px]">
             <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Subtotal</span><MoneyText :value="totals.subtotal" /></div>
             <div class="flex justify-between gap-3 py-[5px]">

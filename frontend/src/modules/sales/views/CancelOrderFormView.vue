@@ -241,7 +241,7 @@ const cancelPct = computed(() => (totals.value.ordered ? (Math.min(totals.value.
 
       <div class="grid items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
         <div class="flex min-w-0 flex-col gap-4">
-          <section class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-[18px]">
+          <section data-tour="co:header" class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-[18px]">
             <FormField label="Sales order to cancel" :error="errors.salesOrderId" for="co-order">
               <select v-if="isNew" id="co-order" class="erp-input" :value="form.orderId" @change="pickOrder(($event.target as HTMLSelectElement).value)">
                 <option value="">Pick a sales order</option>
@@ -275,7 +275,7 @@ const cancelPct = computed(() => (totals.value.ordered ? (Math.min(totals.value.
             </FormField>
           </section>
 
-          <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+          <section data-tour="co:lines" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
             <h2 class="m-0 text-[15px] font-bold">What is being cancelled</h2>
             <table class="erp-table">
               <thead><tr><th>Item</th><th class="num">Ordered</th><th class="num">Delivered</th><th class="num">Invoiced</th><th class="num">Balance</th><th class="num">Cancel now</th><th class="num">Left after</th></tr></thead>

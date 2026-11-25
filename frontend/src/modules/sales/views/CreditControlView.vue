@@ -107,7 +107,7 @@ async function save() {
           <p class="m-0 text-xs text-erp-muted">A customer's own setting in Master Data overrides this.</p>
         </section>
 
-        <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+        <section data-tour="cc:rules" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <h2 class="m-0 text-[15px] font-bold">What happens on a breach, per document</h2>
           <table class="erp-table">
             <thead><tr><th>Document</th><th>Over credit limit</th><th>Over overdue limit</th><th>Approver</th></tr></thead>

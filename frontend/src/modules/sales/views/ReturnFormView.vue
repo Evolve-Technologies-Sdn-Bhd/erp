@@ -246,7 +246,7 @@ const released = computed(() => sr.value?.status === 'RELEASED')
 
       <div class="grid items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
         <div class="flex min-w-0 flex-col gap-4">
-          <section class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-[18px]">
+          <section data-tour="sr:header" class="erp-card grid grid-cols-3 gap-x-4 gap-y-3 px-5 py-[18px]">
             <FormField :label="`Customer · ${invoice.customer.code}`"><div class="erp-input-ro truncate">{{ invoice.customer.name }}</div></FormField>
             <FormField label="Return date" for="sr-date">
               <DatePicker v-if="editable" input-id="sr-date" :model-value="isoToDate(form.docDate)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="form.docDate = dateToIso($event)" />
@@ -282,7 +282,7 @@ const released = computed(() => sr.value?.status === 'RELEASED')
             </FormField>
           </section>
 
-          <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+          <section data-tour="sr:lines" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
             <h2 class="m-0 text-[15px] font-bold">What is coming back</h2>
             <table class="erp-table">
               <thead><tr><th>Item</th><th class="num">Invoiced</th><th class="num">Returned before</th><th class="num">Max return</th><th class="num">Return now</th><th class="num">Unit price</th><th class="num">Credit</th></tr></thead>
@@ -337,7 +337,7 @@ const released = computed(() => sr.value?.status === 'RELEASED')
         </div>
 
         <aside class="flex flex-col gap-4">
-          <SideCard title="Credit (MYR)">
+          <SideCard data-tour="sr:credit" title="Credit (MYR)">
             <div class="flex flex-col text-[13px]">
               <div class="flex justify-between py-[5px]"><span class="text-erp-muted">Goods</span><MoneyText :value="credit.subtotal" /></div>
               <div class="flex justify-between py-[5px]"><span class="text-erp-muted">Tax</span><MoneyText :value="credit.tax" /></div>

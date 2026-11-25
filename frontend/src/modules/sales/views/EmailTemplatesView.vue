@@ -123,7 +123,7 @@ async function createTemplate() {
   </PageHeader>
 
   <div class="grid grow items-stretch gap-4 grid-cols-[280px_minmax(0,1fr)_380px]">
-    <section class="erp-card flex flex-col gap-2 px-4 py-[18px]">
+    <section data-tour="et:list" class="erp-card flex flex-col gap-2 px-4 py-[18px]">
       <h2 class="m-0 mb-1 px-1 text-[15px] font-bold">Templates</h2>
       <button
         v-for="t in templates"
@@ -161,7 +161,7 @@ async function createTemplate() {
       </div>
     </section>
 
-    <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+    <section data-tour="et:preview" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Preview{{ preview?.docNo ? ` · ${preview.docNo}` : '' }}</h2>
       <template v-if="preview">
         <p class="m-0 text-xs text-erp-subtle">To: {{ preview.to ?? '—' }}<template v-if="preview.cc"> · Cc: {{ preview.cc }}</template></p>

@@ -210,7 +210,7 @@ async function exportCsv() {
 
     <NoticeBanner>When the tax invoice is issued, the deposit on the proforma is knocked off it automatically.{{ lastUsedText }}</NoticeBanner>
 
-    <Dialog v-model:visible="pickOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '520px' }" header="New proforma">
+    <Dialog v-model:visible="pickOpen" data-tour="pf:pick" modal :draggable="false" class="erp-dialog" :style="{ width: '520px' }" header="New proforma">
       <p class="m-0 mb-3 text-[13px] text-erp-subtle">Pick the released order to ask a deposit for. Orders that already have an open proforma are not listed.</p>
       <p v-if="!orders.length" class="m-0 text-[13px] text-erp-muted">No released order is waiting for a deposit.</p>
       <div class="flex flex-col gap-2">

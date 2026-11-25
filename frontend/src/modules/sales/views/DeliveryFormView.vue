@@ -337,7 +337,7 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
             </FormField>
           </section>
 
-          <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+          <section data-tour="do:lines" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
             <h2 class="m-0 text-[15px] font-bold">What is being delivered</h2>
             <div class="overflow-x-auto">
               <table class="erp-table">
@@ -450,7 +450,7 @@ const showCreditFailed = computed(() => Boolean(delivery.value && !confirmed.val
             <li><span>The DO is locked. Mistakes are fixed with a return, not an edit.</span></li>
           </NextSteps>
 
-          <SideCard :title="`${delivery.order.no} progress`">
+          <SideCard data-tour="do:progress" :title="`${delivery.order.no} progress`">
             <div class="flex h-2 overflow-hidden rounded bg-erp-track" role="progressbar" :aria-valuenow="progress.pct" aria-valuemin="0" aria-valuemax="100">
               <div class="h-full bg-mod-primary" :style="{ width: `${progress.pct}%` }" />
             </div>

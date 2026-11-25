@@ -1,4 +1,4 @@
-import { account, addItem, admin, agent, CUSTOMER, CUSTOMERS, installDate, INVOICE, newOrder, NEW_ORDER, ORDER, ORDERS, pickCustomer, RECEIPT, RECEIPTS, recordPayment, release, salesManager, saveDraft, toOrders, toReceipts, toSalesFlow, FLOW } from '@/tours/guide.sales'
+import { account, addItem, admin, agent, approve, askApproval, CUSTOMER, CUSTOMERS, installDate, INVOICE, newOrder, NEW_ORDER, ORDER, ORDERS, pickCustomer, RECEIPT, RECEIPTS, recordPayment, release, saveDraft, toOrders, toReceipts, toSalesFlow, FLOW } from '@/tours/guide.sales'
 import { be, openCore, openDoc, openFromHome, openModule, openPage, status } from '@/tours/guide.steps'
 import type { Guide, Tour, TourStep } from '@/tours/types'
 
@@ -21,40 +21,6 @@ const switchOn = (card: string, title: string, text: string, expect: string): To
   { target: 'flow:changes', page: FLOW, title: 'Recent changes', text: 'Every change of these settings is kept here.', expect, placement: 'top' },
 ]
 
-const askApproval = (reason: string, rows: { reason?: number; request?: number } = {}): TourStep[] => [
-  { row: rows.reason, target: 'so:approval', page: ORDER, wait: { kind: 'use' }, title: 'Say why', text: 'Type a reason for the approver, then Next.', type: [{ field: 'Reason', value: reason }], placement: 'top' },
-  {
-    target: 'action:request-approval',
-    page: ORDER,
-    wait: status('PENDING_APPROVAL'),
-    waiting: 'Waiting for the request to be sent.',
-    title: 'Ask for approval',
-    text: 'Click Request approval.',
-  },
-]
-/** The Sales Manager approves the order in Approvals. */
-const approve = (as: 'salesManager' | 'branchManager', row: number, expect: string): TourStep[] => [
-  salesManager(as, { row }),
-  { target: 'approvals', wait: { kind: 'page', to: { code: 'S02' } }, title: 'Open Approvals', text: 'Click Approvals in the top bar.' },
-  {
-    target: 'approvals:list',
-    page: { code: 'S02' },
-    pick: '{order}',
-    wait: { kind: 'click' },
-    title: 'Pick the request',
-    text: 'Click the card of {order}.',
-    placement: 'right',
-  },
-  { target: 'approvals:detail', page: { code: 'S02' }, title: 'What is asked', text: 'Read the request and its details.', expect, placement: 'left' },
-  {
-    target: 'approvals:approve',
-    page: { code: 'S02' },
-    wait: { kind: 'appear', selector: '.erp-toast-body[data-tone="done"]' },
-    waiting: 'Waiting for your decision.',
-    title: 'Approve it',
-    text: 'Click Approve.',
-  },
-]
 const FIELD_SALES: Pick<Guide, 'book'> = { book: 'Field sales' }
 
 const HOUSEHOLD_ORDER: Tour = {
@@ -416,7 +382,7 @@ const PRICE_OUTSIDE: Tour = {
     ...askApproval('Matching a competitor', { reason: 4 }),
     { target: 'page-header', page: ORDER, title: 'Waiting for the Sales Manager', text: 'The order is locked until someone decides.', expect: 'Pending approval.' },
 
-    ...approve('branchManager', 5, 'The price reason, and the note the salesperson typed.'),
+    ...approve('branchManager', 'order', 5, 'The price reason, and the note the salesperson typed.'),
 
     agent('agent', { row: 6 }),
     ...toOrders(),
@@ -636,7 +602,7 @@ const REVISIONS: Tour = {
     ...askApproval('Agreed with the customer', { reason: 6 }),
     { target: 'page-header', page: ORDER, title: 'Waiting for the Sales Manager', text: 'The order is locked until someone decides.', expect: 'Pending approval.' },
 
-    ...approve('salesManager', 7, 'Which price changed, and why.'),
+    ...approve('salesManager', 'order', 7, 'Which price changed, and why.'),
 
     agent('hqAgent', { row: 8 }),
     ...toOrders(),

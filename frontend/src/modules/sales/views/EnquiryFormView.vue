@@ -331,7 +331,7 @@ const myBranches = computed(() => branches.value.filter((b) => user.value?.branc
             </div>
           </div>
           <div class="grid grid-cols-3 gap-x-4 gap-y-3">
-            <FormField v-if="!form.isProspect" label="Customer · from Master Data" :error="errors.customerCode" for="eq-customer">
+            <FormField v-if="!form.isProspect" data-tour="eq:customer" :data-filled="form.customer ? 'true' : 'false'" label="Customer · from Master Data" :error="errors.customerCode" for="eq-customer">
               <MasterDataPicker v-if="isNew" v-model="form.customer" input-id="eq-customer" :search="searchCustomers" :invalid="Boolean(errors.customerCode)" placeholder="Type a customer code or name" :display="(c) => `${c.name} (${c.code})`" @picked="onCustomerPicked" />
               <div v-else class="erp-input-ro truncate">{{ form.customer?.name }} ({{ form.customer?.code }})</div>
             </FormField>
@@ -367,14 +367,14 @@ const myBranches = computed(() => branches.value.filter((b) => user.value?.branc
         <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <h2 class="m-0 text-[15px] font-bold">Enquiry details</h2>
           <div class="grid grid-cols-3 gap-x-4 gap-y-3">
-            <FormField label="Enquiry type" :error="errors.enquiryTypeCode" for="eq-type">
+            <FormField data-tour="eq:type" label="Enquiry type" :error="errors.enquiryTypeCode" for="eq-type">
               <select v-if="editable" id="eq-type" v-model="form.enquiryTypeCode" class="erp-input" :aria-invalid="Boolean(errors.enquiryTypeCode)">
                 <option value="" disabled>Pick a type</option>
                 <option v-for="t in types" :key="t.code" :value="t.code">{{ t.name }}</option>
               </select>
               <div v-else class="erp-input-ro">{{ enquiry?.typeName }}</div>
             </FormField>
-            <FormField label="Enquiry from" :error="errors.sourceCode" for="eq-source">
+            <FormField data-tour="eq:from" label="Enquiry from" :error="errors.sourceCode" for="eq-source">
               <select v-if="editable" id="eq-source" v-model="form.sourceCode" class="erp-input" :aria-invalid="Boolean(errors.sourceCode)">
                 <option value="" disabled>Pick a source</option>
                 <option v-for="s in sources" :key="s.code" :value="s.code">{{ s.name }}</option>
@@ -400,7 +400,7 @@ const myBranches = computed(() => branches.value.filter((b) => user.value?.branc
               <input v-if="editable" id="eq-ref" v-model="form.customerRef" class="erp-input" maxlength="50" />
               <div v-else class="erp-input-ro">{{ form.customerRef || '—' }}</div>
             </FormField>
-            <FormField class="col-span-3" label="Description" for="eq-desc">
+            <FormField data-tour="eq:description" class="col-span-3" label="Description" for="eq-desc">
               <textarea v-if="editable" id="eq-desc" v-model="form.description" rows="3" class="erp-input h-auto py-2" maxlength="4000" />
               <div v-else class="erp-input-ro h-auto min-h-9 py-2 whitespace-pre-line">{{ form.description || '—' }}</div>
             </FormField>
@@ -422,7 +422,7 @@ const myBranches = computed(() => branches.value.filter((b) => user.value?.branc
         <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
           <div class="flex items-center justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">Items of interest <span class="font-normal text-erp-muted">(optional, copied to the quotation)</span></h2>
-            <button v-if="editable" type="button" class="erp-btn erp-btn-secondary" @click="pickerOpen = true"><Plus :size="14" aria-hidden="true" />Add item</button>
+            <button v-if="editable" type="button" data-tour="eq:add-item" class="erp-btn erp-btn-secondary" @click="pickerOpen = true"><Plus :size="14" aria-hidden="true" />Add item</button>
           </div>
           <div class="flex flex-col gap-2">
             <div class="overflow-x-auto">
@@ -456,7 +456,7 @@ const myBranches = computed(() => branches.value.filter((b) => user.value?.branc
       </div>
 
       <aside class="flex flex-col gap-4">
-        <SideCard v-if="card" title="From Master Data">
+        <SideCard v-if="card" data-tour="eq:card" title="From Master Data">
           <template #chip><StatusChip :status="card.status === 'ACTIVE' ? 'DONE' : 'DRAFT'" :label="card.status === 'ACTIVE' ? 'Active' : card.status === 'PROSPECT' ? 'Prospect' : 'Blocked'" /></template>
           <p class="m-0 text-xs text-erp-muted">{{ card.name }} · {{ card.code }}. Read-only here; change it in Master Data.</p>
           <div class="flex flex-col text-[13px]">

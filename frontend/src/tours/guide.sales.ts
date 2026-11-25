@@ -67,6 +67,45 @@ export const release = (extra: Partial<TourStep> = {}): TourStep => ({
   text: 'Click Release, then Release again in the question that opens.',
   ...extra,
 })
+export const askApproval = (reason: string, rows: { reason?: number } = {}): TourStep[] => [
+  { row: rows.reason, target: 'so:approval', page: ORDER, wait: { kind: 'use' }, title: 'Say why', text: 'Type a reason for the approver, then Next.', type: [{ field: 'Reason', value: reason }], placement: 'top' },
+  {
+    target: 'action:request-approval',
+    page: ORDER,
+    wait: status('PENDING_APPROVAL'),
+    waiting: 'Waiting for the request to be sent.',
+    title: 'Ask for approval',
+    text: 'Click Request approval.',
+  },
+]
+const APPROVALS = { code: 'S02' }
+/** The request of a document, opened in Approvals. With optional, left out when nothing of it waits for this person. */
+export const openRequest = (word: string, expect: string, extra: Partial<TourStep> = {}): TourStep[] => [
+  { target: 'approvals', wait: { kind: 'page', to: APPROVALS }, title: 'Open Approvals', text: 'Click Approvals in the top bar.' },
+  { target: 'approvals:list', page: APPROVALS, pick: `{${word}}`, wait: { kind: 'click' }, title: 'Pick the request', text: `Click the card of {${word}}.`, placement: 'right', ...extra },
+  { target: 'approvals:decide', page: APPROVALS, title: 'What is asked', text: 'Read the request and its details above.', expect, placement: 'left', ...(extra.optional && { optional: true }) },
+]
+export const approveIt = (extra: Partial<TourStep> = {}): TourStep => ({
+  target: 'approvals:approve',
+  page: APPROVALS,
+  wait: { kind: 'gone', selector: '[data-tour="approvals:approve"]' },
+  waiting: 'Waiting for your decision.',
+  title: 'Approve it',
+  text: 'Click Approve.',
+  ...extra,
+})
+/** The Sales Manager approves a document in Approvals. */
+export const approve = (as: 'salesManager' | 'branchManager', word: string, row: number, expect: string): TourStep[] => [salesManager(as, { row }), ...openRequest(word, expect), approveIt()]
+/** Rejected with a comment, which the requester then sees. */
+export const reject = (as: 'salesManager' | 'branchManager', word: string, row: number, comment: string): TourStep[] => [
+  salesManager(as, { row }),
+  ...openRequest(word, 'Why it needs approval, and the note of the person who asks.'),
+  { target: 'approvals:comment', page: APPROVALS, wait: { kind: 'use' }, title: 'Say why', text: 'Type a comment, then Next.', type: [{ field: 'Your comment', value: comment }], placement: 'left' },
+  { target: 'approvals:decide', pick: 'Reject', page: APPROVALS, wait: { kind: 'gone', selector: '[data-tour="approvals:approve"]' }, waiting: 'Waiting for your decision.', title: 'Reject it', text: 'Click Reject.', placement: 'left' },
+]
+/** An order that is delivered without installation, where the company asks for an installation. */
+export const deliveryOnly = (): TourStep => ({ target: 'so:installation', page: NEW_ORDER, optional: true, wait: { kind: 'use' }, title: 'No installation', text: 'Pick Delivery only, then Next.' })
+
 /** Account opens a receipt of the order and verifies it against the bank. */
 export const verifyReceipt = (extra: Partial<TourStep> = {}, rows: Partial<TourStep> = {}): TourStep[] => [
   { target: 'list', page: RECEIPTS, pick: '{order}', wait: { kind: 'page', to: RECEIPT }, title: 'Open the receipt', text: 'Click the receipt of {order}.', ...extra, ...rows },

@@ -146,7 +146,7 @@ const KIND: Record<IndicatorKind, { label: string; icon: typeof Table2 }> = {
     <p class="m-0 max-w-md text-[13px] text-erp-muted">Add the charts you want to see here. They are saved to your account, so they follow you to any computer.</p>
     <div class="flex gap-2">
       <button type="button" class="erp-btn erp-btn-add" @click="adding = true"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add chart</button>
-      <button type="button" class="erp-btn erp-btn-secondary" :disabled="busy" @click="reset">Put back the default charts</button>
+      <button type="button" data-tour="dash:reset" class="erp-btn erp-btn-secondary" :disabled="busy" @click="reset">Put back the default charts</button>
     </div>
   </div>
 
@@ -170,7 +170,7 @@ const KIND: Record<IndicatorKind, { label: string; icon: typeof Table2 }> = {
   </div>
 
   <!-- Add chart -->
-  <Dialog v-model:visible="adding" modal :draggable="false" class="erp-dialog" :style="{ width: '600px' }">
+  <Dialog v-model:visible="adding" data-tour="dash:add" modal :draggable="false" class="erp-dialog" :style="{ width: '600px' }">
     <template #header>
       <div>
         <h2 class="m-0 text-xl font-bold">Add a chart</h2>

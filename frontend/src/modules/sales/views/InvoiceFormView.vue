@@ -433,7 +433,7 @@ const belowList = (l: EditLine) => Boolean(l.listPrice && l.unitPrice && Number(
           </section>
 
           <!-- Approval before release: price (Sales Manager) and/or credit (Finance Manager) -->
-          <section v-if="showApprovalPanel && inv" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
+          <section data-tour="inv:approval" v-if="showApprovalPanel && inv" class="flex flex-col gap-3 rounded-xl border-2 border-note-warn-border bg-erp-card px-5 py-[18px]">
             <h2 class="m-0 text-[15px] font-bold text-note-warn-text">Approval needed before release</h2>
             <ul class="m-0 flex list-disc flex-col gap-1 pl-5 text-[13px]">
               <li v-if="inv.checks.needsPrice && inv.checks.priceReason">

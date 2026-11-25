@@ -336,7 +336,7 @@ const showStatus = (a: ItemAction) => !isNew.value && editable.value && (can(a) 
           <h2 class="m-0 text-[15px] font-bold">Buying</h2>
           <div class="flex gap-6 text-[13px] font-medium">
             <span class="inline-flex items-center gap-2"><SwitchToggle v-model="form.isPurchasable" label="Can be bought" :disabled="!editable" />Can be bought</span>
-            <span class="inline-flex items-center gap-2"><SwitchToggle v-model="form.isBuyToOrder" label="Buy to order only" :disabled="!editable || !form.isPurchasable" />Buy to order only</span>
+            <span data-tour="core:buy-to-order" class="inline-flex items-center gap-2"><SwitchToggle v-model="form.isBuyToOrder" label="Buy to order only" :disabled="!editable || !form.isPurchasable" />Buy to order only</span>
           </div>
           <span v-if="errors.isBuyToOrder" class="text-xs font-medium text-note-error-text" role="alert">{{ errors.isBuyToOrder }}</span>
           <div class="grid grid-cols-3 gap-x-[18px] gap-y-3.5">

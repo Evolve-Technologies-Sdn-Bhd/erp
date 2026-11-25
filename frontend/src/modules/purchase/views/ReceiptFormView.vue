@@ -340,7 +340,7 @@ const chip = computed(() => {
     <div class="grid grow items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
       <div class="flex min-w-0 flex-col gap-3.5">
         <!-- Header fields (GrnConfirm.html order) -->
-        <section class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-4">
+        <section data-tour="grn:header" class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-4">
           <FormField :label="`Supplier · ${po.supplier.code}`">
             <div class="erp-input-ro">{{ po.supplier.name }}</div>
           </FormField>
@@ -383,7 +383,7 @@ const chip = computed(() => {
         </section>
 
         <!-- Count what arrived -->
-        <section class="erp-card flex flex-col gap-2.5 px-5 py-4">
+        <section data-tour="grn:lines" class="erp-card flex flex-col gap-2.5 px-5 py-4">
           <div class="flex items-baseline justify-between gap-3">
             <h2 class="m-0 text-[15px] font-bold">{{ editable ? 'Count what arrived' : 'What arrived' }}</h2>
             <span v-if="errors.lines" class="text-xs font-medium text-note-error-text">{{ errors.lines }}</span>

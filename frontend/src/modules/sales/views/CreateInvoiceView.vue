@@ -152,7 +152,7 @@ const STATUS_LABEL: Record<string, string> = { RELEASED: 'Released', PARTIAL: 'P
 
     <div class="grid grow items-stretch gap-4 grid-cols-[340px_minmax(0,1fr)]">
       <!-- Step 1 · orders -->
-      <section class="erp-card flex flex-col gap-3 px-5 py-[18px]">
+      <section data-tour="ci:orders" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
         <h2 class="m-0 text-[15px] font-bold">Orders with something to invoice</h2>
         <FormField label="Customer" for="inv-customer">
           <MasterDataPicker v-model="customer" input-id="inv-customer" :search="searchCustomers" :display="(c) => `${c.name} (${c.code})`" placeholder="Type a customer code or name" @picked="onCustomerPicked" />
@@ -256,7 +256,7 @@ const STATUS_LABEL: Record<string, string> = { RELEASED: 'Released', PARTIAL: 'P
           </div>
           <div class="flex gap-2">
             <RouterLink to="/sales/invoices" class="erp-btn erp-btn-secondary">Back</RouterLink>
-            <button type="button" class="erp-btn erp-btn-add" :disabled="!order || saving" @click="create">Create invoice draft</button>
+            <button type="button" data-tour="ci:create" class="erp-btn erp-btn-add" :disabled="!order || saving" @click="create">Create invoice draft</button>
           </div>
         </div>
       </section>

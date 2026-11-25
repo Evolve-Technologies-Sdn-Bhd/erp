@@ -260,7 +260,7 @@ async function exportCsv() {
 
     <div class="flex items-center justify-between gap-3">
       <div class="flex gap-2">
-        <RouterLink v-if="can('sales.quotation.edit')" to="/sales/quotations/new" class="erp-btn erp-btn-add">
+        <RouterLink v-if="can('sales.quotation.edit')" to="/sales/quotations/new" data-tour="action:new-quotation" class="erp-btn erp-btn-add">
           <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new quotation
         </RouterLink>
         <button type="button" class="erp-btn erp-btn-primary" :disabled="!releasable.length" @click="releaseSelected">Release selected</button>

@@ -200,7 +200,7 @@ const GROUP: Record<ProformaStatus, 'draft' | 'released' | 'done' | 'partial' | 
       <NoticeBanner v-if="pf.status === 'SENT'" kind="warning">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <span>Waiting for {{ formatRm((Number(pf.amount) - Number(pf.received)).toFixed(2)) }} by {{ formatDate(pf.payBy ?? '') }}. Delivery of {{ pf.order.no }} is on hold until Finance records the payment.</span>
-          <button type="button" class="erp-btn erp-btn-secondary" title="Dev only: stands in for Finance until it is connected" @click="recordPayment">Record payment (Finance stub)</button>
+          <button type="button" data-tour="pf:stub" class="erp-btn erp-btn-secondary" title="Dev only: stands in for Finance until it is connected" @click="recordPayment">Record payment (Finance stub)</button>
         </div>
       </NoticeBanner>
       <NoticeBanner v-else-if="pf.status === 'PAID'">Paid {{ formatRm(pf.received) }}. Delivery can go ahead; the deposit is knocked off the next invoice of {{ pf.order.no }}.</NoticeBanner>
@@ -209,7 +209,7 @@ const GROUP: Record<ProformaStatus, 'draft' | 'released' | 'done' | 'partial' | 
 
       <div class="grid items-start gap-4 grid-cols-[minmax(0,1fr)_330px]">
         <div class="flex min-w-0 flex-col gap-4">
-          <section class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-[18px]">
+          <section data-tour="pf:header" class="erp-card grid grid-cols-[1.4fr_1fr_1fr_1fr] gap-x-4 gap-y-3 px-5 py-[18px]">
             <FormField :label="`Customer · ${pf.customer.code}`"><div class="erp-input-ro truncate">{{ pf.customer.name }}</div></FormField>
             <FormField label="Proforma date" for="pf-date">
               <DatePicker v-if="editable" input-id="pf-date" :model-value="isoToDate(form.docDate)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="form.docDate = dateToIso($event)" />
@@ -272,7 +272,7 @@ const GROUP: Record<ProformaStatus, 'draft' | 'released' | 'done' | 'partial' | 
         </div>
 
         <aside class="flex flex-col gap-4">
-          <SideCard title="Order value (MYR)">
+          <SideCard data-tour="pf:value" title="Order value (MYR)">
             <div class="flex flex-col text-[13px]">
               <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Subtotal</span><MoneyText :value="pf.orderValue.subtotal" /></div>
               <div class="flex justify-between gap-3 py-[5px]"><span class="text-erp-muted">Tax ({{ pf.orderValue.taxName }})</span><MoneyText :value="pf.orderValue.tax" /></div>

@@ -127,7 +127,7 @@ function exportCsv() {
         </select>
       </div>
       <div class="overflow-x-auto">
-      <table class="erp-table [&_td]:px-2.5 [&_th]:px-2.5">
+      <table data-tour="ex:list" class="erp-table [&_td]:px-2.5 [&_th]:px-2.5">
         <thead><tr><th>Item</th><th>Branch</th><th>Reason</th><th>From</th><th>Until</th><th>Added by</th><th v-if="canManage" aria-label="Action" /></tr></thead>
         <tbody>
           <tr v-if="!data?.items.length"><td :colspan="canManage ? 7 : 6" class="text-center text-erp-muted">No exclusions match these filters.</td></tr>
@@ -150,7 +150,7 @@ function exportCsv() {
     </section>
 
     <div class="flex flex-col gap-4">
-      <SideCard v-if="canManage" title="Add an exclusion">
+      <SideCard v-if="canManage" data-tour="ex:form" title="Add an exclusion">
         <div class="flex flex-col gap-3">
           <FormField label="Item · from Master Data" :error="errors.itemCode" for="ex-item">
             <MasterDataPicker v-model="form.item" input-id="ex-item" :search="searchItems" placeholder="Search item code or name" :invalid="Boolean(errors.itemCode)" />

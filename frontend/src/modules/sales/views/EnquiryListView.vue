@@ -129,7 +129,7 @@ async function exportCsv() {
 
     <div class="flex items-center justify-between gap-3">
       <div class="flex gap-2">
-        <RouterLink v-if="can('sales.enquiry.edit') && salesFlow.useEnquiries" to="/sales/enquiries/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new enquiry</RouterLink>
+        <RouterLink v-if="can('sales.enquiry.edit') && salesFlow.useEnquiries" to="/sales/enquiries/new" data-tour="action:new-enquiry" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new enquiry</RouterLink>
         <button type="button" class="erp-btn erp-btn-delete" :disabled="!deletable.length" @click="deleteSelected">Delete</button>
       </div>
       <div class="flex gap-2">

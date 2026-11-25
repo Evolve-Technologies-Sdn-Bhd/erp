@@ -192,7 +192,7 @@ async function exportCsv() {
       </NextSteps>
     </div>
 
-    <Dialog v-model:visible="pickOpen" modal :draggable="false" class="erp-dialog" :style="{ width: '540px' }" header="New return">
+    <Dialog v-model:visible="pickOpen" data-tour="sr:pick" modal :draggable="false" class="erp-dialog" :style="{ width: '540px' }" header="New return">
       <p class="m-0 mb-3 text-[13px] text-erp-subtle">A return always comes from one released invoice. Find it by number or customer.</p>
       <input v-model="search" class="erp-input mb-3 w-full" placeholder="Invoice no or customer" aria-label="Find the invoice" />
       <p v-if="!invoices.length" class="m-0 text-[13px] text-erp-muted">No released invoice with something left to return.</p>

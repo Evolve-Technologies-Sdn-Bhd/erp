@@ -188,7 +188,8 @@ async function save(forRelease = false): Promise<CashSaleDetail | null> {
       lines: form.lines.map((l) => ({ itemCode: l.itemCode, qty: l.qty, unitPrice: l.unitPrice })),
     }
     const result = isNew.value ? await salesCashSalesApi.create(body) : await salesCashSalesApi.update(cs.value!.id, { ...body, version: cs.value!.version })
-    if (isNew.value) await router.replace(`/sales/cash-sales/${result.id}`)
+    // On the way to a release the page stays (takePayment changes it once that is decided).
+    if (isNew.value && !forRelease) await router.replace(`/sales/cash-sales/${result.id}`)
     fill(result)
     if (!forRelease) toast.add({ severity: 'success', summary: isNew.value ? `${result.docNo} saved as draft` : 'Draft saved', life: 2500 })
     return result
@@ -201,15 +202,23 @@ async function save(forRelease = false): Promise<CashSaleDetail | null> {
 }
 
 async function takePayment() {
-  if ((dirty.value || isNew.value) && !(await save(true))) return
+  const fresh = isNew.value
+  if ((dirty.value || fresh) && !(await save(true))) return
   if (!validate(true)) return
   const c = cs.value!
+  // A new sale moves to its own page only now: that page is drawn anew, and would not see this page's release.
+  const settle = () => (fresh ? router.replace(`/sales/cash-sales/${c.id}`) : undefined)
+  let accepted = false
   confirm.require({
     header: `Take ${formatRm(c.totals.total)} and release ${c.docNo}?`,
     message: `${method.value.label}${Number(change.value) ? `, change ${formatRm(change.value)}` : ''}. The sale, the payment and the stock going out are recorded at once.`,
     acceptLabel: 'Take payment and release',
     rejectLabel: 'Cancel',
+    onHide: () => {
+      if (!accepted) void settle()
+    },
     accept: async () => {
+      accepted = true
       saving.value = true
       try {
         fill(await salesCashSalesApi.release(c.id, c.version))
@@ -218,6 +227,7 @@ async function takePayment() {
         if (error instanceof ApiError) errors.value = { ...errors.value, ...error.fieldErrors }
       } finally {
         saving.value = false
+        await settle()
       }
     },
   })
@@ -284,7 +294,7 @@ const released = computed(() => cs.value?.status === 'RELEASED')
               <input v-if="editable" id="cs-phone" v-model="form.buyerPhone" class="erp-input" maxlength="30" />
               <div v-else class="erp-input-ro">{{ form.buyerPhone || '—' }}</div>
             </FormField>
-            <FormField class="col-span-2" label="Buyer wants own e-Invoice?" for="cs-own">
+            <FormField data-tour="cs:own" class="col-span-2" label="Buyer wants own e-Invoice?" for="cs-own">
               <select v-if="editable" id="cs-own" v-model="form.ownEInvoice" class="erp-input">
                 <option :value="false">No, include in the monthly consolidated e-Invoice</option>
                 <option :value="true">Yes, issue an own e-Invoice (name and TIN needed)</option>
