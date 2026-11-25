@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
 import { HeldStock } from '../shared/held-stock.service';
 import { MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
@@ -12,6 +12,7 @@ import { PrismaService } from '../../platform/prisma/prisma.service';
 import { spreadPrice } from '../../master-data/package-price.rules';
 import { SALES_PERMISSIONS as P } from '../sales.permissions';
 import { SAL_ROLE } from '../shared/sales.constants';
+import { VouchersService } from '../vouchers/vouchers.service';
 
 class SearchQuery {
   @IsOptional()
@@ -50,6 +51,13 @@ class PackageQuery {
   date?: string;
 }
 
+class VoucherQuery extends PackageQuery {
+  /** The order being changed, whose own use is not counted. */
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
+}
+
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Master Data pickers for Sales screens — /api/v1/sales/lookups. Read only, through MasterDataPort. */
@@ -60,9 +68,16 @@ export class SalesLookupsController {
     private readonly prisma: PrismaService,
     private readonly clock: ClockService,
     private readonly heldStock: HeldStock,
+    private readonly vouchers: VouchersService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
+
+  /** Phase 5 · vouchers an order of this date may take, when the company controls them. */
+  @Get('vouchers')
+  vouchersFor(@CurrentContext() ctx: RequestContext, @Query() query: VoucherQuery) {
+    return this.vouchers.running(ctx, query.date ?? this.clock.today(), query.orderId);
+  }
 
   /** Active customers for documents (prospects and blocked customers are left out; the walk-in customer too). */
   @Get('customers')

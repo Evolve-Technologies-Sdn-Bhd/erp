@@ -42,6 +42,8 @@ export class SaveSalesFlowDto {
   /** Left as it is when not sent, so a page that does not show it keeps it. */
   @IsOptional() @IsBoolean() agentsAddCustomers?: boolean;
   /** The price range (phase 5): the switch and its two percentages, each kept when not sent. Checked in price-range.rules.ts. */
+  @IsOptional() @IsBoolean() fixedPrices?: boolean;
+  @IsOptional() @IsBoolean() voucherControl?: boolean;
   @IsOptional() @IsBoolean() priceRange?: boolean;
   @IsOptional() @IsBoolean() useReceipts?: boolean;
   @IsOptional() @IsBoolean() reviseOrders?: boolean;

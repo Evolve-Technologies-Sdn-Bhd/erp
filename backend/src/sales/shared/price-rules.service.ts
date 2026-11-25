@@ -11,13 +11,15 @@ import type { PriceRule } from './price-range.rules';
 export class PriceRules {
   constructor(private readonly prisma: PrismaService) {}
 
-  async load(tenantId: string): Promise<PriceRule & { strictPriceList: boolean }> {
+  async load(tenantId: string): Promise<PriceRule & { strictPriceList: boolean; fixed: boolean }> {
     const s = await this.prisma.salSetting.findUnique({
       where: { tenantId },
-      select: { priceRange: true, priceBelowPct: true, priceAbovePct: true, discountApprovalPct: true, strictPriceList: true },
+      select: { fixedPrices: true, priceRange: true, priceBelowPct: true, priceAbovePct: true, discountApprovalPct: true, strictPriceList: true },
     });
     return {
-      range: s?.priceRange ? { belowPct: s.priceBelowPct.toDecimalPlaces(2).toString(), abovePct: s.priceAbovePct.toDecimalPlaces(2).toString() } : null,
+      fixed: s?.fixedPrices ?? false,
+      // Fixed prices stand in place of the range.
+      range: s?.priceRange && !s.fixedPrices ? { belowPct: s.priceBelowPct.toDecimalPlaces(2).toString(), abovePct: s.priceAbovePct.toDecimalPlaces(2).toString() } : null,
       discountPct: (s?.discountApprovalPct ?? dec(15)).toDecimalPlaces(2).toString(),
       strictPriceList: s?.strictPriceList ?? true,
     };

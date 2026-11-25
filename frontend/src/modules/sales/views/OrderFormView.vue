@@ -31,7 +31,7 @@ import ReceiptDialog from '../components/ReceiptDialog.vue'
 import { PAYMENT_GROUP, RECEIPT_GROUP } from './receipts'
 import { salesFlow } from '../flow'
 import { docRoute } from '../routes'
-import type { CustomerOption, InstallOption, OrderAction, OrderDetail, OrderLine, PackageOption, ReceiptDetail, SaleItemOption } from '../types'
+import type { CustomerOption, InstallOption, OrderAction, OrderDetail, OrderLine, PackageOption, ReceiptDetail, SaleItemOption, VoucherOption } from '../types'
 
 /** S11 · Sales order (SalesOrderForm.html) and S12 · Credit check failed (CreditApproval.html). */
 const route = useRoute()
@@ -288,7 +288,8 @@ function addItems(picked: { item: SaleItemOption; qty: string }[]) {
       key: nextKey++,
       item: { code: item.code, name: item.name, uomCode: item.uomCode, taxCode: item.taxCode, taxName: item.taxName, taxRate: item.taxRate, listPrice: item.listPrice },
       qty,
-      unitPrice: trimPrice(item.listPrice ?? item.lastSold?.price ?? ''),
+      // Fixed prices (phase 5): the price list's or none; otherwise the last price is offered when the list has none.
+      unitPrice: trimPrice(item.listPrice ?? (salesFlow.value.fixedPrices ? '' : (item.lastSold?.price ?? ''))),
       discountPct: '',
     })
   }
@@ -381,8 +382,20 @@ const voucherPreviews = computed(() =>
     return { key: v.key, taxCode, preview: MONEY.test(v.amount) && Number(v.amount) > 0 && rate !== undefined ? previewSaleLine('1', v.amount, '0', rate) : null }
   }),
 )
-function addVoucher() {
-  form.vouchers.push({ key: nextKey++, voucherNo: '', description: 'Cash voucher', amount: '', taxCode: null, invoiceNo: null })
+/** Vouchers the order may take from the list, when the company controls them (phase 5). */
+const listedVouchers = ref<VoucherOption[]>([])
+async function loadVouchers() {
+  if (salesFlow.value.voucherControl) listedVouchers.value = (await salesLookupsApi.vouchers(form.docDate || undefined, isNew.value ? undefined : order.value?.id)).items
+}
+/** Those not on the order yet, for this row's list. */
+const vouchersFor = (v: EditVoucher) => listedVouchers.value.filter((x) => x.voucherNo === v.voucherNo || !form.vouchers.some((o) => o.voucherNo === x.voucherNo))
+function pickVoucher(v: EditVoucher, no: string) {
+  const picked = listedVouchers.value.find((x) => x.voucherNo === no)
+  if (picked) Object.assign(v, { voucherNo: picked.voucherNo, description: picked.description, amount: picked.amount })
+}
+async function addVoucher() {
+  await loadVouchers()
+  form.vouchers.push({ key: nextKey++, voucherNo: '', description: salesFlow.value.voucherControl ? '' : 'Cash voucher', amount: '', taxCode: null, invoiceNo: null })
 }
 function removeVoucher(key: number) {
   form.vouchers = form.vouchers.filter((v) => v.key !== key)
@@ -426,11 +439,12 @@ function validate(): boolean {
       return
     }
     if (!isPositiveDecimal(l.qty)) e[`lines[${i}].qty`] = 'Quantity must be more than 0.'
-    if (!/^\d+(\.\d{1,4})?$/.test(l.unitPrice)) e[`lines[${i}].unitPrice`] = 'Enter a price.'
+    if (!/^\d+(\.\d{1,4})?$/.test(l.unitPrice)) e[`lines[${i}].unitPrice`] = salesFlow.value.fixedPrices ? `${l.item.code} has no price on the customer’s price list. Ask the office to add one in Core.` : 'Enter a price.'
     if (l.discountPct && !/^\d{1,3}(\.\d{1,2})?$/.test(l.discountPct)) e[`lines[${i}].discountPct`] = 'Discount like 5 or 7.5.'
   })
   form.vouchers.forEach((v, i) => {
-    if (!v.voucherNo.trim()) e[`vouchers[${i}].voucherNo`] = 'Type the voucher number.'
+    if (!v.voucherNo.trim()) e[`vouchers[${i}].voucherNo`] = salesFlow.value.voucherControl ? 'Pick a voucher from the list.' : 'Type the voucher number.'
+    if (salesFlow.value.voucherControl && !v.voucherNo.trim()) return
     if (!MONEY.test(v.amount) || !(Number(v.amount) > 0)) e[`vouchers[${i}].amount`] = 'Amount more than 0, like 50.00.'
     if (!voucherTax(v) && lineTaxes.value.size > 1) e[`vouchers[${i}].taxCode`] = 'Pick which tax the voucher lowers.'
   })
@@ -972,10 +986,12 @@ const viewRows = computed<ViewRow[]>(() => {
                       </td>
                       <td>{{ l.item.uomCode }}</td>
                       <td data-tour="so:price" class="num w-[110px] min-w-[96px]">
-                        <input v-model="l.unitPrice" class="erp-cell min-w-[80px]" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" :aria-label="`Unit price, line ${i + 1}`" />
+                        <template v-if="salesFlow.fixedPrices">{{ l.unitPrice ? formatPrice(l.unitPrice) : '—' }}</template>
+                        <input v-else v-model="l.unitPrice" class="erp-cell min-w-[80px]" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" :aria-label="`Unit price, line ${i + 1}`" />
                       </td>
                       <td class="num w-[70px] min-w-[64px]">
-                        <input v-model="l.discountPct" class="erp-cell min-w-[48px]" inputmode="decimal" placeholder="0" :aria-invalid="Boolean(errors[`lines[${i}].discountPct`])" :aria-label="`Discount %, line ${i + 1}`" />
+                        <template v-if="salesFlow.fixedPrices">{{ l.discountPct || '—' }}</template>
+                        <input v-else v-model="l.discountPct" class="erp-cell min-w-[48px]" inputmode="decimal" placeholder="0" :aria-invalid="Boolean(errors[`lines[${i}].discountPct`])" :aria-label="`Discount %, line ${i + 1}`" />
                       </td>
                       <td class="whitespace-nowrap">{{ l.item.taxName }}</td>
                       <td class="num"><MoneyText :value="previews[i]?.amount ?? null" /></td>
@@ -998,13 +1014,24 @@ const viewRows = computed<ViewRow[]>(() => {
                     <tr data-tour="so:voucher" :data-filled="v.voucherNo.trim() && Number(v.amount) > 0 ? 'true' : 'false'">
                       <td class="text-erp-muted">{{ form.lines.length + i + 1 }}</td>
                       <td>
+                        <template v-if="salesFlow.voucherControl">
+                          <div class="flex items-center gap-2"><StatusChip status="DRAFT" label="Voucher" group="draft" /><span class="font-bold">{{ v.description }}</span></div>
+                          <select v-if="!v.amount || vouchersFor(v).some((x) => x.voucherNo === v.voucherNo)" :value="v.voucherNo" class="erp-input mt-1 h-8 min-w-[220px] text-xs" :aria-invalid="Boolean(errors[`vouchers[${i}].voucherNo`])" :aria-label="`Voucher, line ${form.lines.length + i + 1}`" @change="pickVoucher(v, ($event.target as HTMLSelectElement).value)">
+                            <option value="" disabled>{{ vouchersFor(v).length ? 'Pick a voucher' : 'No voucher is running' }}</option>
+                            <option v-for="x in vouchersFor(v)" :key="x.voucherNo" :value="x.voucherNo">{{ x.voucherNo }} · {{ x.description }} · RM {{ formatMoney(x.amount) }}</option>
+                          </select>
+                          <div v-else class="text-xs text-erp-muted">no. {{ v.voucherNo }}</div>
+                        </template>
+                        <template v-else>
                         <div class="flex items-center gap-2"><StatusChip status="DRAFT" label="Voucher" group="draft" /><input v-model="v.description" class="erp-cell min-w-[220px] text-left!" maxlength="100" :aria-label="`Voucher description, line ${form.lines.length + i + 1}`" /></div>
                         <input v-model="v.voucherNo" class="erp-cell mt-1 w-full min-w-[220px] text-left!" maxlength="30" placeholder="Voucher no." :aria-invalid="Boolean(errors[`vouchers[${i}].voucherNo`])" :aria-label="`Voucher number, line ${form.lines.length + i + 1}`" />
+                        </template>
                       </td>
                       <td class="num">1</td>
                       <td />
                       <td class="num w-[110px] min-w-[96px]">
-                        <input v-model="v.amount" class="erp-cell min-w-[80px]" inputmode="decimal" placeholder="Amount" :aria-invalid="Boolean(errors[`vouchers[${i}].amount`])" :aria-label="`Voucher amount, line ${form.lines.length + i + 1}`" />
+                        <template v-if="salesFlow.voucherControl">{{ v.amount ? formatMoney(v.amount) : '—' }}</template>
+                        <input v-else v-model="v.amount" class="erp-cell min-w-[80px]" inputmode="decimal" placeholder="Amount" :aria-invalid="Boolean(errors[`vouchers[${i}].amount`])" :aria-label="`Voucher amount, line ${form.lines.length + i + 1}`" />
                       </td>
                       <td class="num text-erp-muted">—</td>
                       <td class="whitespace-nowrap">

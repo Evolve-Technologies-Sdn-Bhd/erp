@@ -66,7 +66,7 @@ describe('Configuration (end to end)', () => {
         'sessions 0 · Sessions on any device',
         'two-factor 0 of 2 · users who must use it have set it up',
         'failed 0 · in the last 24 hours',
-        'permissions 59 · declared by Purchase, Sales, Core, Configuration and WMS',
+        'permissions 60 · declared by Purchase, Sales, Core, Configuration and WMS',
       ]);
       expect(home.attention.map((a) => a.lead)).toEqual(['2 users', 'Auditor', 'Company']);
       expect(home.attention[0]!.text).toContain(': Admin, Rosnah Ismail.');
@@ -496,7 +496,7 @@ describe('Configuration (end to end)', () => {
       expect(agent.twoFactor.text).toBe('Not required for this role. Required for Administrator, Master Data Admin, Finance Director and Finance Manager (Sign-in settings).');
       expect(agent).toMatchObject({ asStarter: true, allowedActions: ['edit', 'reset'], agentScopeCustomers: true, agentScopeDocuments: true });
       const admin = await api.get<Role>(`config/roles/${await roleId('ADMIN')}`);
-      expect(admin.permissions).toHaveLength(59);
+      expect(admin.permissions).toHaveLength(60);
       expect(admin.allowedActions).toEqual([]);
     });
 
@@ -561,7 +561,7 @@ describe('Configuration (end to end)', () => {
       expect(compared.text).toBe('Both roles give 9 permissions. Sales agent sees only its own customers; Sales Manager sees all customers in its branches.');
       expect(compared.rows.filter((r) => r.a !== r.b).map((r) => r.key)).toEqual(['sales.margin.view', 'sales.return.edit', 'sales.cancel_order.release', 'wms.view']);
       const catalogue = await api.get<{ total: number; modules: { label: string }[] }>('config/permissions/catalogue');
-      expect(catalogue.total).toBe(59);
+      expect(catalogue.total).toBe(60);
       expect(catalogue.modules.map((m) => m.label)).toEqual(['Purchase', 'Sales', 'Core', 'Configuration', 'WMS']);
     });
   });

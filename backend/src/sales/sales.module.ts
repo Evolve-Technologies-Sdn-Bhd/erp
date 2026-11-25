@@ -58,6 +58,8 @@ import { SalesOrdersController } from './orders/orders.controller';
 import { SalesOrderFlowQuery } from './orders/order-flow.query';
 import { OrdersQuery } from './orders/orders.query';
 import { OrdersService } from './orders/orders.service';
+import { SalesVouchersController } from './vouchers/vouchers.controller';
+import { VouchersService } from './vouchers/vouchers.service';
 import { SalesQuotationsController } from './quotations/quotations.controller';
 import { QuotationsQuery } from './quotations/quotations.query';
 import { QuotationsService } from './quotations/quotations.service';
@@ -79,7 +81,7 @@ import { SalesMailService } from './shared/sales-mail.service';
  * MasterDataPort and cross-module effects go out as outbox events.
  */
 @Module({
-  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController, SalesNewCustomersController, SalesReceiptsController],
+  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController, SalesNewCustomersController, SalesReceiptsController, SalesVouchersController],
   providers: [
     SalesNewCustomersService,
     SalesBuyToOrderListener,
@@ -100,6 +102,7 @@ import { SalesMailService } from './shared/sales-mail.service';
     OrdersService,
     SalesDocumentLines,
     PriceRules,
+    VouchersService,
     PackageLines,
     SalesMailService,
     QuotationsQuery,

@@ -14,6 +14,9 @@ import type {
   SalesFlowData,
   SalesFlowSwitches,
   PriceRangeSetting,
+  VoucherInput,
+  VoucherOption,
+  VoucherRow,
   ReceiptDetail,
   ReceiptInput,
   ReceiptRow,
@@ -305,6 +308,8 @@ export const salesLookupsApi = {
   agents: () => api<{ items: { code: string; name: string; branchCodes: string[] }[] }>('/sales/lookups/agents'),
   branches: () => api<{ items: { code: string; name: string }[] }>('/sales/lookups/branches'),
   enquiryTypes: () => api<{ types: EnquiryTypeOption[]; sources: { code: string; name: string }[] }>('/sales/lookups/enquiry-types'),
+  /** Vouchers an order of this date may take (phase 5); nothing while the company does not control them. */
+  vouchers: (date?: string, orderId?: string) => api<{ items: VoucherOption[] }>('/sales/lookups/vouchers', { query: { date, orderId } }),
   packages: (date?: string) => api<{ date: string; items: PackageOption[] }>('/sales/lookups/packages', { query: { date } }),
 }
 
@@ -329,4 +334,13 @@ export const salesReceiptsApi = {
     form.append('kind', 'PAYMENT_PROOF')
     return api<{ id: string; fileName: string; mimeType: string; downloadUrl: string }>('/attachments', { method: 'POST', body: form })
   },
+}
+
+/** S37 · Vouchers (phase 5). */
+export const salesVouchersApi = {
+  list: (query: ListQuery) => api<ListResponse<VoucherRow> & { on: boolean; canManage: boolean }>('/sales/vouchers', { query }),
+  create: (body: VoucherInput) => api<VoucherRow>('/sales/vouchers', { method: 'POST', body }),
+  update: (id: string, body: VoucherInput) => api<VoucherRow>(`/sales/vouchers/${id}`, { method: 'PATCH', body }),
+  end: (id: string, version: number) => api<VoucherRow>(`/sales/vouchers/${id}/end`, { method: 'POST', body: { version } }),
+  remove: (id: string, version: number) => api<{ deleted: boolean }>(`/sales/vouchers/${id}`, { method: 'DELETE', query: { version } }),
 }

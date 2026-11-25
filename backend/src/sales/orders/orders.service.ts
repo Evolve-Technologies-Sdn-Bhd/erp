@@ -16,6 +16,9 @@ import { CreditService } from '../shared/credit.service';
 import { SalesDocumentLines } from '../shared/document-lines.service';
 import { PackageLines, type EnteredLine } from '../shared/package-lines.service';
 import { toEnteredLine } from '../shared/package-lines.rules';
+import { VouchersService } from '../vouchers/vouchers.service';
+import { fixedPriceErrors } from '../shared/fixed-prices.rules';
+import { PriceRules } from '../shared/price-rules.service';
 import { priceVouchers, totalsWithVouchers, type TaxedLine, type VoucherInput } from '../shared/voucher.rules';
 import type { MdCustomer } from '../../master-data/master-data.port';
 import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../shared/sales.constants';
@@ -29,6 +32,9 @@ import { preOrderActivity, preOrderAtRelease } from './pre-order.rules';
 
 const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+/** A line's price, as fixed prices compare it. */
+type PricedLine = { itemCode: string; unitPrice: Prisma.Decimal | string; discountPct: Prisma.Decimal | string };
 
 /**
  * Sales order commands (FlowS2). Every change runs in one transaction: the order, its activity, approval
@@ -48,6 +54,8 @@ export class OrdersService {
     private readonly packages: PackageLines,
     private readonly clock: ClockService,
     private readonly heldStock: HeldStock,
+    private readonly vouchers: VouchersService,
+    private readonly priceRules: PriceRules,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -64,12 +72,12 @@ export class OrdersService {
    * Validates a new order against Master Data (active customer, sellable items not excluded in the branch),
    * builds the lines and runs the credit check. Done before the transaction so it stays short.
    */
-  async prepareDraft(ctx: RequestContext, dto: CreateOrderDto) {
+  async prepareDraft(ctx: RequestContext, dto: CreateOrderDto, quoted: PricedLine[] = []) {
     const docDate = dto.docDate ?? this.clock.today();
     const customer = await this.docs.activeCustomer(ctx, dto.customerCode);
     const branchCode = this.docs.branchFor(ctx, customer);
-    const lines = await this.buildLines(ctx, customer, branchCode, docDate, dto.lines);
-    const priced = await this.withVouchers(ctx.tenantId, lines.lines, dto.vouchers ?? []);
+    const lines = await this.buildLines(ctx, customer, branchCode, docDate, dto.lines, quoted);
+    const priced = await this.withVouchers(ctx.tenantId, lines.lines, await this.vouchers.forOrder(ctx, dto.vouchers ?? [], docDate, null));
     const built = { ...lines, totals: priced.totals, vouchers: priced.vouchers };
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(built.totals.total), branchCode });
     const install = await this.installation(ctx.tenantId, docDate, { option: dto.installOption, date: dto.installDate, postcode: dto.deliveryPostcode, state: dto.deliveryState });
@@ -125,10 +133,10 @@ export class OrdersService {
     const customer = await this.docs.activeCustomer(ctx, dto.customerCode ?? order.customerCode);
     const customerChanged = customer.code !== order.customerCode;
     const branchCode = customerChanged ? this.docs.branchFor(ctx, customer) : order.branchCode;
-    const built = dto.lines ? await this.buildLines(ctx, customer, branchCode, docDate, dto.lines) : null;
+    const built = dto.lines ? await this.buildLines(ctx, customer, branchCode, docDate, dto.lines, order.lines) : null;
     // New lines or vouchers price the vouchers again: they lower the tax of the lines they are on (phase 5).
     const priced = built || dto.vouchers
-      ? await this.withVouchers(ctx.tenantId, built?.lines ?? order.lines, dto.vouchers ?? order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: v.amount, description: v.description, taxCode: v.taxCode })))
+      ? await this.withVouchers(ctx.tenantId, built?.lines ?? order.lines, dto.vouchers ? await this.vouchers.forOrder(ctx, dto.vouchers, docDate, order) : order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: v.amount, description: v.description, taxCode: v.taxCode })))
       : null;
     // A new customer brings their own address: the postcode and state go with it unless typed again.
     const install = await this.installation(
@@ -433,11 +441,15 @@ export class OrdersService {
    * The order's lines from what the form sent: item lines as they are, packages as their items and free gifts
    * (phase 5). Errors point at the line the user typed.
    */
-  private async buildLines(ctx: RequestContext, customer: MdCustomer, branchCode: string, docDate: string, entered: EnteredLine[]) {
+  private async buildLines(ctx: RequestContext, customer: MdCustomer, branchCode: string, docDate: string, entered: EnteredLine[], kept: PricedLine[] = []) {
     const expanded = await this.packages.expand(ctx.tenantId, docDate, entered);
     try {
       const built = await this.docs.buildLines(ctx, customer, branchCode, docDate, expanded.input, 'EXCLUSIVE', expanded.options);
-      return { ...built, lines: built.lines.map((l, i) => ({ ...l, ...expanded.meta[i]! })) };
+      const lines = built.lines.map((l, i) => ({ ...l, ...expanded.meta[i]! }));
+      // Fixed prices (phase 5): the price list's, or what the line had already.
+      const errors = (await this.priceRules.load(ctx.tenantId)).fixed ? fixedPriceErrors(lines, kept) : [];
+      if (errors.length) throw new ValidationFailedError(errors);
+      return { ...built, lines };
     } catch (error) {
       if (!(error instanceof ValidationFailedError)) throw error;
       const body = error.getResponse() as { message: string; errors: { field: string; message: string }[] };

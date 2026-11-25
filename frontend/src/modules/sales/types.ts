@@ -174,6 +174,42 @@ export interface OrderLinePackage {
 }
 
 /** A running package for Add package on the order form (phase 5). */
+/** A voucher an order may take from the list (phase 5). */
+export interface VoucherOption {
+  voucherNo: string
+  description: string
+  amount: string
+  validUntil: string | null
+  /** Orders that may still use it; null for no limit. */
+  left: number | null
+}
+
+/** S37 · a voucher on the list (phase 5). */
+export interface VoucherRow {
+  id: string
+  voucherNo: string
+  description: string
+  amount: string
+  validFrom: string
+  validUntil: string | null
+  maxUses: number | null
+  uses: number
+  usesText: string
+  status: 'SCHEDULED' | 'RUNNING' | 'USED_UP' | 'ENDED'
+  statusLabel: string
+  version: number
+  allowedActions: ('edit' | 'end' | 'delete')[]
+}
+export interface VoucherInput {
+  voucherNo: string
+  description: string
+  amount: string
+  validFrom: string
+  validUntil: string | null
+  maxUses: number | null
+  version?: number
+}
+
 export interface PackageOption {
   code: string
   name: string
@@ -1304,6 +1340,10 @@ export interface SalesFlowSwitches {
   officeDraftsQuotations: boolean
   askInstallation: boolean
   agentsAddCustomers: boolean
+  /** The price comes from the price list and is never typed on a quotation or sales order (phase 5). */
+  fixedPrices: boolean
+  /** Vouchers on an order are picked from the voucher list (phase 5). */
+  voucherControl: boolean
   /** Salespeople set prices within a range of the price list; outside it the Sales Manager approves (phase 5). */
   priceRange: boolean
   /** Salespeople record customer payments as official receipts; Account verifies them (phase 5). */

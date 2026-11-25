@@ -2316,6 +2316,26 @@ model SalOrderVoucher {
   @@map("sal_order_voucher")
 }
 
+/// The voucher list Sales Support keeps (S37, phase 5). Orders use one by its number (sal_order_voucher.voucherNo).
+model SalVoucher {
+  id          String    @id @default(uuid()) @db.Char(36)
+  tenantId    String    @db.Char(36)
+  voucherNo   String    @db.VarChar(30)
+  description String    @db.VarChar(100)
+  amount      Decimal   @db.Decimal(18, 2) // off, before tax
+  validFrom   DateTime  @db.Date
+  validUntil  DateTime? @db.Date // null: no end
+  maxUses     Int? // how many orders may use it; null: no limit
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now()) @db.DateTime(3)
+  createdBy   String    @db.VarChar(20)
+  updatedAt   DateTime  @updatedAt @db.DateTime(3)
+  updatedBy   String    @db.VarChar(20)
+
+  @@unique([tenantId, voucherNo])
+  @@map("sal_voucher")
+}
+
 enum SalDeliveryStatus {
   DRAFT
   CONFIRMED
@@ -2921,6 +2941,8 @@ model SalSetting {
   autoDelivery           Boolean  @default(false) // on: Service asks for the delivery order 24 hours before the installation, and Sales drafts it (phase 5)
   shareWhatsapp          Boolean  @default(false) // on: whoever keys orders opens WhatsApp with the released order's summary for the customer (phase 5)
   reviseOrders           Boolean  @default(false) // on: a released order is revised until it is delivered; after booking or for a price change the Sales Manager approves (phase 5)
+  fixedPrices            Boolean  @default(false) // on: the price on quotations and sales orders is the price list's and is never typed (phase 5)
+  voucherControl         Boolean  @default(false) // on: an order's vouchers are picked from the voucher list Sales Support keeps (phase 5)
   priceBelowPct          Decimal  @default(10) @db.Decimal(7, 4)
   priceAbovePct          Decimal  @default(20) @db.Decimal(7, 4)
   updatedAt              DateTime @updatedAt @db.DateTime(3)

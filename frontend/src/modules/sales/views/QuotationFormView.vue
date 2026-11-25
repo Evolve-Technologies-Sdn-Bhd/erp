@@ -26,6 +26,7 @@ import { salesLookupsApi, salesQuotationsApi } from '../api/sales'
 import ItemPickerDialog from '../components/ItemPickerDialog.vue'
 import ReasonDialog from '../components/ReasonDialog.vue'
 import { docRoute } from '../routes'
+import { salesFlow } from '../flow'
 import type { CustomerOption, QuotationAction, QuotationDetail, SaleItemOption } from '../types'
 
 /** S09 · Quotation (QuotationForm.html) */
@@ -156,7 +157,7 @@ function pushItem(item: SaleItemOption, qty: string) {
     key: nextKey++,
     item: { code: item.code, name: item.name, uomCode: item.uomCode, taxCode: item.taxCode, taxName: item.taxName, taxRate: item.taxRate, listPrice: item.listPrice, lastSold: item.lastSold },
     qty,
-    unitPrice: trimPrice(item.listPrice ?? item.lastSold?.price ?? ''),
+    unitPrice: trimPrice(item.listPrice ?? (salesFlow.value.fixedPrices ? '' : (item.lastSold?.price ?? ''))),
     discountPct: '',
   })
 }
@@ -579,12 +580,12 @@ const ruleText = computed(() =>
                     </td>
                     <td>{{ l.item.uomCode }}</td>
                     <td class="num w-[110px] min-w-[96px]">
-                      <input v-if="editable" v-model="l.unitPrice" class="erp-cell min-w-[80px]" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" :aria-label="`Unit price, line ${i + 1}`" />
+                      <input v-if="editable && !salesFlow.fixedPrices" v-model="l.unitPrice" class="erp-cell min-w-[80px]" inputmode="decimal" :aria-invalid="Boolean(errors[`lines[${i}].unitPrice`])" :aria-label="`Unit price, line ${i + 1}`" />
                       <template v-else>{{ formatPrice(l.unitPrice) }}</template>
                     </td>
                     <td class="num w-[70px] min-w-[64px]">
                       <input
-                        v-if="editable"
+                        v-if="editable && !salesFlow.fixedPrices"
                         v-model="l.discountPct"
                         class="erp-cell min-w-[48px]"
                         :class="overLimit(l) ? 'border-attention text-attention' : ''"

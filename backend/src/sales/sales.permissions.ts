@@ -29,6 +29,8 @@ export const SALES_PERMISSIONS = {
   EXCEPTION_APPROVE: 'sales.exception.approve',
   MARGIN_VIEW: 'sales.margin.view',
   SETTINGS_MANAGE: 'sales.settings.manage',
+  /** Set up the voucher list (Sales Support; phase 5). No starter role. */
+  VOUCHER_MANAGE: 'sales.voucher.manage',
   /** Record a customer payment as an official receipt, with its proof (phase 5). */
   RECEIPT_EDIT: 'sales.receipt.edit',
   /** Verify an official receipt against the bank, or send it back (Account; phase 5). */
@@ -81,6 +83,7 @@ export const SALES_PERMISSION_CATALOGUE: ModulePermissions = {
     { key: P.EXCEPTION_APPROVE, object: 'Management', action: 'Accept unsigned, cancel after the delivery order' },
     { key: P.RECEIPT_EDIT, object: 'Official receipt', action: 'Record' },
     { key: P.RECEIPT_VERIFY, object: 'Official receipt', action: 'Verify' },
+    { key: P.VOUCHER_MANAGE, object: 'Voucher', action: 'Set up' },
     { key: P.SETTINGS_MANAGE, object: 'Operation policies', action: 'Manage' },
   ],
   starterGrants: SALES_ROLE_GRANTS,

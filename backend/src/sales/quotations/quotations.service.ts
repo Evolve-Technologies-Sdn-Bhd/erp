@@ -8,6 +8,8 @@ import type { RequestContext } from '../../platform/context/request-context';
 import { toPrice, toQty, toRmText } from '../../platform/http/decimal';
 import { BusinessRuleError, StaleVersionError, ValidationFailedError } from '../../platform/http/errors';
 import { NumberingService } from '../../platform/numbering/numbering.service';
+import { fixedPriceErrors, type FixedPriceLine } from '../shared/fixed-prices.rules';
+import { PriceRules } from '../shared/price-rules.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { SalesDocumentLines } from '../shared/document-lines.service';
@@ -39,6 +41,7 @@ export class QuotationsService {
     private readonly docs: SalesDocumentLines,
     private readonly mail: SalesMailService,
     private readonly orders: OrdersService,
+    private readonly priceRules: PriceRules,
     private readonly clock: ClockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
@@ -50,6 +53,7 @@ export class QuotationsService {
     const customer = await this.docs.activeCustomer(ctx, dto.customerCode, 'a quotation');
     const branchCode = this.docs.branchFor(ctx, customer);
     const built = await this.docs.buildLines(ctx, customer, branchCode, docDate, dto.lines);
+    await this.checkFixedPrices(ctx, built.lines, []);
     const agent = await this.docs.agentFor(ctx, customer);
     const enquiry = dto.enquiryId ? await this.prisma.salEnquiry.findFirst({ where: { id: dto.enquiryId, tenantId: ctx.tenantId } }) : null;
     if (dto.enquiryId && !enquiry) throw ValidationFailedError.field('enquiryId', 'The enquiry was not found.');
@@ -90,6 +94,7 @@ export class QuotationsService {
     const customerChanged = customer.code !== q.customerCode;
     const branchCode = customerChanged ? this.docs.branchFor(ctx, customer) : q.branchCode;
     const built = dto.lines ? await this.docs.buildLines(ctx, customer, branchCode, docDate, dto.lines) : null;
+    if (built) await this.checkFixedPrices(ctx, built.lines, q.lines);
     this.checkDates(docDate, dto.validUntil === undefined ? iso(q.validUntil) : dto.validUntil);
     // Changing what was approved (prices, discounts, customer) removes the discount approval.
     const clearApproval = Boolean(q.approvedAt) && (customerChanged || (built !== null && !built.totals.total.eq(q.total)));
@@ -266,7 +271,7 @@ export class QuotationsService {
       customerCode: q.customerCode,
       contactName: q.contactName ?? undefined,
       lines: lines.map((l) => ({ itemCode: l.itemCode, qty: toQty(l.qty), unitPrice: toPrice(l.unitPrice), discountPct: l.discountPct.toFixed(2) })),
-    });
+    }, lines);
     const result = await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, q.id, dto.version, { status: 'ORDERED' }, 'RELEASED');
       const order = await this.orders.insertDraft(tx, ctx, prepared, {
@@ -282,6 +287,12 @@ export class QuotationsService {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /** Fixed prices (phase 5): the price list's, or what the line had already. */
+  private async checkFixedPrices(ctx: RequestContext, lines: FixedPriceLine[], kept: FixedPriceLine[]) {
+    const errors = (await this.priceRules.load(ctx.tenantId)).fixed ? fixedPriceErrors(lines, kept) : [];
+    if (errors.length) throw new ValidationFailedError(errors);
+  }
 
   private checkDates(docDate: string, validUntil: string | null) {
     if (validUntil && validUntil < docDate) throw ValidationFailedError.field('validUntil', 'Valid until cannot be before the quotation date.');

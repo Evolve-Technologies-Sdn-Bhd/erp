@@ -41,6 +41,8 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   officeDraftsQuotations: 'Off: Draft Quotation is hidden. Sales agents build the quotation with the customer.',
   askInstallation: 'Installation, delivery only, or collect. An order with installation makes a job for the office to book.',
   agentsAddCustomers: 'A + New customer link on the sales order, for households that are not in the list yet.',
+  fixedPrices: 'On a quotation and a sales order the price is the customer’s price list. What lowers it is a voucher.',
+  voucherControl: 'Salespeople pick a voucher Sales Support has set up (Operation Policies › Vouchers). Off: they type its number and amount.',
   priceRange: 'Off: a discount over the limit on a quotation needs the Sales Manager. On: the range below decides, on quotations and sales orders.',
   useReceipts: 'A Payments card on the released sales order, and Official Receipts in the Billing menu for Account.',
   reviseOrders: 'A Revise button on the released sales order, until a delivery order, invoice or cancel order is made from it.',
@@ -118,10 +120,19 @@ async function save() {
     <section data-tour="flow:prices" class="erp-card flex flex-col gap-3 px-5 py-[18px]">
       <h2 class="m-0 text-[15px] font-bold">Prices</h2>
       <div class="flex items-center justify-between gap-4 py-1">
-        <span><span class="block text-[13px] font-bold">{{ data.labels.priceRange }}</span><span class="text-xs text-erp-subtle">{{ HINT.priceRange }}</span></span>
-        <SwitchToggle v-model="draft.priceRange" :label="data.labels.priceRange" :disabled="!canManage" />
+        <span><span class="block text-[13px] font-bold">{{ data.labels.fixedPrices }}</span><span class="text-xs text-erp-subtle">{{ HINT.fixedPrices }}</span></span>
+        <SwitchToggle v-model="draft.fixedPrices" :label="data.labels.fixedPrices" :disabled="!canManage" />
       </div>
-      <div class="flex flex-wrap items-end gap-4 text-[13px]" :class="{ 'opacity-50': !draft.priceRange }">
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.voucherControl }}</span><span class="text-xs text-erp-subtle">{{ HINT.voucherControl }}</span></span>
+        <SwitchToggle v-model="draft.voucherControl" :label="data.labels.voucherControl" :disabled="!canManage" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">While prices come from the price list, the range below is not used. A line that had another price before keeps it.</p>
+      <div class="flex items-center justify-between gap-4 py-1">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.priceRange }}</span><span class="text-xs text-erp-subtle">{{ HINT.priceRange }}</span></span>
+        <SwitchToggle v-model="draft.priceRange" :label="data.labels.priceRange" :disabled="!canManage || draft.fixedPrices" />
+      </div>
+      <div class="flex flex-wrap items-end gap-4 text-[13px]" :class="{ 'opacity-50': !draft.priceRange || draft.fixedPrices }">
         <label class="flex flex-col gap-1">
           <span class="text-xs font-medium text-erp-muted">Lowest: below the price list by</span>
           <span class="flex items-center gap-1.5"><input v-model="range.belowPct" class="erp-input w-24 text-right" inputmode="decimal" :disabled="!canManage" :aria-invalid="Boolean(errors.priceBelowPct)" />%</span>

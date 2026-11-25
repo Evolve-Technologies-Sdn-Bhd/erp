@@ -12,6 +12,7 @@ import {
   MessageSquare,
   ReceiptText,
   Shield,
+  Ticket,
   Truck,
   Undo2,
   Wallet,
@@ -69,6 +70,8 @@ export const SALES_MENU: MenuGroup[] = [
     items: [
       { key: 'credit-control', label: 'Credit Control', to: '/sales/settings/credit-control', icon: Shield },
       { key: 'sales-flow', label: 'Sales Flow', to: '/sales/settings/sales-flow', icon: Workflow },
+      // Phase 5: shown only with the Sales Flow switch "Vouchers come from the voucher list".
+      { key: 'vouchers', label: 'Vouchers', to: '/sales/settings/vouchers?status=running', icon: Ticket },
       { key: 'document-types', label: 'Document Types', to: '/sales/settings/document-types', icon: File },
       { key: 'enquiry-types', label: 'Enquiry Types', to: '/sales/settings/enquiry-types', icon: ListChecks },
       { key: 'excluded-items', label: 'Excluded Items', to: '/sales/settings/excluded-items', icon: Ban },

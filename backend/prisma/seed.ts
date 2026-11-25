@@ -86,6 +86,7 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.salQuotation.deleteMany({ where }),
     prisma.salEnquiry.deleteMany({ where }),
     prisma.salCashSale.deleteMany({ where }),
+    prisma.salVoucher.deleteMany({ where }),
     prisma.salSetting.deleteMany({ where }),
     prisma.salCreditRule.deleteMany({ where }),
     prisma.salSettingChange.deleteMany({ where }),
