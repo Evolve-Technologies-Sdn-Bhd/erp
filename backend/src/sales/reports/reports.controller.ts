@@ -7,6 +7,7 @@ import { CustomerAgingQuery } from './aging.query';
 import { QuotationConversionQuery } from './conversion.query';
 import { EInvoiceStatusQuery } from './einvoice.query';
 import { OpenOrdersQuery } from './open-orders.query';
+import { PaidOrdersQuery } from './paid-orders.query';
 import { InvoiceRegisterQuery } from './register.query';
 import { SalesReportsQuery } from './reports.query';
 
@@ -63,6 +64,7 @@ export class SalesReportsController {
     private readonly aging: CustomerAgingQuery,
     private readonly register: InvoiceRegisterQuery,
     private readonly eInvoices: EInvoiceStatusQuery,
+    private readonly paidOrders: PaidOrdersQuery,
   ) {}
 
   @Get('by-customer')
@@ -99,6 +101,13 @@ export class SalesReportsController {
   @RequirePermission(P.VIEW)
   invoiceRegister(@CurrentContext() ctx: RequestContext, @Query() query: RegisterFilterDto) {
     return this.register.report(ctx, query);
+  }
+
+  /** Phase 5: only fully paid orders earn commission. */
+  @Get('paid-orders')
+  @RequirePermission(P.VIEW)
+  paidOrdersReport(@CurrentContext() ctx: RequestContext, @Query() query: ReportFilterDto) {
+    return this.paidOrders.report(ctx, query);
   }
 
   @Get('e-invoice-status')

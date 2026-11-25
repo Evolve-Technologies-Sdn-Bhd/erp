@@ -155,4 +155,14 @@ describe('Official receipts (end to end)', () => {
     const orderAfter = await api.get<Order>(`sales/orders/${order.id}`, 'AR');
     expect(orderAfter.activity.some((a) => a.message.startsWith('OR-2609-0001 verified: Deposit RM 500.00 by bank transfer · Deposit paid, RM 500.00 of RM '))).toBe(true);
   });
+
+  it('counts the fully paid order for its salesperson, in the month it was paid (commission)', async () => {
+    const r = await api.get<{ period: string; kpis: object; byAgent: { agentCode: string; count: number; total: string }[]; rows: { docNo: string; agentName: string; total: string }[] }>('sales/reports/paid-orders', 'NA');
+    expect(r.rows).toMatchObject([{ docNo: order.docNo, agentName: 'Aina Rahman', total: order.totals.total }]);
+    expect(r.byAgent).toMatchObject([{ agentCode: 'AR', count: 1, total: order.totals.total }]);
+    expect(r.kpis).toMatchObject({ paid: { count: 1, total: order.totals.total }, agents: { count: 1 }, deposit: { count: 0 } });
+    // Another agent's customers are never in it, and another month is empty.
+    expect((await api.get<{ rows: unknown[] }>('sales/reports/paid-orders', 'FO')).rows).toEqual([]);
+    expect((await api.get<{ rows: unknown[] }>('sales/reports/paid-orders?period=2026-08', 'NA')).rows).toEqual([]);
+  });
 });

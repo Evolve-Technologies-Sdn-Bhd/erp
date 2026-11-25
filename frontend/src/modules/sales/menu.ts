@@ -20,7 +20,7 @@ import {
 } from '@lucide/vue'
 import type { MenuGroup } from '../common/menu'
 
-/** The seven reports on S05 (SalesReports.html), in the order of its tabs. */
+/** The reports on S05 (SalesReports.html), in the order of its tabs; fully paid orders where official receipts are used (phase 5). */
 export const SALES_REPORTS = [
   { key: 'by-customer', label: 'Sales by customer' },
   { key: 'by-item', label: 'Sales by item' },
@@ -29,6 +29,7 @@ export const SALES_REPORTS = [
   { key: 'customer-aging', label: 'Customer aging' },
   { key: 'invoice-register', label: 'Invoice register' },
   { key: 'e-invoice-status', label: 'e-Invoice status' },
+  { key: 'paid-orders', label: 'Fully paid orders' },
 ] as const
 
 /** Sales sidebar (SalesNavMap.html). Labels exactly as in the mockups. */

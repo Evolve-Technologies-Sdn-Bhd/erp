@@ -147,7 +147,7 @@ describe('Data scopes (end to end)', () => {
   });
 
   it('keeps every Sales report to the person’s data scope (SRS RPT-020)', async () => {
-    const REPORTS = ['by-customer', 'by-item', 'open-orders', 'quotation-conversion', 'customer-aging', 'invoice-register', 'e-invoice-status'];
+    const REPORTS = ['by-customer', 'by-item', 'open-orders', 'quotation-conversion', 'customer-aging', 'invoice-register', 'e-invoice-status', 'paid-orders'];
     // Each agent's customers (C-0012 and C-0102 are Aina's, C-0031 is Lim Wei Jie's, the rest Faizal's).
     const AINA = ['Hotel Seri Bayu', 'Villa Damai'];
     const LIM = ['Kedai Perabot Maju'];
@@ -157,7 +157,7 @@ describe('Data scopes (end to end)', () => {
       const [fo, lwj, na] = await Promise.all(['FO', 'LWJ', 'NA'].map(async (u) => JSON.stringify(await api.get(`sales/reports/${report}`, u))));
       for (const name of [...AINA, ...LIM]) if (fo.includes(name)) leaks.push(`${report}: Faizal sees ${name}`);
       for (const name of [...AINA, ...FAIZAL]) if (lwj.includes(name)) leaks.push(`${report}: Lim Wei Jie sees ${name}`);
-      if (report !== 'by-item' && !AINA.some((n) => na.includes(n))) leaks.push(`${report}: the Sales Manager does not see Aina’s customers`);
+      if (report !== 'by-item' && report !== 'paid-orders' && !AINA.some((n) => na.includes(n))) leaks.push(`${report}: the Sales Manager does not see Aina’s customers`);
     }
     expect(leaks).toEqual([]);
     // Sales by item lists items, not customers: its totals are each agent's own orders.

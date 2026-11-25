@@ -30,6 +30,7 @@ import { SalesReportsQuery } from './reports/reports.query';
 import { CustomerAgingQuery } from './reports/aging.query';
 import { QuotationConversionQuery } from './reports/conversion.query';
 import { EInvoiceStatusQuery } from './reports/einvoice.query';
+import { PaidOrdersQuery } from './reports/paid-orders.query';
 import { OpenOrdersQuery } from './reports/open-orders.query';
 import { InvoiceRegisterQuery } from './reports/register.query';
 import { ReportFilters } from './reports/report-filters';
@@ -135,6 +136,7 @@ import { SalesMailService } from './shared/sales-mail.service';
     CustomerAgingQuery,
     InvoiceRegisterQuery,
     EInvoiceStatusQuery,
+    PaidOrdersQuery,
     // Tells Core where an item, customer, unit, tax code, price list or warehouse is used. Read only.
     SalesUsageProvider,
     // Links an enquiry's prospect to the customer Core creates from it (mdm.customer.created).

@@ -70,6 +70,7 @@ import type {
   QuotationConversionReport,
   CustomerAgingReport,
   InvoiceRegisterReport,
+  PaidOrdersReport,
   EInvoiceStatusReport,
 } from '../types'
 
@@ -272,6 +273,7 @@ export const salesReportsApi = {
   openOrders: (query: ReportQuery) => api<OpenOrdersReport>('/sales/reports/open-orders', { query }),
   quotationConversion: (query: ReportQuery) => api<QuotationConversionReport>('/sales/reports/quotation-conversion', { query }),
   customerAging: (query: ReportQuery) => api<CustomerAgingReport>('/sales/reports/customer-aging', { query }),
+  paidOrders: (query: ReportQuery) => api<PaidOrdersReport>('/sales/reports/paid-orders', { query }),
   invoiceRegister: (query: ReportQuery) => api<InvoiceRegisterReport>('/sales/reports/invoice-register', { query }),
   eInvoiceStatus: (query: ReportQuery) => api<EInvoiceStatusReport>('/sales/reports/e-invoice-status', { query }),
 }

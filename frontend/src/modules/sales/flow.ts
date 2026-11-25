@@ -21,7 +21,7 @@ const HIDDEN_WHEN_OFF: Record<keyof SalesFlowSwitches, string[]> = {
   fixedPrices: [],
   voucherControl: ['vouchers'],
   priceRange: [],
-  useReceipts: ['receipts'],
+  useReceipts: ['receipts', 'report-paid-orders'],
   reviseOrders: [],
   preOrders: [],
   autoCancel: [],

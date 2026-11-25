@@ -1704,6 +1704,18 @@ export interface CustomerAgingReport {
 
 export type EInvoiceState = 'WAITING' | 'SUBMITTED' | 'FAILED' | 'OLD_SYSTEM'
 
+/** S05 · fully paid orders (phase 5). */
+export interface PaidOrdersReport {
+  period: string
+  periods: string[]
+  kpis: { paid: { count: number; beforeTax: string; total: string }; agents: { count: number }; deposit: { count: number; amount: string }; unpaid: { count: number; amount: string } }
+  byAgent: { agentCode: string; agentName: string; count: number; beforeTax: string; total: string }[]
+  rows: { id: string; docNo: string; docDate: string; paidOn: string; customerName: string; agentCode: string; agentName: string; branchCode: string; beforeTax: string; total: string }[]
+  totals: { beforeTax: string; total: string }
+  filters: ReportFilterOptions
+  footnote: string
+}
+
 export interface InvoiceRegisterReport {
   period: string
   periods: string[]

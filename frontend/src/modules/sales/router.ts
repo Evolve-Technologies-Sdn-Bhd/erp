@@ -45,6 +45,7 @@ const REPORT_VIEWS: Record<(typeof SALES_REPORTS)[number]['key'], ScreenDef['com
   'customer-aging': () => import('./views/CustomerAgingView.vue'),
   'invoice-register': () => import('./views/InvoiceRegisterView.vue'),
   'e-invoice-status': () => import('./views/EInvoiceStatusView.vue'),
+  'paid-orders': () => import('./views/PaidOrdersReportView.vue'),
 }
 
 type Group = 'transaction' | 'billing' | 'policies' | 'reports'
