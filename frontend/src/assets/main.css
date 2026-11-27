@@ -1495,3 +1495,16 @@ div:has(> .erp-home-tile) {
 .erp-ink .erp-btn-primary:not(:disabled):hover {
   background: color-mix(in srgb, var(--erp-text) 85%, var(--erp-card));
 }
+
+/* Light ↔ dark: only the growing circle animates (useTheme), not the browser's cross-fade. New theme on top. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  z-index: 1;
+}
+::view-transition-old(root) {
+  z-index: 0;
+}
