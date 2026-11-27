@@ -9,10 +9,11 @@ import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import DataList from '@/components/erp/DataList.vue'
-import FilterBar from '@/components/erp/FilterBar.vue'
+import ListBox from '@/components/erp/ListBox.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import QtyProgress from '@/components/erp/QtyProgress.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
 import StatusTabs from '@/components/erp/StatusTabs.vue'
@@ -82,6 +83,7 @@ const selected = computed(() => (selection.value.length === 1 ? selection.value[
 const releasable = computed(() => selection.value.filter((s) => s.allowedActions.includes('release')))
 const canDo = (action: OrderListItem['allowedActions'][number]) => Boolean(selected.value?.allowedActions.includes(action))
 
+const activeFilters = computed(() => ['agent', 'branch', 'dateFrom', 'preOrder'].filter((k) => !!list.params.value[k]).length)
 const showing = computed(() => {
   const d = list.data.value
   if (!d || !d.total) return ''
@@ -185,17 +187,23 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
-    <PageHeader title="List of Sales Order" subtitle="Confirmed customer orders. Delivered and invoiced quantities update as documents are released." />
+  <PageHeader title="List of Sales Order" subtitle="Confirmed customer orders. Delivered and invoiced quantities update as documents are released." />
 
-    <FilterBar>
-      <input v-model="customerText" class="erp-input" placeholder="Filter by customer" aria-label="Filter by customer" />
+  <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+
+  <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
+    The orders could not be loaded.
+    <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
+  </div>
+
+  <ListBox v-model:search="customerText" placeholder="Search customer" :count="showing" :active-filters="activeFilters" :selected="selection.length">
+    <template #filters>
       <select class="erp-input" aria-label="Filter by sales agent" :value="list.params.value.agent" @change="list.setFilter('agent', ($event.target as HTMLSelectElement).value)">
-        <option value="">Filter by sales agent</option>
+        <option value="">All sales agents</option>
         <option v-for="a in agents" :key="a.code" :value="a.code">{{ a.name }}</option>
       </select>
       <select class="erp-input" aria-label="Filter by branch" :value="list.params.value.branch" @change="list.setFilter('branch', ($event.target as HTMLSelectElement).value)">
-        <option value="">Filter by branch</option>
+        <option value="">All branches</option>
         <option v-for="b in branches" :key="b.code" :value="b.code">{{ b.name }}</option>
       </select>
       <DatePicker
@@ -214,41 +222,33 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
         <input type="checkbox" :checked="list.params.value.preOrder === '1'" @change="list.setFilter('preOrder', ($event.target as HTMLInputElement).checked ? '1' : '')" />
         Pre-orders only
       </label>
-    </FilterBar>
+    </template>
+    <template #tools>
+      <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+      <button type="button" class="erp-btn erp-btn-import" @click="columnsPanel?.toggle($event)">Columns</button>
+      <Popover ref="columnsPanel">
+        <div class="flex flex-col gap-2 p-1 text-[13px]">
+          <label v-for="c in OPTIONAL" :key="c.key" class="flex items-center gap-2">
+            <input type="checkbox" :checked="show(c.key)" @change="hidden = show(c.key) ? [...hidden, c.key] : hidden.filter((h) => h !== c.key)" />
+            {{ c.label }}
+          </label>
+        </div>
+      </Popover>
+    </template>
+    <template #add>
+      <RouterLink v-if="can('sales.order.edit')" to="/sales/orders/new" data-tour="action:new-order" class="erp-btn erp-btn-add">
+        <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new order
+      </RouterLink>
+    </template>
+    <template #selection>
+      <button type="button" class="erp-btn erp-btn-primary h-8" :disabled="!releasable.length" @click="releaseSelected">Release selected</button>
+      <button type="button" class="erp-btn erp-btn-secondary h-8" :disabled="!canDo('invoice')" @click="createInvoice">Create invoice</button>
+      <button type="button" class="erp-btn erp-btn-danger h-8" :disabled="!canDo('cancelBalance')" @click="cancelBalance">Cancel balance</button>
+      <button type="button" class="erp-btn erp-btn-import ml-auto h-8" @click="selection = []">Clear selection</button>
+    </template>
 
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex gap-2">
-        <RouterLink v-if="can('sales.order.edit')" to="/sales/orders/new" data-tour="action:new-order" class="erp-btn erp-btn-add">
-          <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new order
-        </RouterLink>
-        <button type="button" class="erp-btn erp-btn-primary" :disabled="!releasable.length" @click="releaseSelected">Release selected</button>
-        <button type="button" class="erp-btn erp-btn-secondary" :disabled="!canDo('invoice')" @click="createInvoice">Create invoice</button>
-        <button type="button" class="erp-btn erp-btn-danger" :disabled="!canDo('cancelBalance')" @click="cancelBalance">Cancel balance</button>
-      </div>
-      <div class="flex gap-2">
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-        <button type="button" class="erp-btn erp-btn-secondary" @click="columnsPanel?.toggle($event)">Select columns</button>
-        <Popover ref="columnsPanel">
-          <div class="flex flex-col gap-2 p-1 text-[13px]">
-            <label v-for="c in OPTIONAL" :key="c.key" class="flex items-center gap-2">
-              <input type="checkbox" :checked="show(c.key)" @change="hidden = show(c.key) ? [...hidden, c.key] : hidden.filter((h) => h !== c.key)" />
-              {{ c.label }}
-            </label>
-          </div>
-        </Popover>
-      </div>
-    </div>
-    <span class="text-xs text-erp-muted">{{ showing }}</span>
-
-    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
-      The orders could not be loaded.
-      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
-    </div>
-
-    <DataList :column-tool="false" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No sales orders match these filters.">
+    <DataList :column-tool="false" class="erp-in-box" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No sales orders match these filters.">
       <Column selection-mode="multiple" header-style="width: 44px" />
       <Column header="SO no">
         <template #body="{ data }: { data: OrderListItem }">
@@ -286,6 +286,15 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
       <Column header="Status">
         <template #body="{ data }: { data: OrderListItem }"><StatusChip :status="chipOf(data).status" :label="chipOf(data).label" /></template>
       </Column>
+      <Column header="Actions" header-class="w-[70px]">
+        <template #body="{ data }: { data: OrderListItem }">
+          <RowMenu
+            v-if="!data.isMigrated"
+            :name="data.docNo"
+            :items="[{ label: 'Open', to: `/sales/orders/${data.id}` }, { label: 'Document flow', to: `/sales/orders/${data.id}/flow` }, { label: 'Print preview', to: `/sales/orders/${data.id}/print` }]"
+          />
+        </template>
+      </Column>
       <Column v-if="show('credit')" header="Credit">
         <template #body="{ data }: { data: OrderListItem }">
           <span
@@ -297,8 +306,8 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
       </Column>
     </DataList>
 
-    <div class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
-    </div>
-  </section>
+    <template #footer>
+      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" :sizes="[10, 20, 50, 100]" @change="list.setPage" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" />
+    </template>
+  </ListBox>
 </template>

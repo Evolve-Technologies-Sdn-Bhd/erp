@@ -6,8 +6,8 @@ import { ChevronLeft, ChevronRight } from '@lucide/vue'
  * Under a list: "21–40 of 52", then the pages as quiet squares with the current one outlined (the Zora MES pager).
  * Shows at most 7 page buttons around the current page.
  */
-const props = defineProps<{ page: number; pageSize: number; total: number }>()
-const emit = defineEmits<{ change: [page: number] }>()
+const props = defineProps<{ page: number; pageSize: number; total: number; sizes?: number[] }>()
+const emit = defineEmits<{ change: [page: number]; size: [size: number] }>()
 
 const pages = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)))
 const visible = computed(() => {
@@ -24,8 +24,14 @@ function go(page: number) {
 </script>
 
 <template>
-  <nav data-tour="pager" class="flex items-center gap-1" aria-label="Pages">
-    <span class="erp-num mr-2 text-xs text-erp-muted">{{ count(first) }}–{{ count(last) }} of {{ count(total) }}</span>
+  <nav data-tour="pager" class="flex items-center gap-1" :class="{ 'w-full': sizes }" aria-label="Pages">
+    <template v-if="sizes">
+      <span class="mr-2 text-xs whitespace-nowrap text-erp-muted">Rows per page</span>
+      <select class="erp-input mr-2 !h-8 !w-auto pr-8 !text-xs" aria-label="Rows per page" :value="pageSize" @change="emit('size', Number(($event.target as HTMLSelectElement).value))">
+        <option v-for="s in sizes" :key="s" :value="s">{{ s }}</option>
+      </select>
+    </template>
+    <span class="erp-num mr-2 text-xs text-erp-muted" :class="{ 'mr-auto': sizes }">{{ count(first) }}–{{ count(last) }} of {{ count(total) }}</span>
     <button type="button" class="erp-page" :disabled="page <= 1" aria-label="Previous page" @click="go(page - 1)">
       <ChevronLeft :size="16" aria-hidden="true" />
     </button>
