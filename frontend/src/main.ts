@@ -11,6 +11,7 @@ import Aura from '@primeuix/themes/aura'
 import App from './App.vue'
 import router from './router'
 import { applyTheme } from './composables/useTheme'
+import { installSelectMenus } from './components/erp/selectMenu'
 
 applyTheme()
 
@@ -56,6 +57,8 @@ const ErpPreset = definePreset(Aura, {
     },
   },
 })
+
+installSelectMenus()
 
 createApp(App)
   .use(router)
