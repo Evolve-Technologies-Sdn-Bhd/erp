@@ -6,7 +6,7 @@ import { CustomerOnboarding } from '../../platform/onboarding/customer-onboardin
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { NEW_CUSTOMERS_OFF_MESSAGE } from '../settings/sales-flow.rules';
 import { SAL_ROLE } from '../shared/sales.constants';
-import type { NewCustomerDto } from './dto/new-customer.dto';
+import type { CheckCustomerDto, NewCustomerDto, TransferRequestDto } from './dto/new-customer.dto';
 
 /**
  * Phase 5 · a salesperson adds a household customer while keying an order, when the company turns it on in Sales Flow
@@ -34,6 +34,7 @@ export class SalesNewCustomersService {
       // The salesperson's branch, so the order stays in it; a sales agent becomes the customer's agent.
       branchCode: ctx.branchCode,
       agentCode: ctx.user.roles.includes(SAL_ROLE.AGENT) ? ctx.user.code : null,
+      notDuplicate: dto.notDuplicate === true,
     });
     const c = await this.masterData.findCustomer(ctx.tenantId, code);
     if (!c) throw new NotFoundError('Customer');
@@ -41,5 +42,22 @@ export class SalesNewCustomersService {
       code: c.code, name: c.name, branchCode: c.branchCode, contactName: c.contactName, deliveryAddress: c.deliveryAddress,
       creditTermDays: c.creditTermDays, priceListCode: c.priceListCode, creditLimit: c.creditLimit, defaultAgentCode: c.defaultAgentCode,
     };
+  }
+
+  /**
+   * Customers that look like the one about to be added, whoever's they are: the same one (phone, or name with address)
+   * is picked or asked for, never added again; a maybe (name or address alone) is checked first. Shows who has each.
+   */
+  check(ctx: RequestContext, dto: CheckCustomerDto) {
+    return this.onboarding.lookalikes(ctx, dto).then((items) => ({ items }));
+  }
+
+  /** Asks the office to make another salesperson's customer this salesperson's. Orders may be keyed meanwhile. */
+  askTransfer(ctx: RequestContext, dto: TransferRequestDto) {
+    return this.onboarding.askTransfer(ctx, dto);
+  }
+
+  myTransfers(ctx: RequestContext) {
+    return this.onboarding.myTransfers(ctx);
   }
 }

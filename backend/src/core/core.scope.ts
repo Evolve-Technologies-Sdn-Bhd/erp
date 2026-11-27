@@ -6,5 +6,6 @@ import type { ScopeRule } from '../platform/scope/scope.rules';
  * Suppliers, items, price lists, tax codes and warehouses are shared master data and are not scoped.
  */
 export const CORE_SCOPE_RULES: readonly ScopeRule[] = [
-  { model: 'MdmCustomer', module: 'core', branchField: 'branchCode', allBranchesField: 'visibleToAllBranches', agent: { kind: 'customer', agentField: 'defaultAgentCode' } },
+  // Phase 5: a salesperson who asked to take a customer over sees it while the office decides (pendingAgentCode).
+  { model: 'MdmCustomer', module: 'core', branchField: 'branchCode', allBranchesField: 'visibleToAllBranches', agent: { kind: 'customer', agentField: 'defaultAgentCode', pendingField: 'pendingAgentCode' } },
 ];

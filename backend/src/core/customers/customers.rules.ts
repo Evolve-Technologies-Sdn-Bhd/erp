@@ -222,3 +222,95 @@ export function addedFromOrderMessage(code: string, userName: string): string {
 export function setupProblemMessage(problems: string[]): string {
   return `This customer cannot be added from an order yet: ${problems.join(' ')} Ask the office to check Core.`;
 }
+
+// ── Duplicate customers and taking one over (phase 5, the user's rule of 27 Nov 2026) ──
+// A salesperson sees only their own customers, so a household may already be someone else's. Before one is added,
+// every customer is checked on the phone, the name and the address together. The phone, or the name with the address,
+// is the same customer: it is not added again, and the salesperson picks it (theirs) or asks to take it over (someone
+// else's). The name alone or the address alone may be someone else (a namesake, a family member): it is shown, and the
+// salesperson confirms before adding.
+
+export type DuplicateReason = 'PHONE' | 'NAME' | 'ADDRESS';
+
+const TITLE = /^(mr|mrs|ms|mdm|madam|miss|dr|encik|en|puan|pn|cik|tuan|tn|dato|datin|datuk|tan sri|puan sri)\b\.?\s*/;
+
+/** "Mr. Tan  Ah-Kow" → "tan ah kow": the name without its title, case and punctuation. */
+export function nameKey(name: string | null | undefined): string {
+  let n = (name ?? '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+  for (let i = 0; i < 3 && TITLE.test(n); i++) n = n.replace(TITLE, '').trim();
+  return n;
+}
+
+const SAME_WORD: Record<string, string> = { jln: 'jalan', tmn: 'taman', lrg: 'lorong', bdr: 'bandar', kg: 'kampung', kpg: 'kampung', apt: 'apartment' };
+const NOISE = new Set(['no', 'lot', 'unit', 'blk', 'block', 'malaysia', 'and', 'the']);
+
+/** The address as its words, one spelling each ("Jln" is "jalan"), without "No.", "Lot" and "Malaysia". */
+export function addressWords(address: string | null | undefined): string[] {
+  const words = (address ?? '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+  return [...new Set(words.map((w) => SAME_WORD[w] ?? w).filter((w) => !NOISE.has(w)))];
+}
+
+export const postcodeOf = (address: string | null | undefined) => /\b(\d{5})\b/.exec(address ?? '')?.[1] ?? null;
+
+/**
+ * The same address typed two ways: most of the shorter one's words are in the other (house number, street, area), and
+ * where both have a postcode it is the same one.
+ */
+export function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
+  const pa = postcodeOf(a);
+  const pb = postcodeOf(b);
+  if (pa && pb && pa !== pb) return false;
+  const wa = addressWords(a);
+  const wb = addressWords(b);
+  if (wa.length < 3 || wb.length < 3) return false;
+  const [short, long] = wa.length <= wb.length ? [wa, new Set(wb)] : [wb, new Set(wa)];
+  return short.filter((w) => long.has(w)).length / short.length >= 0.8;
+}
+
+/** How a customer on file matches what the salesperson typed. */
+export function duplicateReasons(
+  typed: { name: string; phone: string; address: string },
+  c: { name: string; phone: string | null; deliveryAddress: string | null; billingAddress: string | null },
+): DuplicateReason[] {
+  const out: DuplicateReason[] = [];
+  const key = phoneKey(typed.phone);
+  if (key.length >= PHONE_DIGITS_MIN && phoneKey(c.phone) === key) out.push('PHONE');
+  const name = nameKey(typed.name);
+  if (name.length >= 3 && nameKey(c.name) === name) out.push('NAME');
+  if (sameAddress(typed.address, c.deliveryAddress) || sameAddress(typed.address, c.billingAddress)) out.push('ADDRESS');
+  return out;
+}
+
+/** The phone, or the name with the address: the same customer, never added again. */
+export const isSameCustomer = (reasons: DuplicateReason[]) => reasons.includes('PHONE') || (reasons.includes('NAME') && reasons.includes('ADDRESS'));
+
+export function reasonsText(reasons: DuplicateReason[]): string {
+  const words = { PHONE: 'phone number', NAME: 'name', ADDRESS: 'address' } as const;
+  const list = reasons.map((r) => words[r]);
+  return `same ${list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}` : list[0]}`;
+}
+
+/** Why a customer cannot be added: who has it, and what the salesperson does instead. */
+export function sameCustomerMessage(c: { code: string; name: string; agentName: string | null; mine: boolean }, reasons: DuplicateReason[]): string {
+  const whose = c.mine ? 'already your customer' : c.agentName ? `already a customer of ${c.agentName}` : 'already a customer';
+  const next = c.mine ? 'Pick them on the order instead.' : 'Ask to take them over, or ask the office if it is someone else.';
+  return `${c.name} (${c.code}) is ${whose}: ${reasonsText(reasons)}. ${next}`;
+}
+
+export const TRANSFER_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
+export const TRANSFER_STATUS_LABEL: Record<TransferStatus, string> = { PENDING: 'Waiting for the office', APPROVED: 'Approved', REJECTED: 'Rejected' };
+
+/** What the duplicate check reads from a customer form: the phone, the name, and the delivery (else billing) address. */
+export function lookalikeInput(c: { name?: string | null; phone?: string | null; deliveryAddress?: string | null; billingAddress?: string | null }) {
+  return { name: c.name ?? '', phone: c.phone ?? '', address: c.deliveryAddress || c.billingAddress || '' };
+}
+
+/** "C-0012 Tan Ah Kow (same phone number); C-0040 Tan A. K. (same name)" */
+export const looksText = (looks: { code: string; name: string; reasonText: string }[]) => looks.map((m) => `${m.code} ${m.name} (${m.reasonText})`).join('; ');
+
+/** For the office: what it looks like; it may still add it after checking. */
+export function officeDuplicateMessage(looks: { code: string; name: string; reasonText: string; same: boolean }[]): string {
+  const head = looks.some((m) => m.same) ? 'This customer seems to be on file already' : 'This customer may be on file already';
+  return `${head}: ${looksText(looks)}. Open them to check; if it is someone else, add it anyway.`;
+}

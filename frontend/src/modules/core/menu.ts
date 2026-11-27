@@ -1,4 +1,4 @@
-import { FileUp, Gift, ListChecks, Package, Percent, Ruler, SlidersHorizontal, Tags, Truck, Users, Warehouse } from '@lucide/vue'
+import { ArrowLeftRight, FileUp, Gift, ListChecks, Package, Percent, Ruler, SlidersHorizontal, Tags, Truck, Users, Warehouse } from '@lucide/vue'
 import type { MenuGroup } from '../common/menu'
 
 /** Core sidebar (CoreHome.html and the other Core mockups). Labels exactly as in the mockups. */
@@ -20,6 +20,8 @@ export const CORE_MENU: MenuGroup[] = [
     to: '/core/customers',
     items: [
       { key: 'customers', label: 'Customers', to: '/core/customers', icon: Users },
+      // Phase 5: salespeople asking to take over another salesperson's customer.
+      { key: 'customer-transfers', label: 'Customer Transfers', to: '/core/customer-transfers', icon: ArrowLeftRight },
       { key: 'suppliers', label: 'Suppliers', to: '/core/suppliers', icon: Truck },
     ],
   },

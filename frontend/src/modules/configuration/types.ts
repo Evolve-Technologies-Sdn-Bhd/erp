@@ -384,3 +384,15 @@ export interface AuditDetail extends AuditRow {
   sameRequest: AuditRow[]
 }
 
+
+/** A15 · Phone App (phase 5): what the company's phones show. */
+export interface AppContentView {
+  duitNowFileId: string | null
+  duitNowName: string | null
+  /** The QR picture's address, when it is set and still there */
+  duitNowUrl: string | null
+  contacts: { label: string; phone: string }[]
+  officeHours: string | null
+  version: number
+  allowedActions: 'edit'[]
+}

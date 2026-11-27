@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { MY_STATES, POSTCODE_MESSAGE, POSTCODE_OR_EMPTY, STATE_MESSAGE } from '../../../platform/address/address';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
+import { INSTALL_FILTERS, PAYMENT_FILTERS, type InstallFilter, type PaymentFilter } from '../list-filters.rules';
 
 const DECIMAL_4 = /^\d{1,14}(\.\d{1,4})?$/;
 const PERCENT = /^\d{1,3}(\.\d{1,2})?$/;
@@ -9,6 +10,16 @@ const MONEY = /^\d{1,14}(\.\d{1,2})?$/;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export class OrderListQueryDto extends ListQueryDto {
+  /** Phase 5, the salesperson's home: where the installation stands (list-filters.rules.ts). */
+  @IsOptional()
+  @IsIn(INSTALL_FILTERS)
+  install?: InstallFilter;
+
+  /** Phase 5, the salesperson's home: how much is paid by verified official receipts. */
+  @IsOptional()
+  @IsIn(PAYMENT_FILTERS)
+  payment?: PaymentFilter;
+
   /** Phase 5: ?preOrder=1, only pre-orders. */
   @IsOptional()
   @IsIn(['1'])
@@ -142,6 +153,42 @@ class OrderFieldsDto {
   @IsOptional()
   @Matches(DATE_ONLY, { message: 'Preferred date must look like 2026-10-01.' })
   installDate?: string | null;
+
+  /** Phase 5: the install site (landed house, condo / apartment, shop / office), kept for an installation. Empty clears it. */
+  @IsOptional()
+  @IsIn(['', 'LANDED', 'CONDO', 'COMMERCIAL'], { message: 'Pick landed house, condo / apartment or shop / office.' })
+  siteType?: string | null;
+
+  /** Phase 5: the job category, one of Service's slot group codes (COMBO …), kept for an installation. Empty clears it. */
+  @IsOptional()
+  @Matches(/^([A-Za-z0-9_-]{1,20})?$/, { message: 'Pick the job category from the list.' })
+  jobCategory?: string | null;
+
+  /** Phase 5: the phone for this order, when it is not the customer's. Empty: the customer's. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  contactPhone?: string | null;
+
+  /** Phase 5: optional billing name and address for this order. Empty: the customer's. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  billingName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  billingAddress?: string | null;
+
+  /** Phase 5: how the customer will pay. Official receipts still decide what is paid. */
+  @IsOptional()
+  @IsIn(['', 'PAID', 'COD', 'LATER'], { message: 'Pick paid, cash on delivery or pays later.' })
+  paymentMode?: string | null;
+
+  @IsOptional()
+  @IsIn(['', 'CASH', 'TRANSFER', 'DUITNOW', 'CARD', 'CARD_EPP', 'CHEQUE'], { message: 'Pick how the customer pays from the list.' })
+  paymentMethod?: string | null;
 
   /** Phase 5: the delivery address's postcode and state, kept with the installation option. Empty clears them. */
   @IsOptional()

@@ -11,6 +11,7 @@ Reference material for building Zora Pro ERP. Nothing here is compiled; it is wh
 | `design/SALES_SEED_DATA.md`, `design/CORE_SEED_DATA.md`, `design/CONFIG_SEED_DATA.md` | Sales, Core and Configuration demo data, with the mockup conflicts and choices decided in each phase | Working on Sales, Core or Configuration |
 | `design/DESIGN_TOKENS.md` | Colours, type, chips, buttons per module | Styling |
 | `integration/MASTER_DATA_CONTRACT.md` | Shared codes and fields Master Data owns, for Sales, Purchase, WMS and MES | Any field that comes from Master Data |
+| `integration/MOBILE_HANDOVER.md` | How the phone app calls this backend, the calls per screen, what is not built, and how backend changes are made | Building the phone app |
 | `integration/EVENTS.md` | Events between modules | Anything another module needs to know about |
 | `requirements/ERP_SRS.md` / `.docx` | Software requirements specification | Detailed requirements |
 | `requirements/ERP_SDD.md` / `.docx` | Software design document | Architecture detail. Where it disagrees with `CLAUDE.md`, `CLAUDE.md` wins |

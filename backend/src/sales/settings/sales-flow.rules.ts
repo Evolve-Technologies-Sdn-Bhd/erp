@@ -5,6 +5,7 @@ export const FLOW_SWITCHES = {
   useEnquiries: 'Use enquiries',
   officeDraftsQuotations: 'Office drafts quotations',
   askInstallation: 'Ask for an installation option on the order',
+  installDateLater: 'The installation date can be agreed later',
   agentsAddCustomers: 'Salespeople add new customers on the order',
   fixedPrices: 'Prices come from the price list and cannot be typed',
   voucherControl: 'Vouchers come from the voucher list',
@@ -24,7 +25,7 @@ export type FlowSwitchKey = keyof typeof FLOW_SWITCHES;
 export type FlowSwitches = Record<FlowSwitchKey, boolean>;
 
 /** What a company gets before anyone touches the page: the standard flow (no installation asked). */
-export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, fixedPrices: false, voucherControl: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false, signedDelivery: false, autoInvoice: false, receiptsPayInvoices: false };
+export const STANDARD_FLOW: FlowSwitches = { useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, installDateLater: false, agentsAddCustomers: false, fixedPrices: false, voucherControl: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false, signedDelivery: false, autoInvoice: false, receiptsPayInvoices: false };
 
 /** Change-history lines, in the wording of the other policies: "Use enquiries: On → Off". */
 export function flowChanges(before: FlowSwitches, after: FlowSwitches): string[] {

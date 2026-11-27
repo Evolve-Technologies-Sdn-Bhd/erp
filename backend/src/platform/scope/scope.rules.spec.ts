@@ -62,4 +62,18 @@ describe('data scope rules (FR-SEC-020 to 033)', () => {
     expect(withScope({ id: 'x', AND: { status: 'DRAFT' } }, scope)).toEqual({ id: 'x', AND: [{ status: 'DRAFT' }, scope] });
     expect(withScope({ AND: [{ a: 1 }] }, scope)).toEqual({ AND: [{ a: 1 }, scope] });
   });
+
+  it('shows a customer the user asked to take over, in any branch, while the office decides (phase 5)', () => {
+    const pending: ScopeRule = { ...customer, agent: { kind: 'customer', agentField: 'defaultAgentCode', pendingField: 'pendingAgentCode' } };
+    expect(scopeWhere(pending, aina)).toEqual({
+      OR: [{ AND: [{ OR: [{ branchCode: { in: ['HQ'] } }, { visibleToAllBranches: true }] }, { defaultAgentCode: 'AR' }] }, { pendingAgentCode: 'AR' }],
+    });
+    expect(scopeWhere(pending, lmy)).toEqual({ OR: [{ OR: [{ branchCode: { in: ['HQ', 'PNG'] } }, { visibleToAllBranches: true }] }, { pendingAgentCode: 'LMY' }] });
+  });
+
+  it('always shows an agent the documents they made, whoever’s customer it is (phase 5)', () => {
+    const order: ScopeRule = { model: 'SalSalesOrder', module: 'sales', branchField: 'branchCode', agent: { kind: 'document', customerField: 'customerCode', ownField: 'agentCode' } };
+    expect(scopeWhere(order, aina)).toEqual({ AND: [{ branchCode: { in: ['HQ'] } }, { OR: [{ customerCode: { in: ['C-0012', 'C-0102'] } }, { agentCode: 'AR' }] }] });
+    expect(scopeWhere(order, lmy)).toEqual({ branchCode: { in: ['HQ', 'PNG'] } });
+  });
 });

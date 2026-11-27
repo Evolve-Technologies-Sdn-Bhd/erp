@@ -5,6 +5,7 @@ import { PermissionRegistry } from '../../platform/context/permission.registry';
 import type { RequestContext } from '../../platform/context/request-context';
 import { dec } from '../../platform/http/decimal';
 import { BusinessRuleError, ConfigurationError, PermissionDeniedError, StaleVersionError, ValidationFailedError, type FieldError } from '../../platform/http/errors';
+import { NotificationsService } from '../../platform/notifications/notifications.service';
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import type { NewOrderCustomer } from '../../platform/onboarding/customer-onboarding.registry';
 import { PrismaService } from '../../platform/prisma/prisma.service';
@@ -27,8 +28,11 @@ import {
   limitError,
   permissionsNeeded,
   PHONE_DIGITS_MIN,
-  phoneInUseMessage,
   phoneKey,
+  lookalikeInput,
+  looksText,
+  officeDuplicateMessage,
+  sameCustomerMessage,
   setupProblemMessage,
   STATUS_LABEL,
   statusActions,
@@ -36,38 +40,13 @@ import {
   type CustomerStatus,
 } from './customers.rules';
 import { CustomersQuery } from './customers.query';
+import { customerRecord } from './customers.record';
+import { CustomerTransfersService } from './transfers.service';
 
 type CustomerInput = Omit<CreateCustomerDto, 'status' | 'cameFromEnquiry'>;
 const DONE_WORD = { block: 'blocked', activate: 'activated' } as const;
 
-const record = (c: MdmCustomer): CustomerRecord => ({
-  code: c.code,
-  name: c.name,
-  category: c.category,
-  area: c.area,
-  branchCode: c.branchCode,
-  defaultAgentCode: c.defaultAgentCode,
-  billingAddress: c.billingAddress,
-  deliveryAddress: c.deliveryAddress,
-  contactName: c.contactName,
-  email: c.email,
-  phone: c.phone,
-  tin: c.tin,
-  idType: c.idType,
-  idNumber: c.idNumber,
-  salesTaxNo: c.salesTaxNo,
-  serviceTaxNo: c.serviceTaxNo,
-  einvoiceEmail: c.einvoiceEmail,
-  taxMode: c.taxMode,
-  creditTermDays: c.creditTermDays,
-  creditLimit: c.creditLimit,
-  overdueLimit: c.overdueLimit,
-  creditScope: c.creditScope,
-  priceListCode: c.priceListCode,
-  visibleToAllBranches: c.visibleToAllBranches,
-  isCash: c.isCash,
-  status: c.status,
-});
+const record = customerRecord;
 
 /** Customer commands (C05): create, update, block, activate and delete. One transaction each, with activity and event. */
 @Injectable()
@@ -79,6 +58,8 @@ export class CustomersService {
     private readonly numbering: NumberingService,
     private readonly permissions: PermissionRegistry,
     private readonly query: CustomersQuery,
+    private readonly transfers: CustomerTransfersService,
+    private readonly notifications: NotificationsService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -86,16 +67,26 @@ export class CustomersService {
    * A new customer gets the next C-#### number, or `keptCode` when the import brings it from another system.
    * With an enquiry number, Sales links that enquiry to it (decision 7).
    */
-  async create(ctx: RequestContext, dto: CreateCustomerDto, keptCode?: string) {
+  /**
+   * `checkDuplicates` (the office's C05, phase 5): customers that look like this one (phone, name, address) are shown
+   * first; the office may still add it once it says it is someone else, and the activity says what it looked like.
+   * An import shows the same in its preview instead.
+   */
+  async create(ctx: RequestContext, dto: CreateCustomerDto, keptCode?: string, checkDuplicates = false) {
     const preview = await this.preview(ctx, dto, null);
     if (preview.errors.length) throw new ValidationFailedError(preview.errors);
     if (preview.permission) throw new PermissionDeniedError(preview.permission);
+    const looks = checkDuplicates ? await this.transfers.matches(ctx, lookalikeInput(dto)) : [];
+    if (looks.length && !dto.notDuplicate) {
+      throw new BusinessRuleError(looks.some((m) => m.same) ? 'SAME_CUSTOMER' : 'POSSIBLE_DUPLICATE', officeDuplicateMessage(looks));
+    }
     const status = dto.status ?? 'ACTIVE';
     const { id } = await this.insert(ctx, dto, {
       keptCode,
       status,
       cameFromEnquiry: dto.cameFromEnquiry ?? null,
-      message: (code) => `${status === 'PROSPECT' ? 'Prospect' : 'Customer'} ${code} created${dto.cameFromEnquiry ? ` from enquiry ${dto.cameFromEnquiry}` : ''}`,
+      message: (code) =>
+        `${status === 'PROSPECT' ? 'Prospect' : 'Customer'} ${code} created${dto.cameFromEnquiry ? ` from enquiry ${dto.cameFromEnquiry}` : ''}${looks.length ? `, although it looks like ${looksText(looks)}` : ''}`.slice(0, 500),
       extra: { enquiryNo: dto.cameFromEnquiry ?? null },
     });
     return this.query.detail(ctx, id);
@@ -111,19 +102,35 @@ export class CustomersService {
     const tenantId = ctx.tenantId;
     const key = phoneKey(input.phone);
     if (key.length < PHONE_DIGITS_MIN) throw ValidationFailedError.field('phone', "Type the customer's phone number.");
-    const taken = await this.phoneOwner(tenantId, key);
-    if (taken) throw new BusinessRuleError('PHONE_IN_USE', phoneInUseMessage(taken));
+    // Phone, name and address against every customer (phase 5): the same customer is never added again; a maybe (the name
+    // or the address alone) needs the salesperson to say it is someone else.
+    const found = await this.transfers.matches(ctx, { name: input.name, phone: input.phone, address: input.address });
+    const same = found.find((m) => m.same);
+    if (same) throw new BusinessRuleError(same.reasons.includes('PHONE') ? 'PHONE_IN_USE' : 'SAME_CUSTOMER', sameCustomerMessage(same, same.reasons));
+    if (found.length && !input.notDuplicate) {
+      throw new BusinessRuleError('POSSIBLE_DUPLICATE', `${found.map((m) => `${m.name} (${m.code}, ${m.reasonText})`).join('; ')} may be this customer. Check, then say it is someone else to add them.`);
+    }
     const cash = await asSystem(() => this.prisma.mdmCustomer.findFirst({ where: { tenantId, isCash: true }, select: { priceListCode: true } }));
     if (!cash) throw new ConfigurationError('There is no cash customer to take the price list from. Set one up in Core first.');
     const dto = customerFromOrder(input, cash);
     const preview = await this.preview(ctx, dto, null);
     if (preview.errors.length) throw new BusinessRuleError('NEW_CUSTOMER_SETUP', setupProblemMessage(preview.errors.map((e) => e.message)));
-    return this.insert(ctx, dto, {
+    const made = await this.insert(ctx, dto, {
       status: 'ACTIVE',
       toComplete: true,
       message: (code) => addedFromOrderMessage(code, ctx.user.name),
       extra: { enquiryNo: null, addedFrom: 'SALES_ORDER' },
     });
+    // Alerts (phase 5): whoever edits customers at the branch completes it.
+    const office = await this.notifications.whoCan(tenantId, P.CUSTOMER_EDIT, dto.branchCode);
+    await this.prisma.$transaction((tx) =>
+      this.notifications.send(tx, ctx, {
+        to: office, kind: 'core.customer.to_complete', title: `New customer to complete: ${dto.name}`,
+        body: `${made.code} added by ${ctx.user.name} from a sales order, on cash terms. Check it and fill in what is missing.`,
+        link: `/core/customers/${made.id}`, entityType: CORE_ENTITY.CUSTOMER, entityId: made.id,
+      }),
+    );
+    return made;
   }
 
   /** The office has checked a customer a salesperson added from an order, and filled in what was missing. */
@@ -294,14 +301,6 @@ export class CustomersService {
     });
   }
 
-  /** Which customer already has this phone, if any: every customer counts, in every branch and of every agent. */
-  private async phoneOwner(tenantId: string, key: string): Promise<string | null> {
-    const tail = `%${key.slice(-PHONE_DIGITS_MIN)}`;
-    const rows = await this.prisma.$queryRaw<{ code: string; phone: string }[]>`
-      SELECT code, phone FROM mdm_customer
-      WHERE tenantId = ${tenantId} AND phone IS NOT NULL AND REGEXP_REPLACE(phone, '[^0-9]', '') LIKE ${tail}`;
-    return rows.find((r) => phoneKey(r.phone) === key)?.code ?? null;
-  }
 
   private data(dto: CustomerInput) {
     return {

@@ -255,6 +255,8 @@ export interface CustomerDetail extends CustomerInput {
   toComplete: boolean
   /** Who added it from an order and when, while it is still to complete. */
   addedFromOrder: { by: string; at: string } | null
+  /** A salesperson's request to take this customer over, while the office decides (phase 5). */
+  transfer: CustomerTransfer | null
   status: CustomerStatus
   statusLabel: string
   version: number
@@ -607,4 +609,40 @@ export interface PackageDetail extends PackageFields {
   activity: CoreActivity[]
   allowedActions: PackageAction[]
   refusals: Partial<Record<PackageAction, string>>
+}
+
+/** A salesperson asking to take over another salesperson's customer (phase 5). */
+export interface CustomerTransfer {
+  id: string
+  customerId: string
+  customerCode: string
+  customerName: string
+  fromAgentCode: string | null
+  fromAgentName: string | null
+  toAgentCode: string
+  toAgentName: string
+  toBranchCode: string
+  reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  statusLabel: string
+  decidedBy: string | null
+  decidedAt: string | null
+  decisionNote: string | null
+  createdAt: string
+  version: number
+  allowedActions: ('approve' | 'reject')[]
+}
+
+/** A customer on file that looks like the one being added (phase 5): phone, name or address. */
+export interface CustomerLookalike {
+  id: string
+  code: string
+  name: string
+  status: string
+  branchCode: string
+  agentName: string | null
+  reasons: ('PHONE' | 'NAME' | 'ADDRESS')[]
+  reasonText: string
+  /** Same phone, or same name and address */
+  same: boolean
 }

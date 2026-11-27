@@ -1,6 +1,6 @@
 import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
-import type { CoreDashboard, CustomerDetail, CustomerFormOptions, CustomerInput, CustomerListItem, ItemDetail, ItemFormOptions, ItemInput, ImportAnswer, ImportKind, ImportKindInfo, ItemListItem, PriceListDetail, PriceListInput, PriceListListItem, PurchasableItemOption, ReferenceData, ReferenceListKey, SellableItemOption, TaxCodeDetail, TaxCodesData, TaxType, WarehouseDetail, WarehousesData, SupplierDetail, SupplierFormOptions, SupplierInput, SupplierListItem, SupplierOption, UomDetail, UomsData, PackageDetail, PackageInput, PackageListItem } from '../types'
+import type { CoreDashboard, CustomerDetail, CustomerLookalike, CustomerTransfer, CustomerFormOptions, CustomerInput, CustomerListItem, ItemDetail, ItemFormOptions, ItemInput, ImportAnswer, ImportKind, ImportKindInfo, ItemListItem, PriceListDetail, PriceListInput, PriceListListItem, PurchasableItemOption, ReferenceData, ReferenceListKey, SellableItemOption, TaxCodeDetail, TaxCodesData, TaxType, WarehouseDetail, WarehousesData, SupplierDetail, SupplierFormOptions, SupplierInput, SupplierListItem, SupplierOption, UomDetail, UomsData, PackageDetail, PackageInput, PackageListItem } from '../types'
 
 /** Core API (/api/v1/core). Each build step adds its resources here. */
 export const coreApi = {
@@ -34,10 +34,19 @@ export const coreUomsApi = {
   remove: (id: string, version: number) => api<UomsData>(`/core/uoms/${id}`, { method: 'DELETE', query: { version } }),
 }
 
+/** Phase 5 · salespeople asking to take over another salesperson's customer. */
+export const coreTransfersApi = {
+  list: (status: string) => api<{ items: CustomerTransfer[]; statusCounts: Record<string, number> }>('/core/customer-transfers', { query: { status } }),
+  approve: (id: string, version: number, note: string | null) => api<CustomerTransfer>(`/core/customer-transfers/${id}/approve`, { method: 'POST', body: { version, note } }),
+  reject: (id: string, version: number, note: string) => api<CustomerTransfer>(`/core/customer-transfers/${id}/reject`, { method: 'POST', body: { version, note } }),
+}
+
 export const coreCustomersApi = {
   list: (query: ListQuery) => api<ListResponse<CustomerListItem>>('/core/customers', { query }),
   get: (id: string) => api<CustomerDetail>(`/core/customers/${id}`),
-  create: (input: CustomerInput & { status: 'ACTIVE' | 'PROSPECT'; cameFromEnquiry: string | null }) => api<CustomerDetail>('/core/customers', { method: 'POST', body: input }),
+  create: (input: CustomerInput & { status: 'ACTIVE' | 'PROSPECT'; cameFromEnquiry: string | null; notDuplicate?: boolean }) => api<CustomerDetail>('/core/customers', { method: 'POST', body: input }),
+  /** Phase 5: customers that look like this one (phone, name, address), in every branch. */
+  check: (input: { name: string; phone: string | null; address: string | null }) => api<{ items: CustomerLookalike[] }>('/core/customers/check', { method: 'POST', body: input }),
   update: (id: string, input: CustomerInput & { version: number }) => api<CustomerDetail>(`/core/customers/${id}`, { method: 'PATCH', body: input }),
   setStatus: (id: string, action: 'block' | 'activate', version: number) => api<CustomerDetail>(`/core/customers/${id}/${action}`, { method: 'POST', body: { version } }),
   /** The office has checked a customer a salesperson added from an order (phase 5). */

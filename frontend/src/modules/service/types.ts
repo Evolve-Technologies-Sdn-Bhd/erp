@@ -13,6 +13,8 @@ export interface JobTimingView {
   overdueSinceText: string | null
   siteType: SiteType | null
   siteTypeLabel: string | null
+  /** The job category the sales order picked (a slot group code, phase 5): the board books with it first. */
+  categoryCode: string | null
   /** Stock not ready 24 hours before the installation (phase 5): what is short. */
   atRisk: boolean
   atRiskNote: string | null

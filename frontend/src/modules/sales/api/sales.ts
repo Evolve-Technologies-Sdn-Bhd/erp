@@ -2,6 +2,7 @@ import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
 import type {
   NewCustomerInput,
+  SalesTargets,
   CancelDetail,
   CashKpis,
   CashListItem,
@@ -41,6 +42,7 @@ import type {
   EnquiryListItem,
   EnquiryTypeOption,
   PackageOption,
+  JobCategoryOption,
   InboxDetail,
   InvoiceCandidates,
   InvoiceDetail,
@@ -313,6 +315,8 @@ export const salesLookupsApi = {
   /** Vouchers an order of this date may take (phase 5); nothing while the company does not control them. */
   vouchers: (date?: string, orderId?: string) => api<{ items: VoucherOption[] }>('/sales/lookups/vouchers', { query: { date, orderId } }),
   packages: (date?: string) => api<{ date: string; items: PackageOption[] }>('/sales/lookups/packages', { query: { date } }),
+  /** Job categories from Service (phase 5); none when the Service module is off. */
+  jobCategories: () => api<{ items: JobCategoryOption[] }>('/service/categories', { silent: true }).catch(() => ({ items: [] as JobCategoryOption[] })),
 }
 
 /** Phase 5 · a new household customer from the sales order (S11) — /api/v1/sales/customers. Core makes it. */
@@ -336,6 +340,13 @@ export const salesReceiptsApi = {
     form.append('kind', 'PAYMENT_PROOF')
     return api<{ id: string; fileName: string; mimeType: string; downloadUrl: string }>('/attachments', { method: 'POST', body: form })
   },
+}
+
+/** S38 · Sales targets (phase 5). */
+export const salesTargetsApi = {
+  view: (month?: string) => api<SalesTargets>('/sales/targets', { query: { month } }),
+  save: (body: { month: string; branchCode: string; amount: string | null; agents: { agentCode: string; amount: string | null }[]; version: number }) =>
+    api<SalesTargets>('/sales/targets', { method: 'PUT', body }),
 }
 
 /** S37 · Vouchers (phase 5). */

@@ -14,10 +14,35 @@ export interface NewOrderCustomer {
   branchCode: string;
   /** The salesperson, when they are a sales agent; the customer then shows in their own customer list. */
   agentCode: string | null;
+  /** The salesperson checked the customers that look like this one (same name or same address) and says it is someone else. */
+  notDuplicate?: boolean;
+}
+
+/** A customer on file that looks like the one being added (phase 5): who has it and how it matches, never its contact details. */
+export interface CustomerLookalike {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  branchCode: string;
+  agentCode: string | null;
+  agentName: string | null;
+  mine: boolean;
+  reasons: ('PHONE' | 'NAME' | 'ADDRESS')[];
+  reasonText: string;
+  same: boolean;
+  pendingAgentName: string | null;
+  pendingMine: boolean;
 }
 
 export interface CustomerOnboardingHandler {
   addFromOrder(ctx: RequestContext, input: NewOrderCustomer): Promise<{ id: string; code: string }>;
+  /** Phase 5: customers that look like this one, in every branch and of every salesperson. */
+  lookalikes(ctx: RequestContext, typed: { name: string; phone: string; address: string }): Promise<CustomerLookalike[]>;
+  /** Phase 5: ask to take over another salesperson's customer; the office decides. */
+  askTransfer(ctx: RequestContext, input: { customerCode: string; reason: string }): Promise<unknown>;
+  /** Phase 5: the salesperson's own transfer requests. */
+  myTransfers(ctx: RequestContext): Promise<unknown>;
 }
 
 /**
@@ -34,8 +59,24 @@ export class CustomerOnboarding {
     this.handler = handler;
   }
 
-  addFromOrder(ctx: RequestContext, input: NewOrderCustomer): Promise<{ id: string; code: string }> {
+  private core(): CustomerOnboardingHandler {
     if (!this.handler) throw new ConfigurationError('Customers cannot be added from an order: the Core module is not running.');
-    return this.handler.addFromOrder(ctx, input);
+    return this.handler;
+  }
+
+  addFromOrder(ctx: RequestContext, input: NewOrderCustomer): Promise<{ id: string; code: string }> {
+    return this.core().addFromOrder(ctx, input);
+  }
+
+  lookalikes(ctx: RequestContext, typed: { name: string; phone: string; address: string }): Promise<CustomerLookalike[]> {
+    return this.core().lookalikes(ctx, typed);
+  }
+
+  askTransfer(ctx: RequestContext, input: { customerCode: string; reason: string }): Promise<unknown> {
+    return this.core().askTransfer(ctx, input);
+  }
+
+  myTransfers(ctx: RequestContext): Promise<unknown> {
+    return this.core().myTransfers(ctx);
   }
 }

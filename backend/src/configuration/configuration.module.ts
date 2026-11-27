@@ -26,6 +26,7 @@ import { ConfigUsersController } from './users/users.controller';
 import { UserSignInService } from './users/user-sign-in.service';
 import { UsersQuery } from './users/users.query';
 import { UsersService } from './users/users.service';
+import { AppContentService, ConfigAppContentController, MeAppContentController } from './settings/app-content.service';
 
 /**
  * The Configuration module (CLAUDE.md → Phase 4): company, branches, users, roles and sign-in. The only writer of
@@ -44,10 +45,13 @@ import { UsersService } from './users/users.service';
     ConfigRolesController,
     ConfigPermissionsController,
     ConfigSettingsController,
+    ConfigAppContentController,
+    MeAppContentController,
     ConfigSecurityLogController,
     ConfigAuditController,
   ],
   providers: [
+    AppContentService,
     AuthService,
     CredentialsService,
     AccountService,

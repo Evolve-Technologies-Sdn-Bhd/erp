@@ -185,6 +185,26 @@ export interface VoucherOption {
 }
 
 /** S37 · a voucher on the list (phase 5). */
+/** S38 · Sales targets (phase 5): a branch's month and its salespeople's share. */
+export interface TargetBranch {
+  code: string
+  name: string
+  amount: string | null
+  /** The branch-month's version (0 before anything was set) */
+  version: number
+  allocated: string
+  left: string | null
+  over: boolean
+  agents: { code: string; name: string; amount: string | null }[]
+}
+
+export interface SalesTargets {
+  month: string
+  monthText: string
+  canManage: boolean
+  branches: TargetBranch[]
+}
+
 export interface VoucherRow {
   id: string
   voucherNo: string
@@ -275,6 +295,14 @@ export interface OrderDetail {
   /** Phase 5: kept with the installation option, for the installer's address. */
   deliveryPostcode: string | null
   deliveryState: string | null
+  /** Phase 5: this order's own phone, billing, and how the customer will pay. Empty: the customer's / not said. */
+  contactPhone: string | null
+  billingName: string | null
+  billingAddress: string | null
+  paymentMode: PaymentMode | null
+  paymentModeLabel: string | null
+  paymentMethod: OrderPaymentMethod | null
+  paymentMethodLabel: string | null
   orderTypeCode: string
   quotation: { id: string; no: string } | null
   enquiryNo: string | null
@@ -373,11 +401,29 @@ export interface OrderRevisions {
 
 /** Phase 5: installation, delivery only or collect, asked when the company turns it on (S34). */
 export type InstallOption = 'INSTALLATION' | 'DELIVERY' | 'COLLECT'
+/** The install site on a sales order (phase 5): the same codes as Service's job. */
+export type SiteType = 'LANDED' | 'CONDO' | 'COMMERCIAL'
+/** How the customer will pay (phase 5); official receipts still decide what is paid. */
+export type PaymentMode = 'PAID' | 'COD' | 'LATER'
+export type OrderPaymentMethod = 'CASH' | 'TRANSFER' | 'DUITNOW' | 'CARD' | 'CARD_EPP' | 'CHEQUE'
+/** A job category from Service (its slot groups): the salesperson picks one with the installation. */
+export interface JobCategoryOption {
+  code: string
+  name: string
+  minutes: number
+  jobTypes: string[]
+  siteTypes: SiteType[]
+}
 export interface OrderInstallation {
   asked: boolean
   option: InstallOption | null
   optionLabel: string | null
   preferredDate: string | null
+  /** The install site (landed house, condo / apartment, shop / office), given to the job (phase 5). */
+  siteType: SiteType | null
+  siteTypeLabel: string | null
+  /** The job category (a Service slot group code), given to the job (phase 5). */
+  jobCategory: string | null
   /** Some items are short: installation is arranged when stock arrives. */
   afterStock: boolean
   /** A draft installation whose items are all in stock needs the date before release. */
@@ -1339,6 +1385,8 @@ export interface SalesFlowSwitches {
   useEnquiries: boolean
   officeDraftsQuotations: boolean
   askInstallation: boolean
+  /** An installation with every item in stock may be released without the preferred date (phase 5). */
+  installDateLater: boolean
   agentsAddCustomers: boolean
   /** The price comes from the price list and is never typed on a quotation or sales order (phase 5). */
   fixedPrices: boolean

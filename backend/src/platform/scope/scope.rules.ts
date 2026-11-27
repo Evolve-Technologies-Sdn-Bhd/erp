@@ -21,11 +21,14 @@ export interface ScopeRule {
   viewFilter?: boolean;
   /**
    * Sales-agent scope (FR-SEC-030, 031):
-   * - `customer`: a customer row, seen when its agent field is the user (the role's *customers* switch).
+   * - `customer`: a customer row, seen when its agent field is the user (the role's *customers* switch). With
+   *   `pendingField` (phase 5), a customer the user asked to take over is seen by them while the office decides, in any
+   *   branch, so they can keep keying orders for it.
    * - `document`: a document row, seen when its customer is one of the agent's customers (the role's *documents* switch);
-   *   with `ownerField`, a row without a customer (an enquiry for a prospect) is seen by the agent who owns it.
+   *   with `ownerField`, a row without a customer (an enquiry for a prospect) is seen by the agent who owns it; with
+   *   `ownField` (phase 5), a row the agent made themselves is always seen by them, whoever's customer it is.
    */
-  agent?: { kind: 'customer'; agentField: string } | { kind: 'document'; customerField: string; ownerField?: string };
+  agent?: { kind: 'customer'; agentField: string; pendingField?: string } | { kind: 'document'; customerField: string; ownerField?: string; ownField?: string };
 }
 
 /** What limits the person asking, worked out once per request. */
@@ -58,10 +61,16 @@ export function scopeWhere(rule: ScopeRule, facts: ScopeFacts): Where | null {
   }
   if (rule.agent?.kind === 'document' && facts.agentDocuments) {
     const ofTheirCustomers = { [rule.agent.customerField]: { in: [...facts.agentCustomerCodes] } };
-    parts.push(rule.agent.ownerField ? { OR: [ofTheirCustomers, { [rule.agent.customerField]: null, [rule.agent.ownerField]: facts.userCode }] } : ofTheirCustomers);
+    const either: Where[] = [ofTheirCustomers];
+    if (rule.agent.ownerField) either.push({ [rule.agent.customerField]: null, [rule.agent.ownerField]: facts.userCode });
+    if (rule.agent.ownField) either.push({ [rule.agent.ownField]: facts.userCode });
+    parts.push(either.length === 1 ? ofTheirCustomers : { OR: either });
   }
   if (!parts.length) return null;
-  return parts.length === 1 ? parts[0]! : { AND: parts };
+  const scope = parts.length === 1 ? parts[0]! : { AND: parts };
+  // A customer the user asked to take over: seen by them while it waits, whatever its branch or agent.
+  if (rule.agent?.kind === 'customer' && rule.agent.pendingField) return { OR: [scope, { [rule.agent.pendingField]: facts.userCode }] };
+  return scope;
 }
 
 /**

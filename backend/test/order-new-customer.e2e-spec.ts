@@ -84,13 +84,15 @@ describe('Salespeople add new customers on the order (end to end)', () => {
     expect(r.body).toMatchObject({ status: 'DRAFT', branch: { code: 'HQ' }, creditTermDays: 0, customer: { code: added.code } });
   });
 
-  it('refuses a phone already on file, typed any way, even another agent’s customer', async () => {
+  it('refuses a phone already on file, typed any way, even another agent’s customer, and says whose it is', async () => {
     expect(await add('AR', { ...household, name: 'Mei Ling Tan', phone: '+60 12-345 6789' })).toMatchObject({
       status: 409,
-      body: { code: 'PHONE_IN_USE', message: `${added.code} already has this phone number. Pick that customer on the order, or ask the office if it is someone else.` },
+      body: { code: 'PHONE_IN_USE', message: `Tan Mei Ling (${added.code}) is already your customer: same phone number and address. Pick them on the order instead.` },
     });
-    // C-0012 (+60 3-2280 1188) is Aina's; Faizal cannot see it, and still cannot add it again.
-    expect(await add('FO', { name: 'Someone', phone: '03-2280 1188', address: 'Somewhere' })).toMatchObject({ status: 409, body: { code: 'PHONE_IN_USE' } });
+    // C-0012 (+60 3-2280 1188) is Aina's; Faizal cannot see it, and still cannot add it again: he is told it is Aina's.
+    const theirs = await add('FO', { name: 'Someone', phone: '03-2280 1188', address: 'Somewhere' });
+    expect(theirs).toMatchObject({ status: 409, body: { code: 'PHONE_IN_USE' } });
+    expect(theirs.body.message).toContain('is already a customer of Aina Rahman: same phone number. Ask to take them over');
   });
 
   it('keeps the new customer within the agent scope: another agent does not see it', async () => {

@@ -3,6 +3,7 @@ import type { Prisma, SalOrderVoucher, SalSalesOrder, SalSalesOrderLine } from '
 import { STOCK_PORT, type StockPort } from '../../integration/integration.ports';
 import { isCountedStock, MASTER_DATA_PORT, type MasterDataPort } from '../../master-data/master-data.port';
 import { ActivityService } from '../../platform/activity/activity.service';
+import { ClockService } from '../../platform/clock/clock.service';
 import { ApprovalsService } from '../../platform/approvals/approvals.service';
 import { PermissionRegistry } from '../../platform/context/permission.registry';
 import { TenantService } from '../../platform/context/tenant.service';
@@ -21,12 +22,13 @@ import { taxLinesWithVouchers } from '../shared/voucher.rules';
 import { netUnitPrice, outsideRange, rangeReason } from '../shared/price-range.rules';
 import { PriceRules } from '../shared/price-rules.service';
 import { ReceiptsQuery } from '../receipts/receipts.query';
-import { INSTALL_OPTION_LABEL, installationText, type InstallOption } from './installation.rules';
+import { INSTALL_OPTION_LABEL, installationText, PAYMENT_METHOD_LABEL, PAYMENT_MODE_LABEL, SITE_TYPE_LABEL, type InstallOption, type SiteType } from './installation.rules';
 import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
 import { REVISIONS_OFF_MESSAGE, reviseRefusal, revisionApproval, revisionChanges } from './revision.rules';
 import { revisionContent, type RevisionSnapshot } from './revision.snapshot';
 import { preOrderState } from './pre-order.rules';
+import { installWhere, paymentSets, paymentWhere } from './list-filters.rules';
 import { mayShare, orderShareText, whatsappNumber } from './share.rules';
 
 export type OrderWithLines = SalSalesOrder & { lines: SalSalesOrderLine[]; vouchers: SalOrderVoucher[] };
@@ -52,6 +54,7 @@ export class OrdersQuery {
     private readonly receipts: ReceiptsQuery,
     private readonly tenants: TenantService,
     private readonly heldStock: HeldStock,
+    private readonly clock: ClockService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
     @Inject(STOCK_PORT) private readonly stock: StockPort,
   ) {}
@@ -197,9 +200,15 @@ export class OrdersQuery {
     const sort = parseSort(query.sort, { docNo: 'docNo', docDate: 'docDate', total: 'total', customer: 'customerName' }, '-docDate');
     const docDate = dateRange(query);
     const q = query.q?.trim();
+    // The salesperson's home (phase 5): where the installation stands, and how much is paid.
+    const extra: Prisma.SalSalesOrderWhereInput[] = [];
+    if (query.install) extra.push(installWhere(query.install, new Date(`${this.clock.today()}T00:00:00.000Z`)));
+    const paymentKind = query.payment ?? (query.install === 'donePaymentPending' ? 'notPaid' : undefined);
+    if (paymentKind) extra.push(paymentWhere(paymentKind, await this.paymentSets(ctx.tenantId)));
     const base: Prisma.SalSalesOrderWhereInput = {
       tenantId: ctx.tenantId,
       revision: 0,
+      ...(extra.length && { AND: extra }),
       ...(docDate && { docDate }),
       ...(query.customer?.trim() && { customerName: { contains: query.customer.trim() } }),
       ...(query.agent && { agentCode: query.agent }),
@@ -251,6 +260,16 @@ export class OrdersQuery {
     );
   }
 
+  /** Orders fully and partly paid by verified official receipts (only these count as paid). */
+  private async paymentSets(tenantId: string) {
+    const verified = await this.prisma.salReceipt.groupBy({ by: ['salesOrderId'], where: { tenantId, status: 'VERIFIED' }, _sum: { amount: true } });
+    const orders = verified.length ? await this.prisma.salSalesOrder.findMany({ where: { tenantId, id: { in: verified.map((v) => v.salesOrderId) } }, select: { id: true, total: true } }) : [];
+    return paymentSets(
+      verified.map((v) => ({ salesOrderId: v.salesOrderId, amount: v._sum.amount ?? 0 })),
+      new Map(orders.map((o) => [o.id, o.total])),
+    );
+  }
+
   // ── One order (S11, S12) ──────────────────────────────────────────────────
 
   async detail(ctx: RequestContext, id: string) {
@@ -282,7 +301,7 @@ export class OrdersQuery {
     })));
     const releaseNote = activity.find((a) => a.action === 'stock_warning')?.message ?? null;
     // Installation (phase 5): a draft is judged on stock now; a released order keeps what release decided.
-    const setting = await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { askInstallation: true } });
+    const setting = await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { askInstallation: true, installDateLater: true } });
     const draft = order.status === 'DRAFT' || order.status === 'PENDING_APPROVAL';
     const allInStock = !shortfall && !order.lines.some((l) => l.isBuyToOrder);
     const installDate = order.installDate ? iso(order.installDate) : null;
@@ -326,6 +345,14 @@ export class OrdersQuery {
       deliveryAddress: order.deliveryAddress,
       deliveryPostcode: order.deliveryPostcode,
       deliveryState: order.deliveryState,
+      /** Phase 5: this order's own phone, billing and how the customer will pay; empty means the customer's / not said. */
+      contactPhone: order.contactPhone,
+      billingName: order.billingName,
+      billingAddress: order.billingAddress,
+      paymentMode: order.paymentMode,
+      paymentModeLabel: order.paymentMode ? (PAYMENT_MODE_LABEL[order.paymentMode as keyof typeof PAYMENT_MODE_LABEL] ?? order.paymentMode) : null,
+      paymentMethod: order.paymentMethod,
+      paymentMethodLabel: order.paymentMethod ? (PAYMENT_METHOD_LABEL[order.paymentMethod as keyof typeof PAYMENT_METHOD_LABEL] ?? order.paymentMethod) : null,
       /** Revisions (phase 5): the one in draft, why it cannot be revised now, and the earlier ones kept read-only. */
       revisions: {
         number: order.revisionNo,
@@ -363,7 +390,7 @@ export class OrdersQuery {
       /** Share on WhatsApp (phase 5): the customer's number (null: pick the chat in WhatsApp) and the message. Null when it is not offered. */
       share: mayShare({ switchOn: Boolean(flags?.shareWhatsapp), status: order.status, canEdit: this.permissions.has(ctx.user.roles, P.ORDER_EDIT) })
         ? {
-            number: whatsappNumber(customer?.phone),
+            number: whatsappNumber(order.contactPhone || customer?.phone),
             text: orderShareText({
               company: await this.tenants.name(), contactName: order.contactName, customerName: order.customerName,
               docNo: order.docNo, revisionNo: order.revisionNo, docDate: iso(order.docDate)!, total: toMoney(order.total),
@@ -382,9 +409,13 @@ export class OrdersQuery {
         option: order.installOption,
         optionLabel: order.installOption ? (INSTALL_OPTION_LABEL[order.installOption as InstallOption] ?? order.installOption) : null,
         preferredDate: installDate,
+        siteType: order.siteType,
+        siteTypeLabel: order.siteType ? (SITE_TYPE_LABEL[order.siteType as SiteType] ?? order.siteType) : null,
+        /** The job category the salesperson picked (a Service slot group code); its name comes from Service. */
+        jobCategory: order.jobCategory,
         afterStock,
-        /** A draft installation whose items are all in stock needs the date before release. */
-        dateNeeded: draft && order.installOption === 'INSTALLATION' && allInStock,
+        /** A draft installation whose items are all in stock needs the date before release, unless the date can be agreed later. */
+        dateNeeded: draft && order.installOption === 'INSTALLATION' && allInStock && !setting?.installDateLater,
         text: installationText({ installOption: order.installOption, installDate, afterStock }),
       },
       orderTypeCode: order.orderTypeCode,

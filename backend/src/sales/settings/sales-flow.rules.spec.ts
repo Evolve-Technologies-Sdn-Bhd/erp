@@ -2,15 +2,16 @@ import { flowChanges, FLOW_SWITCHES, NEW_CUSTOMERS_OFF_MESSAGE, rangeChange, STA
 
 describe('sales flow rules (S34)', () => {
   it('starts every company on the standard flow', () => {
-    expect(STANDARD_FLOW).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, agentsAddCustomers: false, fixedPrices: false, voucherControl: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false, signedDelivery: false, autoInvoice: false, receiptsPayInvoices: false });
+    expect(STANDARD_FLOW).toEqual({ useEnquiries: true, officeDraftsQuotations: true, askInstallation: false, installDateLater: false, agentsAddCustomers: false, fixedPrices: false, voucherControl: false, priceRange: false, useReceipts: false, reviseOrders: false, preOrders: false, autoCancel: false, shareWhatsapp: false, holdStock: false, autoDelivery: false, signedDelivery: false, autoInvoice: false, receiptsPayInvoices: false });
     expect(Object.keys(STANDARD_FLOW)).toEqual(Object.keys(FLOW_SWITCHES));
   });
 
   it('writes one history line per switch that changed, in plain words', () => {
-    expect(flowChanges(STANDARD_FLOW, { useEnquiries: false, officeDraftsQuotations: false, askInstallation: true, agentsAddCustomers: true, fixedPrices: true, voucherControl: true, priceRange: true, useReceipts: true, reviseOrders: true, preOrders: true, autoCancel: true, shareWhatsapp: true, holdStock: true, autoDelivery: true, signedDelivery: true, autoInvoice: true, receiptsPayInvoices: true })).toEqual([
+    expect(flowChanges(STANDARD_FLOW, { useEnquiries: false, officeDraftsQuotations: false, askInstallation: true, installDateLater: true, agentsAddCustomers: true, fixedPrices: true, voucherControl: true, priceRange: true, useReceipts: true, reviseOrders: true, preOrders: true, autoCancel: true, shareWhatsapp: true, holdStock: true, autoDelivery: true, signedDelivery: true, autoInvoice: true, receiptsPayInvoices: true })).toEqual([
       'Use enquiries: On → Off',
       'Office drafts quotations: On → Off',
       'Ask for an installation option on the order: Off → On',
+      'The installation date can be agreed later: Off → On',
       'Salespeople add new customers on the order: Off → On',
       'Prices come from the price list and cannot be typed: Off → On',
       'Vouchers come from the voucher list: Off → On',

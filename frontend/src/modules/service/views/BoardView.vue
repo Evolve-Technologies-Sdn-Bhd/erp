@@ -55,16 +55,18 @@ async function pickFromQuery() {
   pick({
     id: j.id, docNo: j.docNo, jobType: j.jobType, typeLabel: j.typeLabel, customerName: j.customerName, area: j.area, salesOrderNo: j.salesOrderNo,
     preferredDate: j.preferredDate, afterStock: j.afterStock, whenText: j.whenText, version: j.version, asksForThisDay: false, moving: true, bookedPerson: j.booking?.personName ?? null,
-    overdue: j.overdue, overdueSinceText: j.overdueSinceText, siteType: j.siteType, siteTypeLabel: j.siteTypeLabel,
+    overdue: j.overdue, overdueSinceText: j.overdueSinceText, siteType: j.siteType, siteTypeLabel: j.siteTypeLabel, categoryCode: j.categoryCode,
     missingForBooking: j.missingForBooking, missingText: j.missingText, atRisk: j.atRisk, atRiskNote: j.atRiskNote,
   })
 }
 
 function pick(j: (BoardWaiting & { moving?: boolean; bookedPerson?: string | null }) | null) {
   picked.value = picked.value?.id === j?.id ? null : j
-  // The job type's default slot group first (Slots and Stages), else the first that fits the job.
+  // The category the salesperson picked on the order first (phase 5), then the job type's default slot group
+  // (Slots and Stages), else the first that fits the job.
   const groups = picked.value ? groupsFor(picked.value) : []
-  groupCode.value = (groups.find((g) => g.defaultFor.includes(picked.value!.jobType)) ?? groups[0])?.code ?? ''
+  groupCode.value =
+    (groups.find((g) => g.code === picked.value!.categoryCode) ?? groups.find((g) => g.defaultFor.includes(picked.value!.jobType)) ?? groups[0])?.code ?? ''
 }
 
 function goTo(d: string) {

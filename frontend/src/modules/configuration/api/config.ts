@@ -22,8 +22,7 @@ import type {
   UserDetail,
   UserInput,
   UserListItem,
-  UserLookups,
-} from '../types'
+  UserLookups, AppContentView } from '../types'
 
 /** Configuration API (/api/v1/config). Each build step adds its resources here. */
 export const configApi = {
@@ -59,6 +58,10 @@ export const configUsersApi = {
 export const configSettingsApi = {
   signIn: () => api<SignInSettingsView>('/config/settings/sign-in'),
   saveSignIn: (input: Partial<SignInSettings> & { version: number }) => api<SignInSettingsView>('/config/settings/sign-in', { method: 'PATCH', body: input }),
+  /** A15 · Phone App (phase 5): what the phones show. */
+  appContent: () => api<AppContentView>('/config/settings/app-content'),
+  saveAppContent: (input: { duitNowFileId: string | null; duitNowName: string | null; contacts: { label: string; phone: string }[]; officeHours: string | null; version: number }) =>
+    api<AppContentView>('/config/settings/app-content', { method: 'PUT', body: input }),
 }
 
 export const configRolesApi = {

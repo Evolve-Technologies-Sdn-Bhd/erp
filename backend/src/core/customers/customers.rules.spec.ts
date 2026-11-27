@@ -1,4 +1,9 @@
 import {
+  duplicateReasons,
+  isSameCustomer,
+  nameKey,
+  sameAddress,
+  sameCustomerMessage,
   activationGaps,
   addedFromOrderMessage,
   creditTermText,
@@ -93,5 +98,45 @@ describe('customers added by salespeople from an order (phase 5)', () => {
     expect(phoneInUseMessage('C-0012')).toBe('C-0012 already has this phone number. Pick that customer on the order, or ask the office if it is someone else.');
     expect(addedFromOrderMessage('C-0103', 'Aina Rahman')).toBe('Customer C-0103 added by Aina Rahman from a sales order, to be completed by the office');
     expect(setupProblemMessage(['Pick the credit term from the list.'])).toBe('This customer cannot be added from an order yet: Pick the credit term from the list. Ask the office to check Core.');
+  });
+});
+
+describe('duplicate customers (phase 5)', () => {
+  const on = { name: 'Mr. Tan Ah Kow', phone: '012-345 6789', deliveryAddress: 'No. 12, Jalan Mawar 3, Taman Bunga, 81200 Johor Bahru', billingAddress: null };
+
+  it('reads a name without its title, case or punctuation', () => {
+    expect(nameKey('Mr. Tan  Ah-Kow')).toBe('tan ah kow');
+    expect(nameKey('PUAN Siti Aminah')).toBe('siti aminah');
+    expect(nameKey('Dato Sri Lee')).toBe('sri lee');
+  });
+
+  it('knows the same address typed two ways, and a different postcode', () => {
+    expect(sameAddress('12 Jln Mawar 3, Tmn Bunga, 81200 Johor Bahru', on.deliveryAddress)).toBe(true);
+    expect(sameAddress('12 Jalan Mawar 3, Taman Bunga, 81300 Johor Bahru', on.deliveryAddress)).toBe(false);
+    expect(sameAddress('14 Jalan Melati, Taman Sri, 81200 Johor Bahru', on.deliveryAddress)).toBe(false);
+    expect(sameAddress('Johor', on.deliveryAddress)).toBe(false);
+  });
+
+  it('matches on the phone, the name and the address', () => {
+    expect(duplicateReasons({ name: 'Ah Kow', phone: '+60 12-345 6789', address: 'Somewhere else 1 2' }, on)).toEqual(['PHONE']);
+    expect(duplicateReasons({ name: 'tan ah kow', phone: '019-000 0000', address: '12 Jln Mawar 3 Tmn Bunga 81200 Johor Bahru' }, on)).toEqual(['NAME', 'ADDRESS']);
+    expect(duplicateReasons({ name: 'Tan Mei Ling', phone: '019-000 0000', address: '12 Jalan Mawar 3, Taman Bunga, 81200 Johor Bahru' }, on)).toEqual(['ADDRESS']);
+    expect(duplicateReasons({ name: 'Lim', phone: '019-000 0000', address: 'Lot 5, Jalan Kenari, 50000 KL' }, on)).toEqual([]);
+  });
+
+  it('treats the phone, or the name with the address, as the same customer; the rest as a maybe', () => {
+    expect(isSameCustomer(['PHONE'])).toBe(true);
+    expect(isSameCustomer(['NAME', 'ADDRESS'])).toBe(true);
+    expect(isSameCustomer(['ADDRESS'])).toBe(false);
+    expect(isSameCustomer(['NAME'])).toBe(false);
+  });
+
+  it('says whose customer it is and what to do', () => {
+    expect(sameCustomerMessage({ code: 'C-0012', name: 'Tan Ah Kow', agentName: 'Aina Rahman', mine: false }, ['NAME', 'ADDRESS'])).toBe(
+      'Tan Ah Kow (C-0012) is already a customer of Aina Rahman: same name and address. Ask to take them over, or ask the office if it is someone else.',
+    );
+    expect(sameCustomerMessage({ code: 'C-0012', name: 'Tan Ah Kow', agentName: 'Aina Rahman', mine: true }, ['PHONE'])).toBe(
+      'Tan Ah Kow (C-0012) is already your customer: same phone number. Pick them on the order instead.',
+    );
   });
 });

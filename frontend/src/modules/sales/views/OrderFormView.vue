@@ -31,7 +31,7 @@ import ReceiptDialog from '../components/ReceiptDialog.vue'
 import { PAYMENT_GROUP, RECEIPT_GROUP } from './receipts'
 import { salesFlow } from '../flow'
 import { docRoute } from '../routes'
-import type { CustomerOption, InstallOption, OrderAction, OrderDetail, OrderLine, PackageOption, ReceiptDetail, SaleItemOption, VoucherOption } from '../types'
+import type { CustomerOption, InstallOption, JobCategoryOption, OrderAction, SiteType, OrderDetail, OrderLine, PackageOption, ReceiptDetail, SaleItemOption, VoucherOption } from '../types'
 
 /** S11 · Sales order (SalesOrderForm.html) and S12 · Credit check failed (CreditApproval.html). */
 const route = useRoute()
@@ -115,6 +115,13 @@ const form = reactive({
   deliveryState: '',
   installOption: 'INSTALLATION' as InstallOption,
   installDate: '',
+  siteType: '',
+  jobCategory: '',
+  contactPhone: '',
+  billingName: '',
+  billingAddress: '',
+  paymentMode: '',
+  paymentMethod: '',
   lines: [] as FormLine[],
   vouchers: [] as EditVoucher[],
 })
@@ -129,6 +136,11 @@ const INSTALL_OPTIONS: { value: InstallOption; label: string }[] = [
   { value: 'INSTALLATION', label: 'Installation' },
   { value: 'DELIVERY', label: 'Delivery only' },
   { value: 'COLLECT', label: 'Collect' },
+]
+const SITE_TYPES: { value: SiteType; label: string }[] = [
+  { value: 'LANDED', label: 'Landed house' },
+  { value: 'CONDO', label: 'Condo / apartment' },
+  { value: 'COMMERCIAL', label: 'Shop / office' },
 ]
 /** A new order follows the switch; a saved one shows what it was saved with. */
 const askInstallation = computed(() => (order.value ? order.value.installation.asked || order.value.installation.option !== null : salesFlow.value.askInstallation))
@@ -163,6 +175,13 @@ function fillForm(o: OrderDetail | null) {
     form.deliveryState = o.deliveryState ?? ''
     form.installOption = o.installation.option ?? 'INSTALLATION'
     form.installDate = o.installation.preferredDate ?? ''
+    form.siteType = o.installation.siteType ?? ''
+    form.jobCategory = o.installation.jobCategory ?? ''
+    form.contactPhone = o.contactPhone ?? ''
+    form.billingName = o.billingName ?? ''
+    form.billingAddress = o.billingAddress ?? ''
+    form.paymentMode = o.paymentMode ?? ''
+    form.paymentMethod = o.paymentMethod ?? ''
     form.lines = toFormLines(o.lines)
     form.vouchers = o.vouchers.map((v) => ({ key: nextKey++, voucherNo: v.voucherNo, description: v.description, amount: v.amount, taxCode: v.taxCode, invoiceNo: v.invoiceNo ?? null }))
   } else {
@@ -177,6 +196,13 @@ function fillForm(o: OrderDetail | null) {
     form.deliveryState = ''
     form.installOption = 'INSTALLATION'
     form.installDate = ''
+    form.siteType = ''
+    form.jobCategory = ''
+    form.contactPhone = ''
+    form.billingName = ''
+    form.billingAddress = ''
+    form.paymentMode = ''
+    form.paymentMethod = ''
     form.lines = []
     form.vouchers = []
   }
@@ -240,6 +266,26 @@ async function load() {
   if (editable.value) void loadPackageChoices()
 }
 onMounted(load)
+
+/** Job categories from Service (phase 5): those that suit the site picked, as the Planning Board will book them. */
+const categories = ref<JobCategoryOption[]>([])
+onMounted(async () => (categories.value = (await salesLookupsApi.jobCategories()).items))
+const categoryOptions = computed(() => categories.value.filter((c) => !form.siteType || c.siteTypes.includes(form.siteType as SiteType)))
+const categoryName = (code: string | null | undefined) => categories.value.find((c) => c.code === code)?.name ?? code ?? '—'
+const hours = (m: number) => (m % 60 ? `${(m / 60).toFixed(1)} h` : `${m / 60} h`)
+const PAYMENT_MODES = [
+  { value: 'PAID', label: 'Paid (deposit or full)' },
+  { value: 'COD', label: 'Cash on delivery: the installer collects' },
+  { value: 'LATER', label: 'Customer pays later' },
+]
+const PAYMENT_METHODS = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'TRANSFER', label: 'Bank transfer' },
+  { value: 'DUITNOW', label: 'DuitNow' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'CARD_EPP', label: 'Card EPP' },
+  { value: 'CHEQUE', label: 'Cheque' },
+]
 
 // ── Official receipts (phase 5): record a payment with its proof; Account verifies it ──
 const receiptOpen = ref(false)
@@ -465,12 +511,19 @@ async function save(): Promise<OrderDetail | null> {
       docDate: form.docDate || undefined,
       deliveryWantedBy: form.deliveryWantedBy || null,
       contactName: form.contactName,
+      contactPhone: form.contactPhone,
+      billingName: form.billingName,
+      billingAddress: form.billingAddress,
+      paymentMode: form.paymentMode,
+      paymentMethod: form.paymentMode === 'PAID' || form.paymentMode === 'COD' ? form.paymentMethod : '',
       customerPoRef: form.customerPoRef,
       project: form.project,
       deliveryAddress: form.deliveryAddress,
       ...(askInstallation.value && {
         installOption: form.installOption,
         installDate: form.installOption === 'INSTALLATION' ? form.installDate || null : null,
+        siteType: form.installOption === 'INSTALLATION' ? form.siteType : '',
+        jobCategory: form.installOption === 'INSTALLATION' ? form.jobCategory : '',
         deliveryPostcode: form.deliveryPostcode.trim(),
         deliveryState: form.deliveryState,
       }),
@@ -798,6 +851,10 @@ const viewRows = computed<ViewRow[]>(() => {
             <input v-if="editable" id="so-contact" v-model="form.contactName" class="erp-input" maxlength="100" />
             <div v-else class="erp-input-ro">{{ form.contactName || '—' }}</div>
           </FormField>
+          <FormField label="Contact phone" for="so-phone">
+            <input v-if="editable" id="so-phone" v-model="form.contactPhone" class="erp-input" maxlength="30" placeholder="Empty: the customer's" />
+            <div v-else class="erp-input-ro">{{ form.contactPhone || '—' }}</div>
+          </FormField>
           <FormField label="Order date" for="so-date">
             <DatePicker v-if="editable" input-id="so-date" :model-value="isoToDate(form.docDate)" date-format="d M yy" show-icon fluid class="erp-date" @update:model-value="form.docDate = dateToIso($event)" />
             <div v-else class="erp-input-ro">{{ formatDate(form.docDate) }}</div>
@@ -835,6 +892,28 @@ const viewRows = computed<ViewRow[]>(() => {
             <input v-if="editable" id="so-address" v-model="form.deliveryAddress" class="erp-input" maxlength="300" />
             <div v-else class="erp-input-ro">{{ form.deliveryAddress || '—' }}</div>
           </FormField>
+          <FormField label="Billing name" for="so-bill-name">
+            <input v-if="editable" id="so-bill-name" v-model="form.billingName" class="erp-input" maxlength="150" placeholder="Empty: the customer's" />
+            <div v-else class="erp-input-ro">{{ form.billingName || '—' }}</div>
+          </FormField>
+          <FormField label="Billing address" for="so-bill-address">
+            <input v-if="editable" id="so-bill-address" v-model="form.billingAddress" class="erp-input" maxlength="300" placeholder="Empty: the customer's" />
+            <div v-else class="erp-input-ro">{{ form.billingAddress || '—' }}</div>
+          </FormField>
+          <FormField label="Payment" for="so-pay-mode">
+            <select v-if="editable" id="so-pay-mode" v-model="form.paymentMode" class="erp-input">
+              <option value="">Not said</option>
+              <option v-for="m in PAYMENT_MODES" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+            <div v-else class="erp-input-ro">{{ order?.paymentModeLabel ?? '—' }}</div>
+          </FormField>
+          <FormField label="Paid by" for="so-pay-method">
+            <select v-if="editable" id="so-pay-method" v-model="form.paymentMethod" class="erp-input" :disabled="form.paymentMode !== 'PAID' && form.paymentMode !== 'COD'">
+              <option value="">Not said</option>
+              <option v-for="m in PAYMENT_METHODS" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+            <div v-else class="erp-input-ro">{{ order?.paymentMethodLabel ?? '—' }}</div>
+          </FormField>
 
           <template v-if="askInstallation">
             <FormField data-tour="so:postcode" label="Postcode" :error="errors.deliveryPostcode" for="so-postcode">
@@ -854,6 +933,20 @@ const viewRows = computed<ViewRow[]>(() => {
                 <option v-for="o in INSTALL_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
               </select>
               <div v-else class="erp-input-ro">{{ order?.installation.optionLabel ?? '—' }}</div>
+            </FormField>
+            <FormField data-tour="so:site-type" label="Site" :error="errors.siteType" for="so-site-type">
+              <select v-if="editable" id="so-site-type" v-model="form.siteType" class="erp-input" :disabled="form.installOption !== 'INSTALLATION'">
+                <option value="">Not given</option>
+                <option v-for="s in SITE_TYPES" :key="s.value" :value="s.value">{{ s.label }}</option>
+              </select>
+              <div v-else class="erp-input-ro">{{ order?.installation.siteTypeLabel ?? '—' }}</div>
+            </FormField>
+            <FormField v-if="categories.length" data-tour="so:job-category" label="Job category" for="so-job-category">
+              <select v-if="editable" id="so-job-category" v-model="form.jobCategory" class="erp-input" :disabled="form.installOption !== 'INSTALLATION'">
+                <option value="">Not given</option>
+                <option v-for="c in categoryOptions" :key="c.code" :value="c.code">{{ c.name }} ({{ hours(c.minutes) }})</option>
+              </select>
+              <div v-else class="erp-input-ro">{{ order?.installation.jobCategory ? categoryName(order.installation.jobCategory) : '—' }}</div>
             </FormField>
             <FormField data-tour="so:install-date" :data-filled="form.installDate ? 'true' : 'false'" label="Preferred date" :error="errors.installDate" for="so-install-date">
               <DatePicker

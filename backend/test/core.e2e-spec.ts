@@ -416,8 +416,15 @@ describe('Core (end to end)', () => {
     });
 
     it('makes a prospect a customer, blocks and deletes it; its number is never used again', async () => {
-      const res = await api.call('POST', 'core/customers', 'ADM', { ...newCustomer, name: 'Kedai Baru', status: 'PROSPECT' });
+      // Phase 5: the same phone as C-0103 is shown first; the office adds it once it says it is someone else.
+      const looks = await api.call<{ code: string; message: string }>('POST', 'core/customers', 'ADM', { ...newCustomer, name: 'Kedai Baru', status: 'PROSPECT' });
+      expect(looks).toMatchObject({ status: 409, body: { code: 'SAME_CUSTOMER' } });
+      expect(looks.body.message).toContain('C-0103 Taman Indah Hotel (same phone number)');
+      const checked = await api.call<{ items: { code: string; same: boolean }[] }>('POST', 'core/customers/check', 'ADM', { name: 'Kedai Baru', phone: newCustomer.phone });
+      expect(checked.body.items).toMatchObject([{ code: 'C-0103', same: true }]);
+      const res = await api.call('POST', 'core/customers', 'ADM', { ...newCustomer, name: 'Kedai Baru', status: 'PROSPECT', notDuplicate: true });
       let c = res.body as Customer;
+      expect(c.activity.map((a) => a.message)).toEqual(['Prospect C-0104 created, although it looks like C-0103 Taman Indah Hotel (same phone number)']);
       expect(c).toMatchObject({ code: 'C-0104', status: 'PROSPECT' });
       expect(c.allowedActions).toEqual(['edit', 'editCredit', 'activate', 'block', 'delete']);
       const act = async (action: string) => {
@@ -430,7 +437,7 @@ describe('Core (end to end)', () => {
       expect(c.activity.map((a) => a.message)).toContain('Prospect C-0104 made a customer');
       expect(await act('block')).toBe('BLOCKED');
       expect(await api.call('DELETE', `core/customers/${c.id}?version=${c.version}`, 'ADM')).toMatchObject({ status: 200, body: { deleted: true, code: 'C-0104' } });
-      const next = await api.call('POST', 'core/customers', 'ADM', { ...newCustomer, name: 'Kedai Baru 2' });
+      const next = await api.call('POST', 'core/customers', 'ADM', { ...newCustomer, name: 'Kedai Baru 2', notDuplicate: true });
       expect((next.body as Customer).code).toBe('C-0105');
     });
   });
@@ -1034,8 +1041,9 @@ describe('Core (end to end)', () => {
       const before = await count();
       const check = await upload('check', 'customers', csv);
       expect(check.status).toBe(201);
+      // Phase 5: C-0103 (added in C3) has the same name, so the preview says so; loading still adds the row.
       expect(results(check.body)).toEqual([
-        ['new', 'New customer'],
+        ['new', 'New customer · looks like C-0103 Taman Indah Hotel (same name)'],
         ['update', 'Update: phone'],
         ['problem', 'Branch KL is not in Master Data'],
       ]);

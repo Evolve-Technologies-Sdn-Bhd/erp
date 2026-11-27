@@ -12,6 +12,7 @@ export const SAL_ENTITY = {
   CANCEL_ORDER: 'SAL_CANCEL_ORDER',
   RECEIPT: 'SAL_RECEIPT',
   VOUCHER: 'SAL_VOUCHER',
+  TARGET: 'SAL_TARGET',
 } as const;
 
 export type SalEntityType = (typeof SAL_ENTITY)[keyof typeof SAL_ENTITY];

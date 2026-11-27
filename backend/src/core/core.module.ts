@@ -44,14 +44,16 @@ import { CoreUsageQuery } from './usage/usage.query';
 import { CoreWarehousesController } from './warehouses/warehouses.controller';
 import { WarehousesQuery } from './warehouses/warehouses.query';
 import { WarehousesService } from './warehouses/warehouses.service';
+import { CoreCustomerTransfersController } from './customers/transfers.controller';
+import { CustomerTransfersService } from './customers/transfers.service';
 
 /**
  * The Core module (CLAUDE.md → Phase 3): the only writer of the mdm_ tables. Purchase and Sales keep reading them
  * through MasterDataPort. Never imports from purchase/ or sales/, and never reads their tables.
  */
 @Module({
-  controllers: [CoreDashboardController, CoreUsageController, CoreLookupsController, CoreItemsController, CoreUomsController, CoreCustomersController, CoreSuppliersController, CorePriceListsController, CorePackagesController, CoreTaxCodesController, CoreReferenceController, CoreWarehousesController, CoreImportsController],
-  providers: [CoreDashboardQuery, CoreRecordsService, CorePictures, CoreUsageQuery, ItemsQuery, ItemsService, UomsQuery, UomsService, CustomersQuery, CustomersService, SuppliersQuery, SuppliersService, PriceListsQuery, PriceListsService, PackagesQuery, PackagesService, TaxCodesQuery, TaxCodesService, ReferenceQuery, ReferenceService, WarehousesQuery, WarehousesService, ImportsService, CustomerImporter, SupplierImporter, ItemImporter, PriceImporter],
+  controllers: [CoreDashboardController, CoreUsageController, CoreLookupsController, CoreItemsController, CoreUomsController, CoreCustomersController, CoreCustomerTransfersController, CoreSuppliersController, CorePriceListsController, CorePackagesController, CoreTaxCodesController, CoreReferenceController, CoreWarehousesController, CoreImportsController],
+  providers: [CoreDashboardQuery, CoreRecordsService, CorePictures, CoreUsageQuery, ItemsQuery, ItemsService, UomsQuery, UomsService, CustomersQuery, CustomersService, CustomerTransfersService, SuppliersQuery, SuppliersService, PriceListsQuery, PriceListsService, PackagesQuery, PackagesService, TaxCodesQuery, TaxCodesService, ReferenceQuery, ReferenceService, WarehousesQuery, WarehousesService, ImportsService, CustomerImporter, SupplierImporter, ItemImporter, PriceImporter],
 })
 export class CoreModule implements OnModuleInit {
   constructor(
@@ -59,12 +61,18 @@ export class CoreModule implements OnModuleInit {
     private readonly scopes: ScopeRegistry,
     private readonly onboarding: CustomerOnboarding,
     private readonly customers: CustomersService,
+    private readonly transfers: CustomerTransfersService,
   ) {}
 
   onModuleInit(): void {
     this.permissions.register(CORE_PERMISSION_CATALOGUE);
     this.scopes.register(CORE_SCOPE_RULES);
     // Phase 5: a salesperson adds a customer from an order; Sales asks, Core writes it.
-    this.onboarding.register({ addFromOrder: (ctx, input) => this.customers.addFromOrder(ctx, input) });
+    this.onboarding.register({
+      addFromOrder: (ctx, input) => this.customers.addFromOrder(ctx, input),
+      lookalikes: (ctx, typed) => this.transfers.matches(ctx, typed),
+      askTransfer: (ctx, input) => this.transfers.request(ctx, input),
+      myTransfers: (ctx) => this.transfers.mine(ctx),
+    });
   }
 }

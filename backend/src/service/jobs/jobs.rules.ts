@@ -79,13 +79,19 @@ export interface ReleasedOrder {
   state: string | null;
   preferredDate: string | null;
   afterStock: boolean;
+  /** The install site the salesperson picked (phase 5), LANDED, CONDO or COMMERCIAL; null when not given. */
+  siteType: string | null;
+  /** The job category the salesperson picked: a slot group code (phase 5); null when not given. */
+  category: string | null;
+  /** The phone for this order, when the salesperson gave one other than the customer's (phase 5). */
+  contactPhone: string | null;
   lines: { itemCode: string; uomCode: string; qty: string }[];
 }
 
 export function readReleasedOrder(payload: unknown): ReleasedOrder | null {
   const p = payload as Record<string, unknown> | null;
   if (!p || typeof p.soNo !== 'string' || typeof p.customerCode !== 'string' || typeof p.branchCode !== 'string') return null;
-  const inst = p.installation as { option?: unknown; preferredDate?: unknown; afterStock?: unknown } | null | undefined;
+  const inst = p.installation as { option?: unknown; preferredDate?: unknown; afterStock?: unknown; siteType?: unknown; category?: unknown } | null | undefined;
   if (!inst || inst.option !== 'INSTALLATION') return null;
   const lines = Array.isArray(p.lines) ? p.lines : [];
   return {
@@ -103,6 +109,9 @@ export function readReleasedOrder(payload: unknown): ReleasedOrder | null {
     state: typeof p.deliveryState === 'string' && p.deliveryState ? p.deliveryState : null,
     preferredDate: typeof inst.preferredDate === 'string' ? inst.preferredDate : null,
     afterStock: inst.afterStock === true,
+    siteType: typeof inst.siteType === 'string' && ['LANDED', 'CONDO', 'COMMERCIAL'].includes(inst.siteType) ? inst.siteType : null,
+    category: typeof inst.category === 'string' && inst.category ? inst.category : null,
+    contactPhone: typeof p.contactPhone === 'string' && p.contactPhone ? p.contactPhone : null,
     lines: lines
       .map((l) => l as { itemCode?: unknown; uomCode?: unknown; qty?: unknown })
       .filter((l) => typeof l.itemCode === 'string' && typeof l.qty === 'string')

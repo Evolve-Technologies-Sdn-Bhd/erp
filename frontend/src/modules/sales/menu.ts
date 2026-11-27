@@ -12,6 +12,7 @@ import {
   MessageSquare,
   ReceiptText,
   Shield,
+  Target,
   Ticket,
   Truck,
   Undo2,
@@ -73,6 +74,8 @@ export const SALES_MENU: MenuGroup[] = [
       { key: 'sales-flow', label: 'Sales Flow', to: '/sales/settings/sales-flow', icon: Workflow },
       // Phase 5: shown only with the Sales Flow switch "Vouchers come from the voucher list".
       { key: 'vouchers', label: 'Vouchers', to: '/sales/settings/vouchers?status=running', icon: Ticket },
+      // Phase 5: each branch's monthly target and its salespeople's share (the phone's Sales home shows it).
+      { key: 'targets', label: 'Sales Targets', to: '/sales/settings/targets', icon: Target },
       { key: 'document-types', label: 'Document Types', to: '/sales/settings/document-types', icon: File },
       { key: 'enquiry-types', label: 'Enquiry Types', to: '/sales/settings/enquiry-types', icon: ListChecks },
       { key: 'excluded-items', label: 'Excluded Items', to: '/sales/settings/excluded-items', icon: Ban },

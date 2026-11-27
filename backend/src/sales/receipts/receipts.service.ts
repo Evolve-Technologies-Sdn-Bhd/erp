@@ -9,6 +9,8 @@ import { BusinessRuleError, StaleVersionError, ValidationFailedError, type Field
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
 import { InvoicePayments } from '../shared/invoice-payments.service';
+import { NotificationsService } from '../../platform/notifications/notifications.service';
+import { SALES_PERMISSIONS as P } from '../sales.permissions';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT } from '../shared/sales.constants';
 import type { CreateReceiptDto, ReceiptReasonDto, UpdateReceiptDto, VerifyReceiptDto } from './dto/receipt.dto';
@@ -35,6 +37,7 @@ export class ReceiptsService {
     private readonly outbox: OutboxWriter,
     private readonly clock: ClockService,
     private readonly attachments: AttachmentsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(ctx: RequestContext, dto: CreateReceiptDto) {
@@ -65,6 +68,12 @@ export class ReceiptsService {
       const what = `${receiptText(r)}, received ${dateText(dto.docDate)}`;
       await this.log(tx, ctx, SAL_ENTITY.RECEIPT, r.id, docNo, 'recorded', `Recorded by ${ctx.user.name}: ${what} · waiting for Account`, r.note);
       await this.log(tx, ctx, SAL_ENTITY.ORDER, order.id, order.docNo, 'payment_recorded', `${docNo} recorded: ${what} · waiting for Account`);
+      // Alerts (phase 5): Account hears that a receipt waits to be verified.
+      await this.notifications.send(tx, ctx, {
+        to: await this.notifications.whoCan(ctx.tenantId, P.RECEIPT_VERIFY, order.branchCode), kind: 'sales.receipt.recorded',
+        title: `${docNo} waits to be verified`, body: `${what} · ${order.docNo}, ${order.customerName} · recorded by ${ctx.user.name}`,
+        link: `/sales/receipts/${r.id}`, entityType: SAL_ENTITY.RECEIPT, entityId: r.id,
+      });
       return r.id;
     });
     return this.query.detail(ctx, id);
@@ -118,7 +127,7 @@ export class ReceiptsService {
     this.require(ctx, r, 'verify', r.status === 'RETURNED' ? `${r.docNo} was sent back and waits to be corrected.` : `${r.docNo} is ${r.status.toLowerCase()} and is not waiting to be verified.`);
     const reference = dto.reference.trim();
     if (!reference) throw ValidationFailedError.field('reference', 'Type the bank transaction or card settlement reference it matches.');
-    const order = await this.prisma.salSalesOrder.findFirstOrThrow({ where: { tenantId: ctx.tenantId, id: r.salesOrderId }, select: { id: true, docNo: true, total: true } });
+    const order = await this.prisma.salSalesOrder.findFirstOrThrow({ where: { tenantId: ctx.tenantId, id: r.salesOrderId }, select: { id: true, docNo: true, total: true, agentCode: true } });
 
     await this.prisma.$transaction(async (tx) => {
       await this.bump(tx, ctx, r.id, dto.version, { status: 'VERIFIED', verifiedRef: reference, verifiedAt: this.clock.now(), verifiedByCode: ctx.user.code, verifiedByName: ctx.user.name }, ['WAITING']);
@@ -128,6 +137,12 @@ export class ReceiptsService {
       await this.log(tx, ctx, SAL_ENTITY.RECEIPT, r.id, r.docNo, 'verified', `Verified by ${ctx.user.name} against ${reference}`);
       await this.log(tx, ctx, SAL_ENTITY.ORDER, order.id, order.docNo, 'payment_verified',
         `${r.docNo} verified: ${receiptText(r)} · ${pay.label}, ${toRm(pay.verified)} of ${toRm(order.total)}`);
+      // Alerts (phase 5): whoever recorded it and the order's salesperson.
+      await this.notifications.send(tx, ctx, {
+        to: [r.recordedByCode, order.agentCode], kind: 'sales.receipt.verified', title: `${r.docNo} verified`,
+        body: `${receiptText(r)} · ${order.docNo}: ${pay.label}, ${toRm(pay.verified)} of ${toRm(order.total)}`,
+        link: `/sales/orders/${order.id}`, entityType: SAL_ENTITY.ORDER, entityId: order.id,
+      });
       await this.outbox.publish(tx, ctx, [{
         name: SAL_EVENT.RECEIPT_VERIFIED, aggregateType: SAL_ENTITY.RECEIPT, aggregateId: r.id,
         payload: {
@@ -150,6 +165,12 @@ export class ReceiptsService {
       await this.bump(tx, ctx, r.id, dto.version, { status: 'RETURNED', returnReason: reason }, ['WAITING']);
       await this.log(tx, ctx, SAL_ENTITY.RECEIPT, r.id, r.docNo, 'sent_back', `Sent back by ${ctx.user.name}`, reason);
       await this.log(tx, ctx, SAL_ENTITY.ORDER, r.salesOrderId, r.salesOrderNo, 'payment_sent_back', `${r.docNo} sent back by Account`, reason);
+      const agent = (await tx.salSalesOrder.findFirst({ where: { id: r.salesOrderId }, select: { agentCode: true } }))?.agentCode;
+      await this.notifications.send(tx, ctx, {
+        to: [r.recordedByCode, agent ?? ''], kind: 'sales.receipt.sent_back', title: `${r.docNo} sent back by Account`,
+        body: `${receiptText(r)} · ${r.salesOrderNo}: ${reason}. Correct it and send it again.`,
+        link: `/sales/orders/${r.salesOrderId}`, entityType: SAL_ENTITY.ORDER, entityId: r.salesOrderId,
+      });
     });
     return this.query.detail(ctx, id);
   }
