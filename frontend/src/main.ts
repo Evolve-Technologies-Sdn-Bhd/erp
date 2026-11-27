@@ -10,6 +10,9 @@ import Aura from '@primeuix/themes/aura'
 
 import App from './App.vue'
 import router from './router'
+import { applyTheme } from './composables/useTheme'
+
+applyTheme()
 
 /**
  * PrimeVue for the heavy widgets (DataTable, Select, DatePicker, Dialog, Toast). Its primary colour points at
@@ -60,7 +63,7 @@ createApp(App)
     theme: {
       preset: ErpPreset,
       options: {
-        darkModeSelector: false,
+        darkModeSelector: '.dark',
         cssLayer: { name: 'primevue', order: 'theme, base, primevue, components, utilities' },
       },
     },

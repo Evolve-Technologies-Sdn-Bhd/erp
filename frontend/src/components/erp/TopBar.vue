@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { Bell, Menu } from '@lucide/vue'
+import { Bell, Menu, Moon, Sun } from '@lucide/vue'
+import { useTheme } from '@/composables/useTheme'
 import { useApprovalsCount } from '@/composables/useApprovalsCount'
 import { useSession } from '@/composables/useSession'
 import { useShell } from '@/composables/useShell'
@@ -21,6 +22,7 @@ import PageSearch from './PageSearch.vue'
  */
 const props = withDefaults(defineProps<{ module?: ModuleDef | null; home?: boolean }>(), { module: null, home: false })
 const shell = useShell()
+const { theme, toggle: toggleTheme } = useTheme()
 const { today, now } = useSession()
 const { count: approvals } = useApprovalsCount(() => props.module)
 
@@ -69,6 +71,10 @@ onBeforeUnmount(() => clearInterval(timer))
         <span v-if="approvals" class="rounded-full bg-mod-primary px-[7px] py-px text-[11px] font-semibold text-erp-on-dark">{{ approvals }}</span>
       </RouterLink>
       <BranchSwitch v-if="module" data-tour="branch" />
+      <button type="button" class="tb-btn" :aria-label="theme === 'dark' ? 'Light mode' : 'Dark mode'" :title="theme === 'dark' ? 'Light mode' : 'Dark mode'" @click="toggleTheme">
+        <Sun v-if="theme === 'dark'" :size="16" aria-hidden="true" />
+        <Moon v-else :size="16" aria-hidden="true" />
+      </button>
       <AlertsButton />
       <HelpButton />
       <AccountMenu data-tour="account" :variant="module ? 'module' : 'launcher'" />

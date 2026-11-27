@@ -334,3 +334,97 @@
 }
 
 /* On the launcher no module is open, so the tours take its graphite (the --mod-* defaults above). */
+
+/* ── Dark mode (U5, the MES dark palette): html.dark, toggled in the top bar ── */
+html.dark {
+  color-scheme: dark;
+  --erp-shell: #0c0c0f;
+  --erp-bg: #16161a;
+  --erp-card: #1a1a1f;
+  --erp-border: #2a2a30;
+  --erp-row-border: rgb(255 255 255 / 0.06);
+  --erp-head-bg: rgb(255 255 255 / 0.03);
+  --erp-hover-bg: rgb(255 255 255 / 0.04);
+  --erp-input-border: #33333a;
+  --erp-input-border-strong: #475467;
+  --erp-focus-border: #667085;
+  --erp-focus-ring: rgb(255 255 255 / 0.08);
+  --erp-placeholder: #71717a;
+  --erp-text: #f4f4f5;
+  --erp-text-soft: #d4d4d8;
+  --erp-muted: #98a2b3;
+  --erp-subtle: #c4c4cc;
+  --erp-track: rgb(255 255 255 / 0.08);
+  --erp-muted-bg: rgb(255 255 255 / 0.07);
+  --erp-muted-bg-hover: rgb(255 255 255 / 0.11);
+  --erp-off-text: #667085;
+  --erp-off-bg: rgb(255 255 255 / 0.03);
+  --erp-gray-100: rgb(255 255 255 / 0.08);
+  --erp-gray-200: #2a2a30;
+  --erp-gray-300: #3a3a40;
+  --erp-scroll-thumb: rgb(255 255 255 / 0.2);
+  --erp-scroll-thumb-hover: rgb(255 255 255 / 0.32);
+  --erp-panel-ring: rgb(255 255 255 / 0.05);
+  --erp-card-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --erp-dialog-foot-border: #2a2a30;
+  --dd-bg: #202024;
+  --dd-border: #33333a;
+  --dd-shadow: 0 22px 55px rgb(0 0 0 / 0.34), 0 0 0 1px rgb(255 255 255 / 0.02);
+  --dd-ink: #e4e4e7;
+  --dd-hover: rgb(255 255 255 / 0.08);
+  --chip-draft-bg: rgb(255 255 255 / 0.06);
+  --chip-draft-border: rgb(255 255 255 / 0.14);
+  --chip-draft-text: #d0d5dd;
+  --chip-pending-bg: rgb(247 144 9 / 0.14);
+  --chip-pending-border: rgb(247 144 9 / 0.34);
+  --chip-pending-text: #fec84b;
+  --chip-pending-dot: #fdb022;
+  --chip-released-bg: rgb(46 144 250 / 0.14);
+  --chip-released-border: rgb(46 144 250 / 0.34);
+  --chip-released-text: #84caff;
+  --chip-released-dot: #53b1fd;
+  --chip-partial-bg: rgb(122 90 248 / 0.16);
+  --chip-partial-border: rgb(122 90 248 / 0.36);
+  --chip-partial-text: #bdb4fe;
+  --chip-partial-dot: #9b8afb;
+  --chip-done-bg: rgb(23 178 106 / 0.14);
+  --chip-done-border: rgb(23 178 106 / 0.34);
+  --chip-done-text: #75e0a7;
+  --chip-done-dot: #47cd89;
+  --chip-cancelled-bg: rgb(240 68 56 / 0.14);
+  --chip-cancelled-border: rgb(240 68 56 / 0.36);
+  --chip-cancelled-text: #fda29b;
+  --chip-cancelled-dot: #f97066;
+  --note-warn-bg: rgb(247 144 9 / 0.1);
+  --note-warn-border: rgb(247 144 9 / 0.3);
+  --note-warn-text: #fedf89;
+  --note-warn-strong: #fdb022;
+  --note-error-bg: rgb(240 68 56 / 0.1);
+  --note-error-border: rgb(240 68 56 / 0.3);
+  --note-error-text: #fda29b;
+  --attention-text: #fdb022;
+  --btn-danger-text: #fda29b;
+  --btn-danger-border: rgb(240 68 56 / 0.4);
+  --btn-danger-hover-bg: rgb(240 68 56 / 0.12);
+  --btn-import: #c4c4cc;
+  --btn-export: #c4c4cc;
+  --toast-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
+}
+/* Module tints in the dark: a translucent wash of the module colour, lighter links and ticks */
+html.dark,
+html.dark [data-module] {
+  --mod-light: color-mix(in srgb, var(--mod-side) 16%, transparent);
+  --mod-light-border: color-mix(in srgb, var(--mod-side) 40%, transparent);
+  --mod-chip-bg: color-mix(in srgb, var(--mod-side) 22%, transparent);
+  --mod-chip-text: color-mix(in srgb, var(--mod-side) 45%, white);
+  --erp-link: color-mix(in srgb, var(--mod-side) 55%, white);
+  --dd-check: color-mix(in srgb, var(--mod-side) 55%, white);
+}
+/* Paper stays paper: print previews and A4 sheets keep the light values */
+html.dark .erp-sheet {
+  --erp-card: #ffffff;
+  --erp-text: #18181b;
+  --erp-muted: #667085;
+  --erp-row-border: #f2f4f7;
+  color-scheme: light;
+}
