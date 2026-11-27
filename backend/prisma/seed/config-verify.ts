@@ -37,7 +37,7 @@ export async function verifyConfigSeed(ctx: SeedCtx): Promise<Check[]> {
 
   expect(
     'Permission catalogue (per module · total)',
-    'Purchase 17 · Sales 24 · Core 11 · Configuration 7 · WMS 1 · 60',
+    'Purchase 17 · Sales 25 · Core 11 · Configuration 7 · WMS 1 · 61',
     [...CATALOGUE.map((m) => `${m.label} ${m.permissions.length}`), String(CATALOGUE.reduce((n, m) => n + m.permissions.length, 0))].join(' · '),
   );
 
@@ -78,7 +78,7 @@ export async function verifyConfigSeed(ctx: SeedCtx): Promise<Check[]> {
   const home = await new ConfigDashboardQuery(prisma as PrismaService, clock, catalogue).summary({ tenantId } as RequestContext);
   expect(
     'Configuration home cards',
-    'Companies 1 · Branches 2 · Users 14 · Roles 16 · Signed in now 0 · Two-factor 0 of 2 · Failed sign-ins 0 · Permissions 60',
+    'Companies 1 · Branches 2 · Users 14 · Roles 16 · Signed in now 0 · Two-factor 0 of 2 · Failed sign-ins 0 · Permissions 61',
     home.cards.map((c) => `${c.label} ${c.value}`).join(' · '),
   );
   expect(

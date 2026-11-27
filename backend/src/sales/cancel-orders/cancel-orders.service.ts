@@ -7,6 +7,7 @@ import { dec, toQty, toRmText } from '../../platform/http/decimal';
 import { BusinessRuleError, StaleVersionError, ValidationFailedError } from '../../platform/http/errors';
 import { NumberingService } from '../../platform/numbering/numbering.service';
 import { OutboxWriter } from '../../platform/outbox/outbox.writer';
+import { NotificationsService } from '../../platform/notifications/notifications.service';
 import { PrismaService, type Tx } from '../../platform/prisma/prisma.service';
 import { openToDeliver } from '../deliveries/delivery.rules';
 import { cancelAfterDelivery } from '../deliveries/signed-delivery.rules';
@@ -34,6 +35,7 @@ export class CancelOrdersService {
     private readonly outbox: OutboxWriter,
     private readonly clock: ClockService,
     private readonly permissions: PermissionRegistry,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async create(ctx: RequestContext, dto: CreateCancelDto) {
@@ -60,6 +62,13 @@ export class CancelOrdersService {
       });
       await tx.sysDocLink.create({ data: { tenantId: ctx.tenantId, fromType: SAL_ENTITY.ORDER, fromId: order.id, fromNo: order.docNo, toType: SAL_ENTITY.CANCEL_ORDER, toId: row.id, toNo: docNo, linkType: SAL_LINK.CANCELLED } });
       await this.log(tx, ctx, row.id, docNo, 'created', `Drafted by ${ctx.user.name} · ${built.summary} · waiting for the Sales Manager to release`);
+      // Alerts (phase 5): whoever releases cancellations at the branch (a salesperson's request reaches the office). The
+      // automatic cancel drafts and releases at once, as the system, and tells people itself.
+      if (ctx.user.code !== 'SYSTEM') await this.notifications.send(tx, ctx, {
+        to: await this.notifications.whoCan(ctx.tenantId, P.CANCEL_ORDER_RELEASE, order.branchCode), kind: 'sales.cancel.requested',
+        title: `${docNo} waits to be released`, body: `${order.docNo}, ${order.customerName}: ${built.summary} · asked by ${ctx.user.name}${dto.reason ? ` · ${dto.reason}` : ''}`,
+        link: `/sales/cancel-orders/${row.id}`, entityType: SAL_ENTITY.CANCEL_ORDER, entityId: row.id,
+      });
       return row;
     });
     return this.query.detail(ctx, id);
@@ -130,6 +139,13 @@ export class CancelOrdersService {
       const qty = qtyText(c.lines.reduce((s, l) => s.add(l.cancelQty), dec(0)));
       const linkedPo = counted.filter((x) => x.so.isBuyToOrder && x.so.purchaseOrderNo).map((x) => x.so.purchaseOrderNo!);
       await this.log(tx, ctx, c.id, c.docNo, 'released', `Released by ${ctx.user.name} · ${qty} cancelled on ${order.docNo}, ${toRmText(c.total)} · nothing posted`);
+      // The order's salesperson and whoever asked (the automatic cancel tells them itself).
+      if (!bySystem) {
+        await this.notifications.send(tx, ctx, {
+          to: [order.agentCode, c.createdBy], kind: 'sales.cancel.released', title: `${c.docNo} released: ${order.docNo} ${next.balanceCancelled ? 'cancelled' : 'partly cancelled'}`,
+          body: `${qty} cancelled, ${toRmText(c.total)} · by ${ctx.user.name}`, link: `/sales/orders/${order.id}`, entityType: SAL_ENTITY.ORDER, entityId: order.id,
+        });
+      }
       await this.activity.log(tx, ctx, {
         entityType: SAL_ENTITY.ORDER, entityId: order.id, docNo: order.docNo, action: 'balance_cancelled',
         message: `${c.docNo} released: ${qty} cancelled${next.balanceCancelled ? ' · order closed, balance cancelled' : ''}${linkedPo.length ? ` · Purchase told about ${linkedPo.join(', ')}` : ''}`, comment: null,

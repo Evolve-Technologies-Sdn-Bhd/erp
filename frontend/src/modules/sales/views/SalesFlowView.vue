@@ -40,6 +40,7 @@ const HINT: Record<keyof SalesFlowSwitches, string> = {
   useEnquiries: 'Off: Enquiry is hidden from the menu and cannot be created.',
   officeDraftsQuotations: 'Off: Draft Quotation is hidden. Sales agents build the quotation with the customer.',
   askInstallation: 'Installation, delivery only, or collect. An order with installation makes a job for the office to book.',
+  installDateLater: 'On: an order whose items are all in stock is released without the date; the office agrees it with the customer when booking.',
   agentsAddCustomers: 'A + New customer link on the sales order, for households that are not in the list yet.',
   fixedPrices: 'On a quotation and a sales order the price is the customer’s price list. What lowers it is a voucher.',
   voucherControl: 'Salespeople pick a voucher Sales Support has set up (Operation Policies › Vouchers). Off: they type its number and amount.',
@@ -218,7 +219,11 @@ async function save() {
         <span><span class="block text-[13px] font-bold">{{ data.labels.askInstallation }}</span><span class="text-xs text-erp-subtle">{{ HINT.askInstallation }}</span></span>
         <SwitchToggle v-model="draft.askInstallation" :label="data.labels.askInstallation" :disabled="!canManage" />
       </div>
-      <p class="m-0 text-xs text-erp-muted">When it is on, the customer's preferred installation date is needed to release an order whose items are all in stock. With items short, installation is arranged when stock arrives.</p>
+      <div class="flex items-center justify-between gap-4 py-1" :class="{ 'opacity-50': !draft.askInstallation }">
+        <span><span class="block text-[13px] font-bold">{{ data.labels.installDateLater }}</span><span class="text-xs text-erp-subtle">{{ HINT.installDateLater }}</span></span>
+        <SwitchToggle v-model="draft.installDateLater" :label="data.labels.installDateLater" :disabled="!canManage || !draft.askInstallation" />
+      </div>
+      <p class="m-0 text-xs text-erp-muted">When it is on, the customer's preferred installation date is needed to release an order whose items are all in stock, unless the date can be agreed later. With items short, installation is arranged when stock arrives.</p>
       <div class="flex items-center justify-between gap-4 py-1">
         <span><span class="block text-[13px] font-bold">{{ data.labels.holdStock }}</span><span class="text-xs text-erp-subtle">{{ HINT.holdStock }}</span></span>
         <SwitchToggle v-model="draft.holdStock" :label="data.labels.holdStock" :disabled="!canManage" />

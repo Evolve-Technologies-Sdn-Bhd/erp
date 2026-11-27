@@ -2,6 +2,7 @@ import { api } from '@/api/http'
 import type { ListQuery, ListResponse } from '@/api/list'
 import type {
   NewCustomerInput,
+  SalesTargets,
   CancelDetail,
   CashKpis,
   CashListItem,
@@ -336,6 +337,13 @@ export const salesReceiptsApi = {
     form.append('kind', 'PAYMENT_PROOF')
     return api<{ id: string; fileName: string; mimeType: string; downloadUrl: string }>('/attachments', { method: 'POST', body: form })
   },
+}
+
+/** S38 · Sales targets (phase 5). */
+export const salesTargetsApi = {
+  view: (month?: string) => api<SalesTargets>('/sales/targets', { query: { month } }),
+  save: (body: { month: string; branchCode: string; amount: string | null; agents: { agentCode: string; amount: string | null }[]; version: number }) =>
+    api<SalesTargets>('/sales/targets', { method: 'PUT', body }),
 }
 
 /** S37 · Vouchers (phase 5). */

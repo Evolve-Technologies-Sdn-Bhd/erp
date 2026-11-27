@@ -171,6 +171,29 @@ export class CreateCustomerDto extends CustomerFieldsDto {
   @Transform(upperOrNull)
   @Matches(ENQUIRY_NO, { message: 'Type the enquiry number as Sales shows it, like EQ-2609-0010.' })
   cameFromEnquiry?: string | null;
+
+  /** Phase 5: the customers that look like this one (POST /core/customers/check) were checked and it is someone else. */
+  @IsOptional()
+  @IsBoolean()
+  notDuplicate?: boolean;
+}
+
+/** Phase 5: what to check before adding a customer: the phone, the name and the address. */
+export class CheckCustomerDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  phone?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  address?: string | null;
 }
 
 export class UpdateCustomerDto extends CustomerFieldsDto {

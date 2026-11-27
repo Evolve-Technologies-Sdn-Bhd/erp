@@ -56,12 +56,18 @@ export function installationErrors(f: { installOption: InstallOption | null; ins
 
 /**
  * At release: an installation needs its date when every item is in stock. Items short of stock or bought to order
- * mean installation waits for stock, and then no date is needed now.
+ * mean installation waits for stock, and then no date is needed now. With "The installation date can be agreed later"
+ * on (dateLater), an installation in stock is released without a date too: the office agrees it with the customer when
+ * booking.
  */
-export function releaseInstallation(f: { installOption: string | null; installDate: string | null }, allInStock: boolean): { refusal: string | null; afterStock: boolean } {
+export function releaseInstallation(
+  f: { installOption: string | null; installDate: string | null },
+  allInStock: boolean,
+  dateLater = false,
+): { refusal: string | null; afterStock: boolean } {
   if (f.installOption !== 'INSTALLATION') return { refusal: null, afterStock: false };
   if (!allInStock) return { refusal: null, afterStock: !f.installDate };
-  return { refusal: f.installDate ? null : INSTALL_DATE_REQUIRED, afterStock: false };
+  return { refusal: f.installDate || dateLater ? null : INSTALL_DATE_REQUIRED, afterStock: false };
 }
 
 /** "Thu, 1 Oct 2026", "After stock arrives", "Not set" — the order's installation as the screens show it. */

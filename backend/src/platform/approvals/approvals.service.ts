@@ -4,6 +4,7 @@ import { ClockService } from '../clock/clock.service';
 import type { CurrentUserInfo, RequestContext } from '../context/request-context';
 import { BusinessRuleError, NotFoundError } from '../http/errors';
 import { toMoneyOrNull, type DecimalInput } from '../http/decimal';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService, type Tx } from '../prisma/prisma.service';
 import {
   applyDecision,
@@ -122,12 +123,37 @@ function toView(r: RequestWithSteps): ApprovalRequestView {
  * when the document is submitted and reacts to decide()'s outcome (release, back to draft …), all inside its
  * own transaction. The module also writes its own activity rows and events.
  */
+/** Where an approver decides: the module's Approvals inbox. */
+const approvalInbox = (entityType: string) => (entityType.startsWith('SAL_') ? '/sales/approvals' : entityType.startsWith('PUR_') ? '/purchase/approvals' : null);
+
+/** The document's page on the website (the phone app opens a sales order from the same link). */
+const DOCUMENT_PAGES: Record<string, string> = {
+  SAL_ORDER: '/sales/orders', SAL_QUOTATION: '/sales/quotations', SAL_INVOICE: '/sales/invoices', SAL_DELIVERY: '/sales/deliveries',
+  PUR_REQUEST: '/purchase/requests', PUR_ORDER: '/purchase/orders', PUR_INVOICE: '/purchase/invoices', PUR_DEBIT_NOTE: '/purchase/debit-notes',
+};
+const documentLink = (entityType: string, entityId: string) => (DOCUMENT_PAGES[entityType] ? `${DOCUMENT_PAGES[entityType]}/${entityId}` : approvalInbox(entityType));
+
 @Injectable()
 export class ApprovalsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: ClockService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  /**
+   * Alerts (phase 5): the approver of a step hears that something waits for them; the requester hears the final
+   * decision. Written in the caller's transaction, like every alert.
+   */
+  private async tellApprover(tx: Tx, ctx: RequestContext, r: { entityType: string; entityId: string; docNo: string; title: string; reason: string; requesterNote: string | null; requestedByName: string; branchCode: string }, step: { approverCode: string | null; approverRole: string } | undefined) {
+    if (!step) return;
+    const to = step.approverCode ? [step.approverCode] : await this.notifications.whoHasRole(ctx.tenantId, step.approverRole, r.branchCode);
+    await this.notifications.send(tx, ctx, {
+      to, kind: 'approval.requested', title: `${r.docNo} waits for your approval`,
+      body: `${r.title}: ${r.reason}${r.requesterNote ? ` · “${r.requesterNote}”` : ''} · asked by ${r.requestedByName}`,
+      link: approvalInbox(r.entityType), entityType: r.entityType, entityId: r.entityId,
+    });
+  }
 
   async create(tx: Tx, ctx: RequestContext, input: CreateApprovalInput): Promise<ApprovalRequestView> {
     const steps = initialSteps(input.steps);
@@ -161,6 +187,7 @@ export class ApprovalsService {
       },
       include: { steps: true },
     });
+    await this.tellApprover(tx, ctx, created, created.steps.find((st) => st.stepNo === 1));
     return toView(created);
   }
 
@@ -208,6 +235,17 @@ export class ApprovalsService {
         decidedAt: result.outcome === 'NEXT_STEP' ? null : now,
       },
     });
+
+    if (result.outcome === 'NEXT_STEP') {
+      await this.tellApprover(tx, ctx, request, request.steps.find((st) => st.stepNo === result.currentStep));
+    } else {
+      const approved = result.outcome === 'APPROVED';
+      await this.notifications.send(tx, ctx, {
+        to: [request.requestedByCode], kind: 'approval.decided', title: `${request.docNo} ${approved ? 'approved' : 'rejected'}`,
+        body: `${approved ? 'Approved' : 'Rejected'} by ${ctx.user.name}${comment?.trim() ? `: ${comment.trim()}` : ''}`,
+        link: documentLink(request.entityType, request.entityId), entityType: request.entityType, entityId: request.entityId,
+      });
+    }
 
     return {
       requestId,

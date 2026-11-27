@@ -9,6 +9,8 @@ import { CreateCustomerDto, UpdateCustomerDto } from '../../customers/dto/custom
 import { CustomersService } from '../../customers/customers.service';
 import { duplicateOf, keptCodeProblem, parseAmount } from '../imports.rules';
 import { amountText, finder, outcome, problem, validateDto, type Importer, type ImportOptions, type PlannedRow } from './importer';
+import { lookalikeInput, looksText } from '../../customers/customers.rules';
+import { CustomerTransfersService } from '../../customers/transfers.service';
 
 /** A stored customer as the form's request would send it, so blank cells leave it as it is. */
 function requestOf(c: MdmCustomer): Record<string, unknown> {
@@ -47,6 +49,7 @@ export class CustomerImporter implements Importer {
   constructor(
     private readonly prisma: PrismaService,
     private readonly customers: CustomersService,
+    private readonly transfers: CustomerTransfersService,
     @Inject(MASTER_DATA_PORT) private readonly masterData: MasterDataPort,
   ) {}
 
@@ -141,6 +144,12 @@ export class CustomerImporter implements Importer {
       }
       const preview = await this.customers.preview(ctx, checked.dto, before ?? null);
       const result = outcome(preview, !before, 'customer');
+      // Phase 5: a new customer that looks like one on file (phone, name, address) says so in the preview, so the
+      // office can take the row out before it is applied. Applying still adds it.
+      if (!before && result.status === 'new') {
+        const looks = await this.transfers.matches(ctx, lookalikeInput(checked.dto as CreateCustomerDto));
+        if (looks.length) result.result = `New customer · looks like ${looksText(looks)}`;
+      }
       planned.push({
         ...result,
         code: before?.code ?? kept,

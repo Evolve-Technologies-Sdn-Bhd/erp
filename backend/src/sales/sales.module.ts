@@ -59,6 +59,9 @@ import { SalesOrdersController } from './orders/orders.controller';
 import { SalesOrderFlowQuery } from './orders/order-flow.query';
 import { OrdersQuery } from './orders/orders.query';
 import { OrdersService } from './orders/orders.service';
+import { SalesTargetsController } from './targets/targets.controller';
+import { TargetsService } from './targets/targets.service';
+import { SalesMonthService } from './dashboard/month.service';
 import { SalesVouchersController } from './vouchers/vouchers.controller';
 import { VouchersService } from './vouchers/vouchers.service';
 import { SalesQuotationsController } from './quotations/quotations.controller';
@@ -82,7 +85,7 @@ import { SalesMailService } from './shared/sales-mail.service';
  * MasterDataPort and cross-module effects go out as outbox events.
  */
 @Module({
-  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController, SalesNewCustomersController, SalesReceiptsController, SalesVouchersController],
+  controllers: [SalesDashboardController, SalesApprovalsController, SalesOrdersController, SalesLookupsController, SalesQuotationsController, SalesEnquiriesController, SalesDeliveriesController, SalesInvoicesController, SalesProformasController, SalesCancelOrdersController, SalesReturnsController, SalesDebitNotesController, SalesCashSalesController, SalesSettingsController, SalesReportsController, SalesNewCustomersController, SalesReceiptsController, SalesVouchersController, SalesTargetsController],
   providers: [
     SalesNewCustomersService,
     SalesBuyToOrderListener,
@@ -104,6 +107,8 @@ import { SalesMailService } from './shared/sales-mail.service';
     SalesDocumentLines,
     PriceRules,
     VouchersService,
+    TargetsService,
+    SalesMonthService,
     PackageLines,
     SalesMailService,
     QuotationsQuery,

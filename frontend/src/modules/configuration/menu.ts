@@ -1,4 +1,4 @@
-import { Building2, GitFork, History, KeyRound, ScrollText, Shield, ShieldCheck, User, UserCog, Users } from '@lucide/vue'
+import { Building2, GitFork, History, KeyRound, ScrollText, Shield, ShieldCheck, Smartphone, User, UserCog, Users } from '@lucide/vue'
 import type { MenuGroup } from '../common/menu'
 
 /** Configuration sidebar (CfgHome.html and the other Configuration mockups). Labels exactly as in the mockups. */
@@ -11,6 +11,8 @@ export const CONFIG_MENU: MenuGroup[] = [
     items: [
       { key: 'company', label: 'Company', to: '/config/company', icon: Building2 },
       { key: 'branches', label: 'Branches', to: '/config/branches', icon: GitFork },
+      // Phase 5: what the company's phones show (DuitNow QR, Help contacts).
+      { key: 'phone-app', label: 'Phone App', to: '/config/phone-app', icon: Smartphone },
     ],
   },
   {

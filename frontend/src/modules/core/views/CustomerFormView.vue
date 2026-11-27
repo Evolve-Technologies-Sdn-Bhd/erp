@@ -17,7 +17,8 @@ import { usePageCrumb } from '@/composables/usePageCrumb'
 import { useSession } from '@/composables/useSession'
 import { coreCustomersApi, coreLookupsApi } from '../api/core'
 import InUseCard from '../components/InUseCard.vue'
-import type { CustomerAction, CustomerDetail, CustomerFormOptions, CustomerInput, IdType } from '../types'
+import TransferDecision from '../components/TransferDecision.vue'
+import type { CustomerAction, CustomerDetail, CustomerFormOptions, CustomerInput, CustomerLookalike, IdType } from '../types'
 import { CUSTOMER_STATUS_GROUP } from './customers'
 
 /** C05 · New customer / customer (CoreCustomerForm.html) */
@@ -144,12 +145,25 @@ function body(): CustomerInput {
   }
 }
 
-async function save(status: 'ACTIVE' | 'PROSPECT' = 'ACTIVE') {
+/**
+ * Phase 5: a new customer is checked against every customer first (phone, name, address). What it looks like is shown;
+ * the office opens them to check, and adds it anyway when it is someone else (the activity says so).
+ */
+const looks = ref<{ items: CustomerLookalike[]; status: 'ACTIVE' | 'PROSPECT' } | null>(null)
+
+async function save(status: 'ACTIVE' | 'PROSPECT' = 'ACTIVE', notDuplicate = false) {
   saving.value = true
   errors.value = {}
   try {
+    if (isNew.value && !notDuplicate) {
+      const b = body()
+      const found = await coreCustomersApi.check({ name: b.name, phone: b.phone ?? null, address: b.deliveryAddress || b.billingAddress || null })
+      looks.value = found.items.length ? { items: found.items, status } : null
+      if (found.items.length) return
+    }
+    looks.value = null
     const result = isNew.value
-      ? await coreCustomersApi.create({ ...body(), status, cameFromEnquiry: blankToNull(form.cameFromEnquiry) })
+      ? await coreCustomersApi.create({ ...body(), status, cameFromEnquiry: blankToNull(form.cameFromEnquiry), ...(notDuplicate && { notDuplicate: true }) })
       : await coreCustomersApi.update(id.value, { ...body(), version: customer.value!.version })
     toast.add({
       severity: 'success',
@@ -271,6 +285,28 @@ const blockWaits = 'Block comes back once these are finished or cancelled. Unpai
         </template>
       </PageHeader>
     </section>
+
+    <NoticeBanner v-if="looks" kind="warning">
+      <div class="flex flex-col gap-2">
+        <p class="m-0 text-[13px] font-semibold">
+          {{ looks.items.some((m) => m.same) ? 'This customer seems to be on file already.' : 'This customer may be on file already.' }} Open them to check (they open in a new tab).
+        </p>
+        <ul class="m-0 flex flex-col gap-1 pl-4 text-[13px]">
+          <li v-for="m in looks.items" :key="m.id">
+            <a :href="router.resolve(`/core/customers/${m.id}`).href" target="_blank" rel="noopener" class="erp-link font-semibold">{{ m.code }} · {{ m.name }}</a>
+            <span class="text-erp-muted"> · {{ m.reasonText }} · {{ m.branchCode }}{{ m.agentName ? ` · ${m.agentName}` : '' }}{{ m.status !== 'ACTIVE' ? ` · ${m.status.toLowerCase()}` : '' }}</span>
+          </li>
+        </ul>
+        <div class="flex gap-2">
+          <button type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="save(looks.status, true)">It is someone else · add it</button>
+          <button type="button" class="erp-btn erp-btn-secondary" :disabled="saving" @click="looks = null">Cancel</button>
+        </div>
+      </div>
+    </NoticeBanner>
+
+    <NoticeBanner v-if="customer?.transfer" kind="warning">
+      <TransferDecision :transfer="customer.transfer" @decided="load" />
+    </NoticeBanner>
 
     <NoticeBanner v-if="customer?.addedFromOrder" data-tour="core:to-complete">
       Added by {{ customer.addedFromOrder.by }} from a sales order on {{ formatDateTime(customer.addedFromOrder.at) }}, on cash terms with no credit limit. Check the details, fill

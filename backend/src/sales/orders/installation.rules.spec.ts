@@ -43,6 +43,17 @@ describe('releaseInstallation (the app: required when all items are in stock)', 
     expect(releaseInstallation({ installOption: 'DELIVERY', installDate: null }, true)).toEqual({ refusal: null, afterStock: false });
     expect(releaseInstallation({ installOption: null, installDate: null }, true)).toEqual({ refusal: null, afterStock: false });
   });
+
+  it('releases an installation in stock without a date when the date can be agreed later', () => {
+    expect(releaseInstallation({ installOption: 'INSTALLATION', installDate: null }, true, true)).toEqual({ refusal: null, afterStock: false });
+    expect(releaseInstallation({ installOption: 'INSTALLATION', installDate: '2026-10-01' }, true, true)).toEqual({ refusal: null, afterStock: false });
+    // Short of stock: still waits for the stock, as with the switch off.
+    expect(releaseInstallation({ installOption: 'INSTALLATION', installDate: null }, false, true)).toEqual({ refusal: null, afterStock: true });
+  });
+
+  it('keeps asking for the date with the switch off (the default)', () => {
+    expect(releaseInstallation({ installOption: 'INSTALLATION', installDate: null }, true, false)).toEqual({ refusal: INSTALL_DATE_REQUIRED, afterStock: false });
+  });
 });
 
 describe('installationText', () => {

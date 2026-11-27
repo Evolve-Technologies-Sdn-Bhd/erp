@@ -185,6 +185,26 @@ export interface VoucherOption {
 }
 
 /** S37 · a voucher on the list (phase 5). */
+/** S38 · Sales targets (phase 5): a branch's month and its salespeople's share. */
+export interface TargetBranch {
+  code: string
+  name: string
+  amount: string | null
+  /** The branch-month's version (0 before anything was set) */
+  version: number
+  allocated: string
+  left: string | null
+  over: boolean
+  agents: { code: string; name: string; amount: string | null }[]
+}
+
+export interface SalesTargets {
+  month: string
+  monthText: string
+  canManage: boolean
+  branches: TargetBranch[]
+}
+
 export interface VoucherRow {
   id: string
   voucherNo: string
@@ -1339,6 +1359,8 @@ export interface SalesFlowSwitches {
   useEnquiries: boolean
   officeDraftsQuotations: boolean
   askInstallation: boolean
+  /** An installation with every item in stock may be released without the preferred date (phase 5). */
+  installDateLater: boolean
   agentsAddCustomers: boolean
   /** The price comes from the price list and is never typed on a quotation or sales order (phase 5). */
   fixedPrices: boolean

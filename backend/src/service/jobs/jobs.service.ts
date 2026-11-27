@@ -369,7 +369,7 @@ export class JobsService {
         name: SVC_EVENT.JOB_DONE, aggregateType: SVC_ENTITY.JOB, aggregateId: job.id,
         payload: {
           jobNo: job.docNo, jobType: job.jobType, personId: job.personId, personName: job.personName, date: job.jobDate?.toISOString().slice(0, 10) ?? null,
-          result: dto.result, paidStatus: dto.paidStatus, salesOrderNo: job.salesOrderNo, customerCode: job.customerCode,
+          result: dto.result, paidStatus: dto.paidStatus, salesOrderId: job.salesOrderId, salesOrderNo: job.salesOrderNo, customerCode: job.customerCode,
         },
       }]);
     });

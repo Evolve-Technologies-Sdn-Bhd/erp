@@ -48,6 +48,20 @@ export class NotificationsService {
     return users.filter((u) => this.registry.has(u.roles.map((r) => r.role.code), permission)).map((u) => u.code);
   }
 
+  /** Active users who hold a role today and work in the branch (any branch when null): an approval step's approvers. */
+  async whoHasRole(tenantId: string, roleCode: string, branchCode: string | null): Promise<string[]> {
+    const today = this.clock.todayDate();
+    const users = await this.prisma.sysUser.findMany({
+      where: {
+        tenantId, isActive: true, ...(branchCode && { branches: { some: { branch: { code: branchCode } } } }),
+        roles: { some: { role: { code: roleCode }, AND: [{ OR: [{ validFrom: null }, { validFrom: { lte: today } }] }, { OR: [{ validUntil: null }, { validUntil: { gte: today } }] }] } },
+      },
+      select: { code: true },
+      orderBy: { code: 'asc' },
+    });
+    return users.map((u) => u.code);
+  }
+
   /** One alert per person, in the caller's transaction. Returns how many were written. */
   async send(tx: Tx, ctx: RequestContext, n: Notice): Promise<number> {
     const to = [...new Set(n.to.filter(Boolean))].filter((code) => code !== ctx.user.code);

@@ -39,6 +39,8 @@ export class SaveSalesFlowDto {
   @IsBoolean() useEnquiries!: boolean;
   @IsBoolean() officeDraftsQuotations!: boolean;
   @IsBoolean() askInstallation!: boolean;
+  /** Phase 5: an installation in stock may be released without its preferred date. Kept when not sent. */
+  @IsOptional() @IsBoolean() installDateLater?: boolean;
   /** Left as it is when not sent, so a page that does not show it keeps it. */
   @IsOptional() @IsBoolean() agentsAddCustomers?: boolean;
   /** The price range (phase 5): the switch and its two percentages, each kept when not sent. Checked in price-range.rules.ts. */

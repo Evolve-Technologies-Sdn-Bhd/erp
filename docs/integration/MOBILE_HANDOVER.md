@@ -71,7 +71,9 @@ In `jwt` mode the access token lasts 15 minutes. On 401 with code `TOKEN_EXPIRED
 |---|---|
 | Who am I, my branches, my permissions | `GET /me` |
 | My customers | `GET /core/customers?q=` |
-| New customer on the order | `POST /sales/customers { name, phone, address, email?, idNumber? }` |
+| Check before adding a customer | `POST /sales/customers/check { name, phone, address }` → `items[]`: code, name, whose (`agentName`, `mine`), `reasons`, `same` (never added again) or a maybe |
+| New customer on the order | `POST /sales/customers { name, phone, address, email?, idNumber?, notDuplicate? }` (`notDuplicate` after checking the maybes) |
+| Ask to take over another salesperson's customer | `POST /sales/customers/transfer-requests { customerCode, reason }`; mine: `GET` the same. The customer is visible and can be ordered for while the office decides |
 | Packages, with pictures, terms and gifts | `GET /sales/lookups/packages` |
 | Items with price and stock | `GET /sales/lookups/items?customerCode=&q=&sellableOnly=1` |
 | Vouchers that can be used today | `GET /sales/lookups/vouchers` |
@@ -84,7 +86,12 @@ In `jwt` mode the access token lasts 15 minutes. On 401 with code `TOKEN_EXPIRED
 | Revise a released order | `POST /sales/orders/:id/revise { version, reason }` |
 | Share on WhatsApp | `share` in the order: the number and the message, ready |
 | Record a payment | `POST /sales/receipts` (below) |
-| My alerts | `GET /me/notifications`, `POST /me/notifications/:id/read` |
+| My alerts | `GET /me/notifications`, `POST /me/notifications/:id/read`. A salesperson hears: an approval decided, a receipt verified or sent back, a cancellation released, an installation moved, postponed, at risk or completed, an order about to lapse, a customer transfer asked for or decided. `link` is the website's address of the record (`/sales/orders/:id`, `/core/customers/:id`) |
+| What the company shows on the phone | `GET /me/app-content` → `duitNow { imageUrl, merchant }` or null, `contacts[]`, `officeHours`; admin sets it in Configuration › Phone App. The picture is fetched with the sign-in header |
+| Home: this month so far and the target | `GET /sales/dashboard/month` → `ordered { count, total }`, `paid { count, total }` (fully paid this month), `target { amount, orderedPct, paidPct, branch }` |
+| Home tiles: installations and payment | `GET /sales/orders?install=today\|toBook\|dateTbc\|donePaymentPending` and `?payment=unpaid\|partial\|notPaid\|paid` |
+| Commission (orders that count) | `GET /sales/reports/paid-orders?period=2026-11&agent=<me>` |
+| Ageing | `GET /sales/reports/customer-aging` |
 
 A new order. `installDate` is the customer's **preferred** day; the office books the installer. A package line carries no price. With fixed prices on, `unitPrice` must be the price the items call gave.
 

@@ -87,6 +87,13 @@ async function resetDemoData(tenantId: string): Promise<void> {
     prisma.salEnquiry.deleteMany({ where }),
     prisma.salCashSale.deleteMany({ where }),
     prisma.salVoucher.deleteMany({ where }),
+    // Sales targets (phase 5): the demo has none.
+    prisma.salTarget.deleteMany({ where }),
+    // Customer transfers (phase 5): none asked for, nobody waiting to take a customer over.
+    prisma.mdmCustomerTransfer.deleteMany({ where }),
+    prisma.mdmCustomer.updateMany({ where: { tenantId, pendingAgentCode: { not: null } }, data: { pendingAgentCode: null } }),
+    // What the phones show (phase 5): nothing until admin sets it.
+    prisma.sysSetting.deleteMany({ where: { tenantId, key: 'app.content' } }),
     prisma.salSetting.deleteMany({ where }),
     prisma.salCreditRule.deleteMany({ where }),
     prisma.salSettingChange.deleteMany({ where }),

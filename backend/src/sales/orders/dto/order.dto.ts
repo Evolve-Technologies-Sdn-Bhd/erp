@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { MY_STATES, POSTCODE_MESSAGE, POSTCODE_OR_EMPTY, STATE_MESSAGE } from '../../../platform/address/address';
 import { ListQueryDto } from '../../../platform/http/list-query.dto';
+import { INSTALL_FILTERS, PAYMENT_FILTERS, type InstallFilter, type PaymentFilter } from '../list-filters.rules';
 
 const DECIMAL_4 = /^\d{1,14}(\.\d{1,4})?$/;
 const PERCENT = /^\d{1,3}(\.\d{1,2})?$/;
@@ -9,6 +10,16 @@ const MONEY = /^\d{1,14}(\.\d{1,2})?$/;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 export class OrderListQueryDto extends ListQueryDto {
+  /** Phase 5, the salesperson's home: where the installation stands (list-filters.rules.ts). */
+  @IsOptional()
+  @IsIn(INSTALL_FILTERS)
+  install?: InstallFilter;
+
+  /** Phase 5, the salesperson's home: how much is paid by verified official receipts. */
+  @IsOptional()
+  @IsIn(PAYMENT_FILTERS)
+  payment?: PaymentFilter;
+
   /** Phase 5: ?preOrder=1, only pre-orders. */
   @IsOptional()
   @IsIn(['1'])

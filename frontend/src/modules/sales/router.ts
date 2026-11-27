@@ -32,6 +32,7 @@ const ReceiptList = () => import('./views/ReceiptListView.vue')
 const ReceiptForm = () => import('./views/ReceiptFormView.vue')
 const SalesFlow = () => import('./views/SalesFlowView.vue')
 const Vouchers = () => import('./views/VouchersView.vue')
+const Targets = () => import('./views/TargetsView.vue')
 const DocumentTypes = () => import('./views/DocumentTypesView.vue')
 const EnquiryTypes = () => import('./views/EnquiryTypesView.vue')
 const ExcludedItems = () => import('./views/ExcludedItemsView.vue')
@@ -105,6 +106,7 @@ const SCREENS: ScreenDef[] = [
   { code: 'S29', path: 'settings/credit-control', name: 'sales-credit-control', title: 'Credit Control', group: 'policies', item: 'credit-control', step: 9, mockup: 'Policies.html', component: CreditControl },
   { code: 'S34', path: 'settings/sales-flow', name: 'sales-flow', title: 'Sales Flow', group: 'policies', item: 'sales-flow', step: 9, mockup: 'FsPolicies.html', component: SalesFlow },
   { code: 'S37', path: 'settings/vouchers', name: 'sales-vouchers', title: 'Vouchers', group: 'policies', item: 'vouchers', step: 10, mockup: '', component: Vouchers },
+  { code: 'S38', path: 'settings/targets', name: 'sales-targets', title: 'Sales Targets', group: 'policies', item: 'targets', step: 10, mockup: '', component: Targets },
   { code: 'S30', path: 'settings/document-types', name: 'sales-document-types', title: 'Document Types', group: 'policies', item: 'document-types', step: 9, mockup: 'DocTypes.html', component: DocumentTypes },
   { code: 'S31', path: 'settings/enquiry-types', name: 'sales-enquiry-types', title: 'Enquiry Types', group: 'policies', item: 'enquiry-types', step: 9, mockup: 'EnquiryTypes.html', component: EnquiryTypes },
   { code: 'S32', path: 'settings/excluded-items', name: 'sales-excluded-items', title: 'Excluded Items', group: 'policies', item: 'excluded-items', step: 9, mockup: 'ExcludedItems.html', component: ExcludedItems },

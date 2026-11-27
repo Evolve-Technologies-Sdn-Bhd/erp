@@ -307,7 +307,8 @@ export class OrdersService {
     })));
     // Installation (phase 5): the date is needed when every item is in stock; short or bought-to-order items wait for stock.
     const allInStock = !shortfall && !order.lines.some((l) => l.isBuyToOrder);
-    const install = releaseInstallation({ installOption: order.installOption, installDate: order.installDate ? iso(order.installDate) : null }, allInStock);
+    const dateLater = Boolean((await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { installDateLater: true } }))?.installDateLater);
+    const install = releaseInstallation({ installOption: order.installOption, installDate: order.installDate ? iso(order.installDate) : null }, allInStock, dateLater);
     if (install.refusal) throw new BusinessRuleError('INSTALL_DATE_REQUIRED', install.refusal);
     // Pre-order (phase 5): with the switch on, short stock makes the whole order a pre-order.
     const preOrdersOn = Boolean((await this.prisma.salSetting.findUnique({ where: { tenantId: ctx.tenantId }, select: { preOrders: true } }))?.preOrders);
