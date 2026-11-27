@@ -11,7 +11,6 @@ withDefaults(defineProps<{ width?: 'narrow' | 'wide' }>(), { width: 'narrow' })
   <div data-module="config" class="flex min-h-screen flex-col bg-erp-shell">
     <header class="flex h-16 shrink-0 items-center gap-2.5 px-4 sm:px-6">
       <BrandMark :size="32" />
-      <div class="erp-display text-base font-semibold">Zora <span class="text-erp-brand">Pro</span> ERP</div>
     </header>
     <div class="flex grow px-2 pb-2">
       <main class="erp-page flex grow justify-center px-4 pt-[72px] pb-10">

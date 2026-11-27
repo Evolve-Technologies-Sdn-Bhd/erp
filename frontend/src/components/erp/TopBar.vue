@@ -43,7 +43,6 @@ onBeforeUnmount(() => clearInterval(timer))
       </button>
       <RouterLink to="/" class="flex items-center gap-2.5 rounded-full text-erp-text no-underline" title="All modules" aria-label="Zora Pro ERP, all modules">
         <BrandMark :size="32" />
-        <span class="erp-display hidden text-base font-semibold whitespace-nowrap xl:inline">Zora <span class="text-erp-brand">Pro</span> ERP</span>
       </RouterLink>
     </div>
 
