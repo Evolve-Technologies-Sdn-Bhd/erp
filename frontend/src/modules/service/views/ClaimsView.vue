@@ -36,7 +36,7 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="Installer Claims" subtitle="Installers claim a fee per complete, fully paid job, twice a month with their invoice. Account checks, approves and pays.">
       <template v-if="can('service.claim.edit')" #actions>
         <RouterLink to="/service/claims/new" data-tour="action:new-claim" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New claim</RouterLink>

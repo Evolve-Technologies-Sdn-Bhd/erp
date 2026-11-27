@@ -40,7 +40,7 @@ function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex flex-col gap-3 px-6 py-[18px]" :class="{ grow: !open }">
+  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]" :class="{ grow: !open }">
     <PageHeader title="Audit trail" subtitle="Every change in every module, with who made it and what changed. Read only; the Auditor role sees it too.">
       <template #actions>
         <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>

@@ -136,7 +136,7 @@ async function exportCsv() {
       </div>
     </div>
 
-    <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
       <PageHeader title="List of Proforma Invoice" subtitle="Payment requests sent before delivery, for deposits or pay-first customers.">
         <template #actions>
           <button v-if="can('sales.proforma.edit')" type="button" class="erp-btn erp-btn-add" @click="openPick"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New proforma</button>

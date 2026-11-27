@@ -1373,3 +1373,63 @@
     background: #fff !important;
   }
 }
+
+/*
+ * List pages (U3): the MES layout. The title sits on the page; the toolbar (tabs, filters, buttons), the table and the
+ * pager share one bordered box under it, drawn behind them from the bottom of the title down (DataList measures the
+ * title into --lc-head). Unlayered, so it wins over the card's own utility classes and the screens keep their markup.
+ */
+.erp-listcard {
+  position: relative;
+  isolation: isolate;
+  flex-grow: 0;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.erp-listcard::before {
+  content: '';
+  position: absolute;
+  inset: var(--lc-head, 0px) 0 0 0;
+  z-index: -1;
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius);
+  background: var(--erp-card);
+  box-shadow: var(--erp-card-shadow);
+}
+.erp-listcard > * {
+  margin-inline: 16px;
+}
+/* Without a title the whole card is the box: room at the top */
+.erp-listcard > :first-child:not([data-tour='page-header']) {
+  margin-top: 14px;
+}
+.erp-listcard > [data-tour='page-header'] {
+  margin: 0 0 20px;
+}
+.erp-listcard > [data-tour='page-header'] h1 {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+/* The table runs edge to edge, under a line */
+.erp-listcard > .erp-dl {
+  margin-inline: 0;
+  border-top: 1px solid var(--erp-border);
+}
+/* The pager row (and the totals beside it) closes the box */
+.erp-listcard > .erp-dl + * {
+  margin: -12px 0 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--erp-border);
+}
+.erp-listcard > :last-child:not(.erp-dl):not(.erp-dl + *) {
+  margin-bottom: 14px;
+}
+@media print {
+  .erp-listcard::before {
+    box-shadow: none;
+  }
+}

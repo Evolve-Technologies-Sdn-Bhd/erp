@@ -92,7 +92,7 @@ async function exportCsv() {
 
 <template>
   <div class="flex grow flex-col gap-4">
-    <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
       <PageHeader title="List of Cancel Order" subtitle="Closes the part of a sales order that will never be delivered. Delivered goods go back through a sales return instead.">
         <template #actions>
           <RouterLink v-if="can('sales.cancel_order.edit')" to="/sales/cancel-orders/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cancellation</RouterLink>

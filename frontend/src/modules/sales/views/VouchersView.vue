@@ -117,7 +117,7 @@ function remove(v: VoucherRow) {
 
 <template>
   <div class="grid grow items-start gap-4" :class="canManage ? 'grid-cols-[minmax(0,1fr)_320px]' : ''">
-    <section class="erp-card flex min-h-[560px] flex-col gap-3 px-6 py-[18px]">
+    <section class="erp-card erp-listcard flex min-h-[560px] flex-col gap-3 px-6 py-[18px]">
       <PageHeader title="Vouchers" subtitle="What salespeople may take off an order. They pick one from this list; the amount is never typed." />
       <NoticeBanner v-if="list.data.value && !list.data.value.on" kind="info">
         Vouchers are still typed on the order. Turn on <em>Vouchers come from the voucher list</em> in Operation Policies › Sales Flow to use this list.

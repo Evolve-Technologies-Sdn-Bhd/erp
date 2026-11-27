@@ -75,7 +75,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="Users" subtitle="Who can sign in, with which roles and in which branches. A user code never changes." />
 
     <FilterBar>

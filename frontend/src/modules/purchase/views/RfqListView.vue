@@ -129,7 +129,7 @@ const statusLabel = (r: RfqListItem) => (r.status === 'CLOSED' && r.closeReason 
 </script>
 
 <template>
-  <section class="erp-card flex flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Request for Quotation" subtitle="Price requests sent to suppliers. Compare the replies side by side, then award one and create the PO.">
       <template #actions>
         <RouterLink v-if="can('purchase.rfq.manage')" to="/purchase/rfqs/new" class="erp-btn erp-btn-add">

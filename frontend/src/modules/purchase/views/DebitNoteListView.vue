@@ -101,7 +101,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Supplier Debit Note" subtitle="Extra charges a supplier adds to an invoice we already have. They increase what we owe.">
       <template #actions>
         <RouterLink v-if="can('purchase.debit_note.edit')" to="/purchase/debit-notes/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Record debit note</RouterLink>

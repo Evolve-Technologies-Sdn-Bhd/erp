@@ -1,7 +1,10 @@
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, provide, ref, shallowRef, watch, type ComputedRef, type InjectionKey } from 'vue'
 import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import type { ListQuery, ListResponse } from '@/api/list'
 import { useViewBranch } from './useViewBranch'
+
+/** The page the list shows, for the table inside it: DataList numbers its rows from the first row of this page. */
+export const LIST_PAGE: InjectionKey<{ first: ComputedRef<number> }> = Symbol('erp-list-page')
 
 /**
  * List pages keep their state — status tab, filters, page — in the URL query, so Back and Refresh
@@ -43,6 +46,15 @@ export function useListPage<R extends ListResponse<unknown>>(options: {
   const loading = ref(false)
   const failed = ref(false)
   let requestNo = 0
+
+  // The server's answer says which page it is; until it arrives, the address does.
+  provide(LIST_PAGE, {
+    first: computed(() => {
+      const page = data.value?.page ?? params.value.page
+      const size = data.value?.pageSize ?? params.value.pageSize
+      return (page - 1) * size
+    }),
+  })
 
   async function load() {
     const mine = ++requestNo

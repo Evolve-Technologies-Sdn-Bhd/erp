@@ -81,7 +81,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Cash Purchase" subtitle="Small buys paid on the spot, with no purchase order. The receipt photo is the proof.">
       <template #actions>
         <RouterLink v-if="can('purchase.cash_purchase.edit')" to="/purchase/cash-purchases/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cash purchase</RouterLink>

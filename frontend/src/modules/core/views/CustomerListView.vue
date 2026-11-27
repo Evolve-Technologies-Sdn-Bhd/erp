@@ -75,7 +75,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Customers" subtitle="Who Sales sells to. A prospect from an enquiry becomes a customer here before it can be quoted." />
 
     <FilterBar>

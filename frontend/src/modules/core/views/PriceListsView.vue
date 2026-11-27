@@ -41,7 +41,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Price Lists" subtitle="What Sales charges. Each customer has one price list; prices exclude tax unless the list says otherwise." />
 
     <div class="flex items-center justify-between gap-3">

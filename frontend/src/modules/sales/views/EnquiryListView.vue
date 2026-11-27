@@ -103,7 +103,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Enquiry" subtitle="Every customer request before a quotation. Existing customers come from Master Data; new prospects are allowed." />
 
     <FilterBar>

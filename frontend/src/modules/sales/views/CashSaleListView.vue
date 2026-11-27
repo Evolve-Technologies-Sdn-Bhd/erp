@@ -101,7 +101,7 @@ async function exportCsv() {
       <KpiCard label="Consolidated e-Invoice" tone="warning" :value="kpis ? `${kpis.consolidated.count} sales` : '—'" :sub="dueText" :loading="list.loading.value && !kpis" />
     </div>
 
-    <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
       <PageHeader title="List of Cash Sales" subtitle="Walk-in sales paid on the spot. One document records the sale, the payment and the stock going out.">
         <template #actions>
           <RouterLink v-if="can('sales.cash_sale.edit')" to="/sales/cash-sales/new" data-tour="action:new-cash-sale" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cash sale</RouterLink>

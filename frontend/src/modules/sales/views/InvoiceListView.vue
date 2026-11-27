@@ -114,7 +114,7 @@ const source = (i: InvoiceListItem) => (i.isMigrated ? 'migrated' : i.kind === '
       <KpiCard label="LHDN e-Invoice pending" tone="warning" :value="kpis?.eInvoicePending ?? '—'" sub="Sent when e-Invoice plugs in" :loading="list.loading.value && !kpis" />
     </div>
 
-    <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
       <PageHeader title="List of Invoice" subtitle="Tax invoices. Invoices from before go-live are marked “migrated” and keep their old numbers.">
         <template #actions>
           <template v-if="can('sales.invoice.edit')">

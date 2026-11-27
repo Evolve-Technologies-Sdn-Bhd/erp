@@ -30,7 +30,7 @@ const runs = (p: PackageListItem) => `${formatDate(p.runsFrom)} – ${p.endedOn 
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Packages" subtitle="Several items sold together at one price, with a free gift the customer chooses. Sales adds a package to an order as one line." />
 
     <div class="flex items-center justify-between gap-3">

@@ -224,7 +224,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Quotation" subtitle="Price offers sent to customers. A released quotation can be revised or turned into a sales order." />
 
     <FilterBar>
@@ -288,7 +288,7 @@ async function exportCsv() {
       <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
     </div>
 
-    <DataList v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No quotations match these filters.">
+    <DataList :column-tool="false" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No quotations match these filters.">
       <Column selection-mode="multiple" header-style="width: 44px" />
       <Column header="QT no">
         <template #body="{ data }: { data: QuotationListItem }">

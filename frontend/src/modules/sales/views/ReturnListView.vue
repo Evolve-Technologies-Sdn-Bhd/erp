@@ -115,7 +115,7 @@ async function exportCsv() {
       <KpiCard label="Credit notes for LHDN" tone="warning" :value="kpis ? `${kpis.creditNotesQueued} queued` : '—'" sub="Sent when e-Invoice plugs in" :loading="list.loading.value && !kpis" />
     </div>
 
-    <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
       <PageHeader title="List of Sales Return" subtitle="Goods the customer sends back after delivery. Each return credits the original invoice.">
         <template #actions>
           <button v-if="can('sales.return.edit')" type="button" class="erp-btn erp-btn-add" @click="openPick"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New return</button>

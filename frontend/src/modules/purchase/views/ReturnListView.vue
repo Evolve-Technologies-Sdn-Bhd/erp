@@ -143,7 +143,7 @@ async function exportCsv() {
     />
   </div>
 
-  <section class="erp-card flex flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Purchase Return" subtitle="Goods sent back to a supplier after they were received. Each return waits for a credit note or a replacement.">
       <template #actions>
         <RouterLink v-if="can('purchase.return.edit')" to="/purchase/returns/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New return</RouterLink>

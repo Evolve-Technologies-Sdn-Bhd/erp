@@ -174,7 +174,7 @@ async function exportCsv() {
     <p v-else class="m-0 py-4 text-center text-[13px] text-erp-muted">Loading…</p>
   </section>
 
-  <section class="erp-card flex grow flex-col gap-2.5 px-5 py-4">
+  <section class="erp-card erp-listcard flex grow flex-col gap-2.5 px-5 py-4">
     <div class="flex items-center justify-between">
       <h2 class="m-0 text-[15px] font-bold">Goods receipts</h2>
       <div class="flex gap-2">

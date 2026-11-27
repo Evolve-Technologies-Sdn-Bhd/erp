@@ -64,7 +64,7 @@ async function dismiss() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="Service Reminders" subtitle="Items with a service interval in Core come due after installation. 14 days before the due day, a service job is made for the office to book.">
       <template v-if="can('service.job.edit')" #actions>
         <button type="button" data-tour="action:make-jobs" class="erp-btn erp-btn-add" :disabled="running" @click="runNow">Make jobs now</button>

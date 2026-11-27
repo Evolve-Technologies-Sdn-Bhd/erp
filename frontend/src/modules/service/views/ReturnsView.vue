@@ -53,7 +53,7 @@ async function receive() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="Returned Parts" subtitle="Parts installers bring back from their jobs. The store counts them as good or damaged; the warehouse system counts the stock when they are scanned." />
     <FilterBar>
       <input :value="list.params.value.q" class="erp-input" placeholder="Search job, customer, item or person" aria-label="Search" @change="list.setFilter('q', ($event.target as HTMLInputElement).value)" />

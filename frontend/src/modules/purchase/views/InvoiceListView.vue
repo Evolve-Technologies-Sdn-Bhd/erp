@@ -144,7 +144,7 @@ async function exportCsv() {
     />
   </div>
 
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Purchase Invoice" subtitle="Supplier bills. Each one is matched against what was ordered and what was received before it can be paid.">
       <template #actions>
         <RouterLink v-if="can('purchase.invoice.edit')" to="/purchase/invoices/new" class="erp-btn erp-btn-add">Record supplier invoice</RouterLink>

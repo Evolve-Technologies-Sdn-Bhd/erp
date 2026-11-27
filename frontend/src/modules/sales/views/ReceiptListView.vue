@@ -39,7 +39,7 @@ watch(search, (v) => {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="Official Receipts" subtitle="Customer payments recorded on sales orders, each with its proof. Only verified receipts count as paid." />
 
     <p v-if="list.data.value && Number(list.data.value.waitingAmount)" class="m-0 text-[13px]">

@@ -194,7 +194,7 @@ const footer = computed(() => {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Purchase Order" subtitle="Orders placed with suppliers. Released orders are sent to the supplier and wait for goods.">
       <template #actions>
         <RouterLink v-if="can('purchase.order.edit')" to="/purchase/orders/new" class="erp-btn erp-btn-add">
@@ -268,7 +268,7 @@ const footer = computed(() => {
       <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
     </div>
 
-    <DataList v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No purchase orders match these filters.">
+    <DataList :column-tool="false" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No purchase orders match these filters.">
       <Column selection-mode="multiple" header-style="width: 44px" />
       <Column header="PO no">
         <template #body="{ data }: { data: OrderListItem }">

@@ -74,7 +74,7 @@ async function save() {
 </script>
 
 <template>
-  <section class="erp-card flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="Warranties" subtitle="Units installed with a warranty, from the installation day. A warranty is active once its order is fully paid." />
     <FilterBar>
       <input :value="list.params.value.q" class="erp-input min-w-[320px]" placeholder="Search phone, customer, order or serial" aria-label="Search" @change="list.setFilter('q', ($event.target as HTMLInputElement).value)" />

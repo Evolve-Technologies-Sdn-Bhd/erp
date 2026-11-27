@@ -94,7 +94,7 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card flex flex-col gap-3 px-6 py-[18px]">
+  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]">
     <PageHeader title="List of Cancel Order" subtitle="Cancelled balances of purchase orders. Each one is kept for audit and releases committed spend.">
       <template #actions>
         <RouterLink v-if="can('purchase.cancel_order.edit')" to="/purchase/cancel-orders/new" class="erp-btn erp-btn-add">
