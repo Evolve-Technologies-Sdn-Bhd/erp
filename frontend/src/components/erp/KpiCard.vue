@@ -2,8 +2,8 @@
 import type { RouteLocationRaw } from 'vue-router'
 
 /**
- * A headline number, as the Zora MES stat card: the label, the figure in Geist, a line of context, and a soft glow of
- * the module colour in the top corner. `tone` turns the figure and the glow amber ("Waiting for your approval"),
+ * A headline number, as the Zora MES stat card: the label, the figure in Geist, a line of context, and a soft wash of
+ * the module colour from the top-right corner (the user's choice C, 27 Nov 2026). `tone` turns the figure and the glow amber ("Waiting for your approval"),
  * green or red. `compact` is the smaller card of list pages (PurDemand.html).
  */
 withDefaults(
@@ -21,7 +21,7 @@ withDefaults(
 
 // Coloured cards (GrnList.html): green "Arrived today", red "Late", amber "Waiting for Inventory".
 const TONES = {
-  default: { value: 'text-erp-text', glow: 'var(--mod-glow)' },
+  default: { value: 'text-erp-text', glow: undefined },
   warning: { value: 'text-note-warn-strong', glow: 'var(--chip-pending-dot)' },
   success: { value: 'text-chip-done-text', glow: 'var(--chip-done-dot)' },
   danger: { value: 'text-chip-cancelled-text', glow: 'var(--chip-cancelled-dot)' },
@@ -34,7 +34,7 @@ const TONES = {
     :to="to"
     class="erp-kpi relative isolate flex flex-col overflow-hidden rounded-2xl border border-erp-border bg-erp-card text-erp-text"
     :class="[to ? 'is-link' : '', compact ? 'gap-1.5 px-[18px] py-3.5' : 'gap-2 p-5']"
-    :style="{ '--kpi-glow': TONES[tone].glow }"
+    :style="TONES[tone].glow ? { '--kpi-glow': TONES[tone].glow } : undefined"
   >
     <span class="erp-kpi-glow" aria-hidden="true" />
     <span class="text-[13px] font-medium text-erp-muted">{{ label }}</span>
@@ -59,27 +59,28 @@ const TONES = {
   border-color: var(--erp-gray-300);
   box-shadow: var(--erp-lift-shadow);
 }
-/* A soft bloom in the top-right corner, behind everything: warmth, never a tint on the text. */
+/* A soft wash from the top-right corner, behind everything: the module's light tone, or the tone's own colour. */
+.erp-kpi {
+  --kpi-glow: var(--mod-grad-from);
+}
 .erp-kpi-glow {
   position: absolute;
-  top: -3.5rem;
-  right: -3rem;
+  inset: 0;
   z-index: -1;
-  width: 11rem;
-  height: 9rem;
-  border-radius: 9999px;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in srgb, var(--kpi-glow) 22%, transparent),
-    color-mix(in srgb, var(--mod-primary) 10%, transparent) 55%,
-    transparent
-  );
-  filter: blur(6px);
+  background: linear-gradient(225deg, color-mix(in srgb, var(--kpi-glow) var(--kpi-wash, 22%), transparent) 0%, transparent 45%);
   pointer-events: none;
 }
 @media print {
   .erp-kpi-glow {
     display: none;
   }
+}
+</style>
+
+<style>
+/* Not scoped: in the dark the wash takes the module's deeper side colour, a little stronger. */
+html.dark .erp-kpi {
+  --kpi-glow: var(--mod-side);
+  --kpi-wash: 24%;
 }
 </style>

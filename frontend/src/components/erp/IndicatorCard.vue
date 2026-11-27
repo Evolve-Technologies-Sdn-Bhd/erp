@@ -48,6 +48,12 @@ const columns = computed(() => {
 })
 
 const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod-side', warning: 'bg-attention', danger: 'bg-note-error-text' }
+
+/** "42 left · SO-0035 needs 18, …": the figure before the first " · " stands out, the rest is the detail. */
+function asideParts(aside: string): { figure: string; detail: string } {
+  const at = aside.indexOf(' · ')
+  return at < 0 ? { figure: aside, detail: '' } : { figure: aside.slice(0, at), detail: aside.slice(at + 3) }
+}
 </script>
 
 <template>
@@ -123,22 +129,22 @@ const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod
       </table>
     </div>
 
-    <!-- List -->
-    <div v-else-if="card.data.kind === 'list'" class="flex flex-col gap-2">
+    <!-- List: rows sunk into the card; the figure as an amber chip, the detail quiet under the title -->
+    <div v-else-if="card.data.kind === 'list'" class="flex flex-col gap-1.5">
       <component
         :is="i.to ? 'RouterLink' : 'div'"
         v-for="i in card.data.items"
         :key="i.id"
         :to="i.to"
-        class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-erp-row bg-erp-card px-3.5 py-2.5 text-[13px] text-erp-text transition-colors hover:bg-erp-hover"
+        class="ic-row flex flex-col gap-1 rounded-xl px-3.5 py-2.5 text-[13px] text-erp-text no-underline transition-colors"
       >
-        <span class="flex min-w-[12rem] flex-1 flex-col gap-0.5">
-          <span class="font-semibold break-words">{{ i.title }}</span>
-          <span v-if="i.sub" class="text-xs text-erp-muted">{{ i.sub }}</span>
+        <span class="flex items-center justify-between gap-3">
+          <span class="min-w-0 font-semibold break-words">{{ i.title }}</span>
+          <span v-if="i.aside" class="ic-figure shrink-0">{{ asideParts(i.aside).figure }}</span>
+          <StatusChip v-if="i.chip" :status="i.chip.status" :label="i.chip.label" :group="i.chip.group" />
         </span>
-        <!-- A short note sits on the right; a long one (many orders) goes under the title, two lines at most. -->
-        <span v-if="i.aside" class="line-clamp-2 max-w-full min-w-0 font-semibold text-attention" :title="i.aside">{{ i.aside }}</span>
-        <StatusChip v-if="i.chip" :status="i.chip.status" :label="i.chip.label" :group="i.chip.group" />
+        <span v-if="i.sub" class="text-xs text-erp-muted">{{ i.sub }}</span>
+        <span v-if="i.aside && asideParts(i.aside).detail" class="line-clamp-2 text-xs text-erp-muted" :title="asideParts(i.aside).detail">{{ asideParts(i.aside).detail }}</span>
       </component>
     </div>
 
@@ -191,3 +197,26 @@ const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod
     <p v-if="card.note && !card.failed" class="m-0 text-xs text-erp-muted">{{ card.note }}</p>
   </section>
 </template>
+
+<style scoped>
+.ic-row {
+  background: var(--erp-inset);
+}
+a.ic-row:hover {
+  background: var(--mod-light);
+}
+.ic-figure {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--chip-pending-border);
+  border-radius: 999px;
+  background: var(--chip-pending-bg);
+  color: var(--chip-pending-text);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+</style>
