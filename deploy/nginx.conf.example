@@ -1,10 +1,15 @@
-# In aaPanel: Website > the site > Config. Keep aaPanel's own lines (listen, ssl, logs) and set these.
-# The site's root is the built screens:
-#   root /www/wwwroot/<domain>/erp/frontend/dist;
+# In aaPanel: Website > the site > Config. Keep aaPanel's own lines (listen, ssl, the CERT-APPLY-CHECK include, logs).
+# 1. Change the root to the built screens:
+#      root /www/wwwroot/<domain>/app/frontend/dist;
+# 2. Paste these blocks right after the root and include lines, before any "location ~" line.
 
-# The API, on the backend's PORT
-location /api/ {
-    proxy_pass http://127.0.0.1:3002;
+# The API, on the backend's PORT. ^~ keeps aaPanel's picture and script rules (location ~ \.(png|js)…) off /api/.
+location ^~ /api/ {
+    proxy_pass http://127.0.0.1:3062;
+    # Only when the whole site sits behind an aaPanel "Limit access" password (a dev-mode demo): the same password
+    # here, because this block would otherwise bypass it. Use the path aaPanel shows in dir_auth/<domain>/<name>.conf.
+    # auth_basic "Authorization";
+    # auth_basic_user_file /www/server/pass/<domain>/<name>.pass;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -14,14 +19,7 @@ location /api/ {
     client_max_body_size 12m;
 }
 
-# The screens: every other address opens the app, which shows the right page
+# The screens: every page address opens the app
 location / {
     try_files $uri $uri/ /index.html;
-}
-
-# Built files carry a hash in their name, so they can be kept a long time
-location /assets/ {
-    expires 30d;
-    add_header Cache-Control "public, immutable";
-    try_files $uri =404;
 }

@@ -45,9 +45,30 @@ It stops at the first problem and says what it was. `app/VERSION` says which pac
 
 ## Good to know
 
-- `NODE_ENV=production` refuses to start without sign-in (`AUTH_MODE=jwt`), `COOKIE_SECURE=on` and the client's
-  tenant, and with `DEV_TODAY` or the demo two-factor code set.
-- `TRUST_PROXY=on` is needed behind nginx, or sign-in's lockout counts every visitor as one address.
-- The Help guides work in dev mode only, so a site with sign-in shows the short tours but no guides.
+- **Port:** pick a free one first (`ss -ltn | grep ':3062 '` prints nothing), set it as `PORT` in `.env` and in the
+  nginx `proxy_pass`. A port another app already uses makes the backend stop with `EADDRINUSE`.
+- **Sign-in:** `NODE_ENV=production` refuses to start without sign-in (`AUTH_MODE=jwt`), `COOKIE_SECURE=on` and the
+  client's tenant, and with `DEV_TODAY` or the demo two-factor code set. `TRUST_PROXY=on` is needed behind nginx, or
+  sign-in's lockout counts every visitor as one address.
+- **A demo in dev mode** (user switcher and the Help guides, which work in dev mode only): leave `NODE_ENV` empty, set
+  `AUTH_MODE=dev`, and put the whole site behind aaPanel's *Limit access* password, with the same two `auth_basic`
+  lines inside the `/api/` block (`deploy/nginx.conf.example`). Without them anyone can call the API as anyone.
+  `curl -s -o /dev/null -w "%{http_code}" https://<domain>/api/v1/health` must print `401`.
+- **The site password must be fast to check.** aaPanel stores it as bcrypt (`$2b$12…`), which nginx checks on every
+  request in a quarter of a second, so a page of 15 requests waited 2 to 5 seconds. Store it as apr1 instead (and do
+  it again after changing the password in aaPanel's screen):
+  ```bash
+  F=/www/server/pass/<domain>/<name>.pass
+  read -s -p "Password: " P; echo; printf 'admin:%s\n' "$(openssl passwd -apr1 "$P")" > $F; unset P
+  nginx -t && nginx -s reload
+  ```
+- **MariaDB** works as well as MySQL 8. Where it refuses `SKIP LOCKED`, the backend uses plain `FOR UPDATE` and says
+  so once in its log; run one backend instance there.
+- **A phone app** uses `https://<domain>/api/v1`. Behind a site password it also sends
+  `Authorization: Basic <base64 of user:password>` with every request (dev mode only: with sign-in the header carries
+  the access token, so take the password off `/api/` first).
+- **Slow pages:** time the backend on the server first
+  (`curl -s -o /dev/null -H "x-dev-user: <user>" -w "%{time_total}\n" http://127.0.0.1:<PORT>/api/v1/<path>`). Fast
+  there but slow in the browser means nginx or the network; the browser's Network tab shows which request waits.
 - Back up the database before an update that changes it: aaPanel > Databases > Backup.
 - Never run `prisma migrate reset`, `migrate dev` or `db seed` on a server.

@@ -33,7 +33,7 @@ Copy-Item -Recurse "$root\frontend\dist" "$stage\frontend\"
 # The server script, with Linux line endings whatever git did to it here
 $sh = [IO.File]::ReadAllText("$root\deploy\update.sh") -replace "`r`n", "`n"
 [IO.File]::WriteAllText("$stage\update.sh", $sh)
-Set-Content -Encoding ascii "$stage\VERSION" "$branch $commit $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+[IO.File]::WriteAllText("$stage\VERSION", "$branch $commit $(Get-Date -Format 'yyyy-MM-dd HH:mm')`n")
 
 $out = "$root\deploy\out"
 New-Item -ItemType Directory -Force $out | Out-Null
