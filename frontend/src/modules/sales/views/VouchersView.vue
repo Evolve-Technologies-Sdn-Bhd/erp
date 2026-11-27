@@ -6,6 +6,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { ApiError } from '@/api/http'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import FormField from '@/components/erp/FormField.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
@@ -117,14 +118,16 @@ function remove(v: VoucherRow) {
 
 <template>
   <div class="grid grow items-start gap-4" :class="canManage ? 'grid-cols-[minmax(0,1fr)_320px]' : ''">
-    <section class="erp-card erp-listcard flex min-h-[560px] flex-col gap-3 px-6 py-[18px]">
-      <PageHeader title="Vouchers" subtitle="What salespeople may take off an order. They pick one from this list; the amount is never typed." />
-      <NoticeBanner v-if="list.data.value && !list.data.value.on" kind="info">
+    <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="Vouchers" subtitle="What salespeople may take off an order. They pick one from this list; the amount is never typed." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <NoticeBanner v-if="list.data.value && !list.data.value.on" kind="info">
         Vouchers are still typed on the order. Turn on <em>Vouchers come from the voucher list</em> in Operation Policies › Sales Flow to use this list.
       </NoticeBanner>
-      <FilterBar><input v-model="search" class="erp-input" placeholder="Voucher number or name" aria-label="Search voucher number or name" /></FilterBar>
-      <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar><input v-model="search" class="erp-input" placeholder="Voucher number or name" aria-label="Search voucher number or name" /></FilterBar>
+      </template>
       <DataList :rows="rows" :loading="list.loading.value" empty-text="No vouchers here.">
         <Column header="Voucher">
           <template #body="{ data }: { data: VoucherRow }"><div class="font-bold whitespace-nowrap">{{ data.voucherNo }}</div><div class="text-xs text-erp-muted">{{ data.description }}</div></template>
@@ -144,11 +147,13 @@ function remove(v: VoucherRow) {
           </template>
         </Column>
       </DataList>
-
-      <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
-        <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
+        <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
       </div>
-    </section>
+      </template>
+    </ListBox>
+  </section>
 
     <div v-if="canManage" class="flex flex-col gap-4">
       <SideCard data-tour="vc:form" :title="editing ? `Change ${editing.voucherNo}` : 'Add a voucher'">

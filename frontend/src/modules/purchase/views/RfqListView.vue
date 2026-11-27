@@ -5,6 +5,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import BranchFilter from '@/components/erp/BranchFilter.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import NextSteps from '@/components/erp/NextSteps.vue'
@@ -129,18 +131,16 @@ const statusLabel = (r: RfqListItem) => (r.status === 'CLOSED' && r.closeReason 
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]">
-    <PageHeader title="List of Request for Quotation" subtitle="Price requests sent to suppliers. Compare the replies side by side, then award one and create the PO.">
-      <template #actions>
-        <RouterLink v-if="can('purchase.rfq.manage')" to="/purchase/rfqs/new" class="erp-btn erp-btn-add">
-          <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New RFQ
-        </RouterLink>
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </template>
-    </PageHeader>
-
-    <FilterBar :columns="view.canFilter.value ? 5 : 4">
+  <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Request for Quotation" subtitle="Price requests sent to suppliers. Compare the replies side by side, then award one and create the PO." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
+      The RFQs could not be loaded.
+      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
+    </div>
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar :columns="view.canFilter.value ? 5 : 4">
       <input v-model="itemText" class="erp-input" placeholder="Filter by item" aria-label="Filter by item" />
       <input v-model="supplierText" class="erp-input" placeholder="Filter by supplier" aria-label="Filter by supplier" />
       <select class="erp-input" aria-label="Filter by buyer" :value="list.params.value.buyer" @change="list.setFilter('buyer', ($event.target as HTMLSelectElement).value)">
@@ -161,15 +161,15 @@ const statusLabel = (r: RfqListItem) => (r.status === 'CLOSED' && r.closeReason 
       />
       <BranchFilter :model-value="list.params.value.branch ?? ''" @update:model-value="(v) => list.setFilter('branch', v)" />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
-      The RFQs could not be loaded.
-      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
-    </div>
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No RFQs match these filters.">
+      </template>
+      <template #tools>
+        <RouterLink v-if="can('purchase.rfq.manage')" to="/purchase/rfqs/new" class="erp-btn erp-btn-add">
+          <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New RFQ
+        </RouterLink>
+        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No RFQs match these filters.">
       <Column header="RFQ no">
         <template #body="{ data }: { data: RfqListItem }">
           <strong v-if="data.isMigrated" class="whitespace-nowrap">{{ data.docNo }}</strong>
@@ -230,11 +230,18 @@ const statusLabel = (r: RfqListItem) => (r.status === 'CLOSED' && r.closeReason 
       <Column header="Status">
         <template #body="{ data }: { data: RfqListItem }"><StatusChip :status="data.status" :label="statusLabel(data)" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/purchase/rfqs/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div v-if="list.data.value && list.data.value.total > list.data.value.pageSize" class="flex justify-end">
-      <Pager :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="list.data.value && list.data.value.total > list.data.value.pageSize" class="flex justify-end">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 
   <div class="flex grow gap-4">

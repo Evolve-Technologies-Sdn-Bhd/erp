@@ -5,6 +5,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import BranchFilter from '@/components/erp/BranchFilter.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
@@ -94,18 +96,16 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]">
-    <PageHeader title="List of Cancel Order" subtitle="Cancelled balances of purchase orders. Each one is kept for audit and releases committed spend.">
-      <template #actions>
-        <RouterLink v-if="can('purchase.cancel_order.edit')" to="/purchase/cancel-orders/new" class="erp-btn erp-btn-add">
-          <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cancellation
-        </RouterLink>
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </template>
-    </PageHeader>
-
-    <FilterBar :columns="view.canFilter.value ? 5 : 4">
+  <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Cancel Order" subtitle="Cancelled balances of purchase orders. Each one is kept for audit and releases committed spend." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
+      The cancellations could not be loaded.
+      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
+    </div>
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar :columns="view.canFilter.value ? 5 : 4">
       <input v-model="supplierText" class="erp-input" placeholder="Filter by supplier" aria-label="Filter by supplier" />
       <input v-model="poText" class="erp-input" placeholder="Filter by PO no" aria-label="Filter by PO no" />
       <select class="erp-input" aria-label="Filter by reason" :value="list.params.value.reason" @change="list.setFilter('reason', ($event.target as HTMLSelectElement).value)">
@@ -126,15 +126,15 @@ async function exportCsv() {
       />
       <BranchFilter :model-value="list.params.value.branch ?? ''" @update:model-value="(v) => list.setFilter('branch', v)" />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
-      The cancellations could not be loaded.
-      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
-    </div>
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No cancellations match these filters.">
+      </template>
+      <template #tools>
+        <RouterLink v-if="can('purchase.cancel_order.edit')" to="/purchase/cancel-orders/new" class="erp-btn erp-btn-add">
+          <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cancellation
+        </RouterLink>
+        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No cancellations match these filters.">
       <Column header="Cancel no">
         <template #body="{ data }: { data: CancelOrderListItem }">
           <strong v-if="data.isMigrated" class="whitespace-nowrap">{{ data.docNo }}</strong>
@@ -162,11 +162,18 @@ async function exportCsv() {
       <Column header="Status">
         <template #body="{ data }: { data: CancelOrderListItem }"><StatusChip :status="data.status" :group="data.status === 'RELEASED' ? 'done' : 'draft'" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/purchase/cancel-orders/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div v-if="list.data.value && list.data.value.total > list.data.value.pageSize" class="flex justify-end">
-      <Pager :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="list.data.value && list.data.value.total > list.data.value.pageSize" class="flex justify-end">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 
   <div class="flex grow gap-4">

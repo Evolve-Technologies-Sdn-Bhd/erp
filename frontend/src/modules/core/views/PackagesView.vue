@@ -4,6 +4,8 @@ import Column from 'primevue/column'
 import { Plus } from '@lucide/vue'
 import AuthImage from '@/components/erp/AuthImage.vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
@@ -30,16 +32,14 @@ const runs = (p: PackageListItem) => `${formatDate(p.runsFrom)} – ${p.endedOn 
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="List of Packages" subtitle="Several items sold together at one price, with a free gift the customer chooses. Sales adds a package to an order as one line." />
-
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
     <div class="flex items-center justify-between gap-3">
       <RouterLink v-if="can('core.price_list.edit')" to="/core/packages/new" data-tour="core:new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new package</RouterLink>
     </div>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No packages yet.">
+    <ListBox>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No packages yet.">
       <Column header="Picture">
         <template #body="{ data }: { data: PackageListItem }">
           <div class="h-[42px] w-[56px] overflow-hidden rounded border border-erp-border"><AuthImage :src="data.pictureUrl" :alt="data.name" /></div>
@@ -72,10 +72,17 @@ const runs = (p: PackageListItem) => `${formatDate(p.runsFrom)} – ${p.endedOn 
       <Column header="Status">
         <template #body="{ data }: { data: PackageListItem }"><StatusChip :status="data.status" :label="data.statusLabel" :group="PACKAGE_STATUS_GROUP[data.status]" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/core/packages/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

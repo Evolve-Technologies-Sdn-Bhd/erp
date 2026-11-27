@@ -5,6 +5,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import BranchFilter from '@/components/erp/BranchFilter.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
@@ -101,16 +103,12 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
-    <PageHeader title="List of Supplier Debit Note" subtitle="Extra charges a supplier adds to an invoice we already have. They increase what we owe.">
-      <template #actions>
-        <RouterLink v-if="can('purchase.debit_note.edit')" to="/purchase/debit-notes/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Record debit note</RouterLink>
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </template>
-    </PageHeader>
-
-    <FilterBar :columns="view.canFilter.value ? 5 : 4">
+  <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Supplier Debit Note" subtitle="Extra charges a supplier adds to an invoice we already have. They increase what we owe." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar :columns="view.canFilter.value ? 5 : 4">
       <input v-model="supplierText" class="erp-input" placeholder="Filter by supplier" aria-label="Filter by supplier" />
       <input v-model="invoiceText" class="erp-input" placeholder="Filter by invoice no" aria-label="Filter by invoice no" />
       <select class="erp-input" aria-label="Filter by reason" :value="list.params.value.reason" @change="list.setFilter('reason', ($event.target as HTMLSelectElement).value)">
@@ -131,10 +129,13 @@ async function exportCsv() {
       />
       <BranchFilter :model-value="list.params.value.branch ?? ''" @update:model-value="(v) => list.setFilter('branch', v)" />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No debit notes match these filters.">
+      </template>
+      <template #tools>
+        <RouterLink v-if="can('purchase.debit_note.edit')" to="/purchase/debit-notes/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Record debit note</RouterLink>
+        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No debit notes match these filters.">
       <Column header="PDN no">
         <template #body="{ data }: { data: DebitNoteListItem }">
           <strong v-if="data.isMigrated" class="whitespace-nowrap">{{ data.docNo }}</strong>
@@ -169,12 +170,19 @@ async function exportCsv() {
       <Column header="Status">
         <template #body="{ data }: { data: DebitNoteListItem }"><StatusChip :status="data.status" :group="CHIP[data.status].group" :label="CHIP[data.status].label" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/purchase/debit-notes/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-between pt-2">
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between pt-2">
       <span class="text-xs text-erp-muted">{{ footer }}</span>
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 
   <div class="flex gap-4">

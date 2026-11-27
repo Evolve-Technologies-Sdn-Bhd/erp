@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import Column from 'primevue/column'
 import { downloadFile } from '@/api/http'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
@@ -35,17 +36,14 @@ function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader
       title="Security log"
       subtitle="Sign-ins, failures, lockouts, password and two-factor changes, and every change to a role or a user's roles. Kept for at least a year; nobody can change or delete it."
-    >
-      <template #actions>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </template>
-    </PageHeader>
-
-    <FilterBar>
+     />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input class="erp-input" type="search" placeholder="Search person or detail" aria-label="Search person or detail" :value="search" @input="onSearch(($event.target as HTMLInputElement).value)" />
       <select class="erp-input" aria-label="Event" :value="list.params.value.kind" @change="list.setFilter('kind', ($event.target as HTMLSelectElement).value)">
         <option value="">Event: all</option>
@@ -59,8 +57,11 @@ function exportCsv() {
         <option v-for="p in PERIOD_OPTIONS" :key="p.value" :value="p.value">{{ p.label }}</option>
       </select>
     </FilterBar>
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="Nothing in the security log for these filters.">
+      </template>
+      <template #tools>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="Nothing in the security log for these filters.">
       <Column header="When">
         <template #body="{ data }: { data: SecurityEventRow }"><span class="whitespace-nowrap">{{ formatDateTime(data.at) }}</span></template>
       </Column>
@@ -78,9 +79,11 @@ function exportCsv() {
         <template #body="{ data }: { data: SecurityEventRow }"><span :class="{ 'text-erp-muted': !data.branchCode }">{{ data.branchCode ?? '—' }}</span></template>
       </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

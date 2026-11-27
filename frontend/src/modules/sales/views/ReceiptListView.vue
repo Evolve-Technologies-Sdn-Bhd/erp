@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import Column from 'primevue/column'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -39,20 +41,19 @@ watch(search, (v) => {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="Official Receipts" subtitle="Customer payments recorded on sales orders, each with its proof. Only verified receipts count as paid." />
-
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
     <p v-if="list.data.value && Number(list.data.value.waitingAmount)" class="m-0 text-[13px]">
       <span class="font-semibold">RM {{ formatMoney(list.data.value.waitingAmount) }}</span> waiting for Account to check against the bank.
     </p>
-
-    <FilterBar>
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input v-model="search" class="erp-input" placeholder="Receipt, customer or order" aria-label="Search receipt, customer or order" />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No receipts here. Salespeople record payments from the sales order.">
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No receipts here. Salespeople record payments from the sales order.">
       <Column header="Receipt">
         <template #body="{ data }: { data: ReceiptRow }">
           <RouterLink :to="`/sales/receipts/${data.id}`" class="erp-link font-semibold whitespace-nowrap">{{ data.docNo }}</RouterLink>
@@ -76,10 +77,17 @@ watch(search, (v) => {
       <Column header="Status">
         <template #body="{ data }: { data: ReceiptRow }"><StatusChip :status="data.status" :label="data.statusLabel" :group="RECEIPT_GROUP[data.status]" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/sales/receipts/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

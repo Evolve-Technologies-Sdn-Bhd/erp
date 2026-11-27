@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import Column from 'primevue/column'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
@@ -40,14 +42,15 @@ watch(search, (v) => {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="List of Jobs" subtitle="Every installation, service, warranty and repair job." />
-
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
     <div class="flex items-center justify-between gap-3">
       <RouterLink v-if="can('service.job.edit')" to="/service/jobs/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New job</RouterLink>
     </div>
-
-    <FilterBar>
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input v-model="search" class="erp-input" placeholder="Job, customer or order" aria-label="Search job, customer or order" />
       <select class="erp-input" aria-label="Filter by type" :value="list.params.value.type" @change="list.setFilter('type', ($event.target as HTMLSelectElement).value)">
         <option value="">All types</option>
@@ -58,10 +61,8 @@ watch(search, (v) => {
         <option value="1">Overdue only</option>
       </select>
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No jobs yet. A released sales order with installation adds one, or click New job.">
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No jobs yet. A released sales order with installation adds one, or click New job.">
       <Column header="Job">
         <template #body="{ data }: { data: JobRow }">
           <RouterLink :to="`/service/jobs/${data.id}`" class="erp-link font-semibold whitespace-nowrap">{{ data.docNo }}</RouterLink>
@@ -96,10 +97,17 @@ watch(search, (v) => {
           </span>
         </template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/service/jobs/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

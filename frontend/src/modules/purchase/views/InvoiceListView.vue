@@ -5,6 +5,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { FileText, Package, ReceiptText } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import BranchFilter from '@/components/erp/BranchFilter.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import KpiCard from '@/components/erp/KpiCard.vue'
@@ -144,16 +146,16 @@ async function exportCsv() {
     />
   </div>
 
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
-    <PageHeader title="List of Purchase Invoice" subtitle="Supplier bills. Each one is matched against what was ordered and what was received before it can be paid.">
-      <template #actions>
-        <RouterLink v-if="can('purchase.invoice.edit')" to="/purchase/invoices/new" class="erp-btn erp-btn-add">Record supplier invoice</RouterLink>
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </template>
-    </PageHeader>
-
-    <FilterBar :columns="view.canFilter.value ? 5 : 4">
+  <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Purchase Invoice" subtitle="Supplier bills. Each one is matched against what was ordered and what was received before it can be paid." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
+      The invoices could not be loaded.
+      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
+    </div>
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar :columns="view.canFilter.value ? 5 : 4">
       <input v-model="supplierText" class="erp-input" placeholder="Filter by supplier" aria-label="Filter by supplier" />
       <input v-model="invoiceNoText" class="erp-input" placeholder="Filter by their invoice no" aria-label="Filter by their invoice no" />
       <select class="erp-input" aria-label="Filter by match result" :value="list.params.value.match" @change="list.setFilter('match', ($event.target as HTMLSelectElement).value)">
@@ -176,15 +178,13 @@ async function exportCsv() {
       />
       <BranchFilter :model-value="list.params.value.branch ?? ''" @update:model-value="(v) => list.setFilter('branch', v)" />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
-      The invoices could not be loaded.
-      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
-    </div>
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No supplier invoices match these filters.">
+      </template>
+      <template #tools>
+        <RouterLink v-if="can('purchase.invoice.edit')" to="/purchase/invoices/new" class="erp-btn erp-btn-add">Record supplier invoice</RouterLink>
+        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No supplier invoices match these filters.">
       <Column header="PI no">
         <template #body="{ data }: { data: InvoiceListItem }">
           <strong v-if="data.isMigrated" class="whitespace-nowrap">{{ data.docNo }}</strong>
@@ -225,12 +225,19 @@ async function exportCsv() {
       <Column header="Status">
         <template #body="{ data }: { data: InvoiceListItem }"><StatusChip :status="data.status" :group="data.statusGroup" :label="data.statusLabel" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/purchase/invoices/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-between pt-2">
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between pt-2">
       <span class="text-xs text-erp-muted">{{ footer }}</span>
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 
   <section class="erp-card flex items-center gap-[18px] px-5 py-4">

@@ -7,6 +7,7 @@ import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
 import { ApiError } from '@/api/http'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import FormField from '@/components/erp/FormField.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -74,13 +75,16 @@ async function save() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="Warranties" subtitle="Units installed with a warranty, from the installation day. A warranty is active once its order is fully paid." />
-    <FilterBar>
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input :value="list.params.value.q" class="erp-input min-w-[320px]" placeholder="Search phone, customer, order or serial" aria-label="Search" @change="list.setFilter('q', ($event.target as HTMLInputElement).value)" />
     </FilterBar>
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No warranties. Set Warranty (months) on an item in Core; a complete installation registers it here.">
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No warranties. Set Warranty (months) on an item in Core; a complete installation registers it here.">
       <Column header="Unit">
         <template #body="{ data }: { data: Warranty }"><span class="font-semibold">{{ data.itemCode }}</span> · {{ formatQty(data.qty) }} {{ data.uomCode }}<div class="text-xs text-erp-muted">{{ data.itemName }}</div></template>
       </Column>
@@ -109,8 +113,10 @@ async function save() {
         </template>
       </Column>
     </DataList>
-    <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
-
+      <template #footer>
+        <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
+      </template>
+    </ListBox>
     <Dialog :visible="Boolean(ask)" data-tour="svc:warranty-ask" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="ask ? `${TITLE[ask]} · ${unit?.itemCode}` : ''" @update:visible="ask = null">
       <div class="flex flex-col gap-3 text-[13px]">
         <p class="m-0">{{ unit?.customerName }} · {{ unit?.stateLabel }}</p>

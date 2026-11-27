@@ -6,6 +6,8 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -103,10 +105,23 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="List of Enquiry" subtitle="Every customer request before a quotation. Existing customers come from Master Data; new prospects are allowed." />
-
-    <FilterBar>
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex gap-2">
+        <RouterLink v-if="can('sales.enquiry.edit') && salesFlow.useEnquiries" to="/sales/enquiries/new" data-tour="action:new-enquiry" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new enquiry</RouterLink>
+        <button type="button" class="erp-btn erp-btn-delete" :disabled="!deletable.length" @click="deleteSelected">Delete</button>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </div>
+    </div>
+    <span class="text-xs text-erp-muted">{{ showing }}</span>
+    <ListBox :count="showing" open-filters>
+      <template #filters>
+        <FilterBar>
       <select class="erp-input" aria-label="Filter by enquiry type" :value="list.params.value.type" @change="list.setFilter('type', ($event.target as HTMLSelectElement).value)">
         <option value="">Filter by enquiry type</option>
         <option v-for="t in types" :key="t.code" :value="t.code">{{ t.name }}</option>
@@ -124,22 +139,8 @@ async function exportCsv() {
         <option v-for="b in branches" :key="b.code" :value="b.code">{{ b.name }}</option>
       </select>
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex gap-2">
-        <RouterLink v-if="can('sales.enquiry.edit') && salesFlow.useEnquiries" to="/sales/enquiries/new" data-tour="action:new-enquiry" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new enquiry</RouterLink>
-        <button type="button" class="erp-btn erp-btn-delete" :disabled="!deletable.length" @click="deleteSelected">Delete</button>
-      </div>
-      <div class="flex gap-2">
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </div>
-    </div>
-    <span class="text-xs text-erp-muted">{{ showing }}</span>
-
-    <DataList v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No enquiries match these filters.">
+      </template>
+      <DataList v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No enquiries match these filters.">
       <Column selection-mode="multiple" header-style="width: 44px" />
       <Column header="Enq no">
         <template #body="{ data }: { data: EnquiryListItem }">
@@ -180,10 +181,17 @@ async function exportCsv() {
       <Column header="Created">
         <template #body="{ data }: { data: EnquiryListItem }"><span class="whitespace-nowrap">{{ formatDate(data.docDate) }}</span></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/sales/enquiries/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

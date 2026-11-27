@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import Column from 'primevue/column'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -36,20 +38,20 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="Installer Claims" subtitle="Installers claim a fee per complete, fully paid job, twice a month with their invoice. Account checks, approves and pays.">
       <template v-if="can('service.claim.edit')" #actions>
         <RouterLink to="/service/claims/new" data-tour="action:new-claim" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New claim</RouterLink>
       </template>
     </PageHeader>
-
-    <FilterBar>
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input :value="list.params.value.q" class="erp-input" placeholder="Search claim, installer, invoice or PV" aria-label="Search" @change="list.setFilter('q', ($event.target as HTMLInputElement).value)" />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No claims yet. Key one for an installer with New claim.">
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No claims yet. Key one for an installer with New claim.">
       <Column header="Claim">
         <template #body="{ data }: { data: ClaimRow }"><RouterLink :to="`/service/claims/${data.id}`" class="erp-link font-semibold">{{ data.docNo }}</RouterLink></template>
       </Column>
@@ -72,11 +74,18 @@ const GROUP = { DRAFT: 'draft', SUBMITTED: 'pending', RETURNED: 'cancelled', APP
           <div v-if="data.paymentRef" class="text-xs text-erp-muted">{{ data.paymentRef }}</div>
         </template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/service/claims/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-between gap-3 pt-2 text-[13px]">
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-2 text-[13px]">
       <span v-if="list.data.value">Total on this tab: <strong>RM <MoneyText :value="list.data.value.sumTotal" /></strong></span>
-      <Pager v-if="paged && list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="paged && list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

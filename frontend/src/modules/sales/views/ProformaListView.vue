@@ -7,6 +7,8 @@ import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import BranchFilter from '@/components/erp/BranchFilter.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import KpiCard from '@/components/erp/KpiCard.vue'
@@ -136,16 +138,12 @@ async function exportCsv() {
       </div>
     </div>
 
-    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
-      <PageHeader title="List of Proforma Invoice" subtitle="Payment requests sent before delivery, for deposits or pay-first customers.">
-        <template #actions>
-          <button v-if="can('sales.proforma.edit')" type="button" class="erp-btn erp-btn-add" @click="openPick"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New proforma</button>
-          <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-          <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-        </template>
-      </PageHeader>
-
-      <FilterBar :columns="view.canFilter.value ? 5 : 4">
+    <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Proforma Invoice" subtitle="Payment requests sent before delivery, for deposits or pay-first customers." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar :columns="view.canFilter.value ? 5 : 4">
         <input v-model="customerText" class="erp-input" placeholder="Filter by customer" aria-label="Filter by customer" />
         <input v-model="orderText" class="erp-input" placeholder="Filter by sales order no" aria-label="Filter by sales order no" />
         <select class="erp-input" aria-label="Filter by request" :value="list.params.value.request" @change="list.setFilter('request', ($event.target as HTMLSelectElement).value)">
@@ -167,9 +165,12 @@ async function exportCsv() {
         />
         <BranchFilter :model-value="list.params.value.branch ?? ''" @update:model-value="(v) => list.setFilter('branch', v)" />
       </FilterBar>
-
-      <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
+      </template>
+      <template #tools>
+        <button v-if="can('sales.proforma.edit')" type="button" class="erp-btn erp-btn-add" @click="openPick"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New proforma</button>
+          <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+          <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
       <DataList :rows="rows" :loading="list.loading.value" empty-text="No proformas match these filters.">
         <Column header="PF no">
           <template #body="{ data }: { data: ProformaListItem }">
@@ -200,13 +201,20 @@ async function exportCsv() {
         <Column header="Status">
           <template #body="{ data }: { data: ProformaListItem }"><StatusChip :status="data.status" :label="data.label" :group="GROUP[data.status]" /></template>
         </Column>
-      </DataList>
-
-      <div class="mt-auto flex items-center justify-between pt-2">
+            <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/sales/proformas/${data.id}` }]" />
+        </template>
+      </Column>
+    </DataList>
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between pt-2">
         <span class="text-xs text-erp-muted">{{ footer }}</span>
-        <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+        <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
       </div>
-    </section>
+      </template>
+    </ListBox>
+  </section>
 
     <NoticeBanner>When the tax invoice is issued, the deposit on the proforma is knocked off it automatically.{{ lastUsedText }}</NoticeBanner>
 

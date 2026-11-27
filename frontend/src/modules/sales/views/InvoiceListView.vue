@@ -5,6 +5,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import KpiCard from '@/components/erp/KpiCard.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
@@ -114,19 +116,16 @@ const source = (i: InvoiceListItem) => (i.isMigrated ? 'migrated' : i.kind === '
       <KpiCard label="LHDN e-Invoice pending" tone="warning" :value="kpis?.eInvoicePending ?? '—'" sub="Sent when e-Invoice plugs in" :loading="list.loading.value && !kpis" />
     </div>
 
-    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
-      <PageHeader title="List of Invoice" subtitle="Tax invoices. Invoices from before go-live are marked “migrated” and keep their old numbers.">
-        <template #actions>
-          <template v-if="can('sales.invoice.edit')">
-            <RouterLink to="/sales/invoices/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Create from sales order</RouterLink>
-            <RouterLink to="/sales/invoices/blank" class="erp-btn erp-btn-secondary">Blank invoice</RouterLink>
-          </template>
-          <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-          <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-        </template>
-      </PageHeader>
-
-      <FilterBar>
+    <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Invoice" subtitle="Tax invoices. Invoices from before go-live are marked “migrated” and keep their old numbers." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
+        The invoices could not be loaded.
+        <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
+      </div>
+    <ListBox :count="showing" open-filters>
+      <template #filters>
+        <FilterBar>
         <input v-model="customerText" class="erp-input" placeholder="Filter by customer" aria-label="Filter by customer" />
         <select class="erp-input" aria-label="Filter by sales agent" :value="list.params.value.agent" @change="list.setFilter('agent', ($event.target as HTMLSelectElement).value)">
           <option value="">Filter by sales agent</option>
@@ -149,14 +148,15 @@ const source = (i: InvoiceListItem) => (i.isMigrated ? 'migrated' : i.kind === '
           @clear-click="onDateRange(null)"
         />
       </FilterBar>
-
-      <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-      <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
-        The invoices could not be loaded.
-        <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
-      </div>
-
+      </template>
+      <template #tools>
+        <template v-if="can('sales.invoice.edit')">
+            <RouterLink to="/sales/invoices/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Create from sales order</RouterLink>
+            <RouterLink to="/sales/invoices/blank" class="erp-btn erp-btn-secondary">Blank invoice</RouterLink>
+          </template>
+          <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+          <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
       <DataList :rows="rows" :loading="list.loading.value" empty-text="No invoices match these filters.">
         <Column header="Invoice no">
           <template #body="{ data }: { data: InvoiceListItem }">
@@ -199,12 +199,19 @@ const source = (i: InvoiceListItem) => (i.isMigrated ? 'migrated' : i.kind === '
             <span v-else class="text-erp-muted">—</span>
           </template>
         </Column>
-      </DataList>
-
-      <div class="mt-auto flex items-center justify-between pt-2">
+            <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/sales/invoices/${data.id}` }]" />
+        </template>
+      </Column>
+    </DataList>
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between pt-2">
         <span class="text-xs text-erp-muted">{{ showing }}</span>
-        <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+        <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
       </div>
-    </section>
+      </template>
+    </ListBox>
+  </section>
   </div>
 </template>

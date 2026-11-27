@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import Column from 'primevue/column'
 import { useToast } from 'primevue/usetoast'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import KpiCard from '@/components/erp/KpiCard.vue'
 import Pager from '@/components/erp/Pager.vue'
 import StatusChip from '@/components/erp/StatusChip.vue'
@@ -174,7 +176,7 @@ async function exportCsv() {
     <p v-else class="m-0 py-4 text-center text-[13px] text-erp-muted">Loading…</p>
   </section>
 
-  <section class="erp-card erp-listcard flex grow flex-col gap-2.5 px-5 py-4">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <div class="flex items-center justify-between">
       <h2 class="m-0 text-[15px] font-bold">Goods receipts</h2>
       <div class="flex gap-2">
@@ -188,8 +190,8 @@ async function exportCsv() {
       The receipts could not be loaded.
       <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
     </div>
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No goods receipts yet.">
+    <ListBox>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No goods receipts yet.">
       <Column header="GRN no">
         <template #body="{ data }: { data: ReceiptListItem }">
           <strong v-if="data.isMigrated" class="whitespace-nowrap">{{ data.docNo }}</strong>
@@ -222,11 +224,18 @@ async function exportCsv() {
       <Column header="Status">
         <template #body="{ data }: { data: ReceiptListItem }"><StatusChip :status="chip(data).status" :label="chip(data).label" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/purchase/receipts/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-between pt-2">
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between pt-2">
       <span class="text-xs text-erp-muted">{{ footer }}</span>
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

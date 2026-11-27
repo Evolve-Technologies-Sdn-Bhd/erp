@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import Column from 'primevue/column'
 import { downloadFile } from '@/api/http'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
@@ -40,14 +41,11 @@ function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]" :class="{ grow: !open }">
-    <PageHeader title="Audit trail" subtitle="Every change in every module, with who made it and what changed. Read only; the Auditor role sees it too.">
-      <template #actions>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </template>
-    </PageHeader>
-
-    <FilterBar>
+  <section class="flex min-w-0 flex-col gap-3.5" :class="{ grow: !open }">
+    <PageHeader title="Audit trail" subtitle="Every change in every module, with who made it and what changed. Read only; the Auditor role sees it too." />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input class="erp-input" type="search" placeholder="Search number or text" aria-label="Search number or text" :value="search" @input="onSearch(($event.target as HTMLInputElement).value)" />
       <select class="erp-input" aria-label="Module" :value="list.params.value.module" @change="list.setFilter('module', ($event.target as HTMLSelectElement).value)">
         <option value="">Module: all</option>
@@ -61,8 +59,11 @@ function exportCsv() {
         <option v-for="p in PERIOD_OPTIONS" :key="p.value" :value="p.value">{{ p.label }}</option>
       </select>
     </FilterBar>
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No changes for these filters.">
+      </template>
+      <template #tools>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No changes for these filters.">
       <Column header="When">
         <template #body="{ data }: { data: AuditRow }"><span class="whitespace-nowrap">{{ formatDateTime(data.at) }}</span></template>
       </Column>
@@ -92,11 +93,13 @@ function exportCsv() {
         <template #body="{ data }: { data: AuditRow }"><span class="whitespace-nowrap">{{ data.who }}</span></template>
       </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-between gap-3 pt-2">
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between gap-3 pt-2">
       <span class="text-xs text-erp-muted">Click a change with before-and-after values to see them.</span>
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 
   <section v-if="open" data-tour="audit:change" class="erp-card flex flex-col gap-3 px-[18px] py-4">

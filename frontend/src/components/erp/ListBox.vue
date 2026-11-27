@@ -7,9 +7,9 @@ import { ListFilter, Search, X } from '@lucide/vue'
  * and the count on the left; Filter, the page's tools and Add on the right), the filters panel when opened, the bar of
  * what can be done with the ticked rows, the table (DataList, default slot) and the footer (the pager).
  */
-const props = defineProps<{ count?: string; placeholder?: string; activeFilters?: number; selected?: number }>()
+const props = defineProps<{ count?: string; placeholder?: string; activeFilters?: number; selected?: number; openFilters?: boolean }>()
 const search = defineModel<string>('search')
-const filtersOpen = ref((props.activeFilters ?? 0) > 0)
+const filtersOpen = ref(props.openFilters || (props.activeFilters ?? 0) > 0)
 </script>
 
 <template>
@@ -147,6 +147,13 @@ const filtersOpen = ref((props.activeFilters ?? 0) > 0)
   padding: 12px;
   border-radius: 10px;
   background: var(--erp-head-bg);
+}
+/* A page's own filter row (FilterBar) keeps its columns across the panel */
+.erp-box-filters > :deep([data-tour='filters']) {
+  grid-column: 1 / -1;
+}
+.erp-box-foot > :deep(*) {
+  flex: 1;
 }
 .erp-box-selection {
   display: flex;

@@ -7,6 +7,8 @@ import Popover from 'primevue/popover'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -167,20 +169,37 @@ const footer = computed(() => {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
-    <PageHeader title="List of Purchase Request" subtitle="Anyone can ask for something to be bought. Purchasing turns requests into RFQs or purchase orders.">
-      <template #actions>
-        <RouterLink v-if="can('purchase.request.create')" to="/purchase/requests/new" class="erp-btn erp-btn-add">
-          <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new request
-        </RouterLink>
-        <template v-if="can('purchase.request.process')">
-          <button type="button" class="erp-btn erp-btn-primary" :disabled="Boolean(selected) && !canDo('toRfq')" @click="createRfq">Create RFQ</button>
-          <button type="button" class="erp-btn erp-btn-secondary" :disabled="Boolean(selected) && !canDo('toPo')" @click="createPo">Create PO directly</button>
-        </template>
-      </template>
-    </PageHeader>
+  <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Purchase Request" subtitle="Anyone can ask for something to be bought. Purchasing turns requests into RFQs or purchase orders." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <div class="flex items-center justify-between gap-3">
+      <span class="text-xs text-erp-muted">{{ selectionText }}</span>
+      <div class="flex gap-2">
+        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+        <button type="button" class="erp-btn erp-btn-secondary" @click="columnsPanel?.toggle($event)">Select columns</button>
+        <Popover ref="columnsPanel">
+          <div class="flex flex-col gap-2 p-1 text-[13px]">
+            <label v-for="c in OPTIONAL" :key="c.key" class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                :checked="show(c.key)"
+                @change="hidden = show(c.key) ? [...hidden, c.key] : hidden.filter((h) => h !== c.key)"
+              />
+              {{ c.label }}
+            </label>
+          </div>
+        </Popover>
+      </div>
+    </div>
 
-    <FilterBar>
+    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
+      The requests could not be loaded.
+      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
+    </div>
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input v-model="requesterText" class="erp-input" placeholder="Filter by requester" aria-label="Filter by requester" />
       <select
         class="erp-input"
@@ -213,36 +232,17 @@ const footer = computed(() => {
         @clear-click="onDateRange(null)"
       />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <div class="flex items-center justify-between gap-3">
-      <span class="text-xs text-erp-muted">{{ selectionText }}</span>
-      <div class="flex gap-2">
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-        <button type="button" class="erp-btn erp-btn-secondary" @click="columnsPanel?.toggle($event)">Select columns</button>
-        <Popover ref="columnsPanel">
-          <div class="flex flex-col gap-2 p-1 text-[13px]">
-            <label v-for="c in OPTIONAL" :key="c.key" class="flex items-center gap-2">
-              <input
-                type="checkbox"
-                :checked="show(c.key)"
-                @change="hidden = show(c.key) ? [...hidden, c.key] : hidden.filter((h) => h !== c.key)"
-              />
-              {{ c.label }}
-            </label>
-          </div>
-        </Popover>
-      </div>
-    </div>
-
-    <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
-      The requests could not be loaded.
-      <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
-    </div>
-
-    <DataList :column-tool="false" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No purchase requests match these filters.">
+      </template>
+      <template #tools>
+        <RouterLink v-if="can('purchase.request.create')" to="/purchase/requests/new" class="erp-btn erp-btn-add">
+          <Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new request
+        </RouterLink>
+        <template v-if="can('purchase.request.process')">
+          <button type="button" class="erp-btn erp-btn-primary" :disabled="Boolean(selected) && !canDo('toRfq')" @click="createRfq">Create RFQ</button>
+          <button type="button" class="erp-btn erp-btn-secondary" :disabled="Boolean(selected) && !canDo('toPo')" @click="createPo">Create PO directly</button>
+        </template>
+      </template>
+      <DataList :column-tool="false" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No purchase requests match these filters.">
       <Column selection-mode="multiple" header-style="width: 44px" />
       <Column header="Request no">
         <template #body="{ data }: { data: RequestListItem }">
@@ -290,9 +290,14 @@ const footer = computed(() => {
       <Column header="Status">
         <template #body="{ data }: { data: RequestListItem }"><StatusChip :status="data.status" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/purchase/requests/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-between pt-2">
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between pt-2">
       <span class="text-xs text-erp-muted">{{ footer }}</span>
       <Pager
         v-if="list.data.value"
@@ -302,5 +307,7 @@ const footer = computed(() => {
         @change="list.setPage"
       />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

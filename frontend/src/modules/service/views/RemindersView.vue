@@ -4,6 +4,7 @@ import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
 import FormField from '@/components/erp/FormField.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
 import Pager from '@/components/erp/Pager.vue'
@@ -64,20 +65,18 @@ async function dismiss() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="Service Reminders" subtitle="Items with a service interval in Core come due after installation. 14 days before the due day, a service job is made for the office to book.">
       <template v-if="can('service.job.edit')" #actions>
         <button type="button" data-tour="action:make-jobs" class="erp-btn erp-btn-add" :disabled="running" @click="runNow">Make jobs now</button>
       </template>
     </PageHeader>
-
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
     <p class="m-0 text-xs text-erp-muted">
       The server also makes them by itself every hour<template v-if="list.data.value"> (now up to {{ formatDate(list.data.value.makesUntil) }})</template>. Completing the service job starts the next reminder.
     </p>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No reminders yet. Set Service every (months) on an item in Core; completing its installation starts one.">
+    <ListBox>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No reminders yet. Set Service every (months) on an item in Core; completing its installation starts one.">
       <Column header="Due">
         <template #body="{ data }: { data: ReminderRow }">
           <span class="whitespace-nowrap" :class="data.overdue ? 'font-semibold text-attention' : ''">{{ formatDate(data.dueOn) }}</span>
@@ -114,11 +113,12 @@ async function dismiss() {
         </template>
       </Column>
     </DataList>
-
-    <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="paged" class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
-
+      </template>
+    </ListBox>
     <Dialog :visible="Boolean(dismissing)" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="`Dismiss the reminder for ${dismissing?.itemCode}?`" @update:visible="(v: boolean) => !v && (dismissing = null)">
       <div class="flex flex-col gap-3">
         <p class="m-0 text-[13px]">{{ dismissing?.customerName }} gets no service job for it, and no further reminders.</p>

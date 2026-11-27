@@ -5,6 +5,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import BranchFilter from '@/components/erp/BranchFilter.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import KpiCard from '@/components/erp/KpiCard.vue'
@@ -143,16 +145,12 @@ async function exportCsv() {
     />
   </div>
 
-  <section class="erp-card erp-listcard flex flex-col gap-3 px-6 py-[18px]">
-    <PageHeader title="List of Purchase Return" subtitle="Goods sent back to a supplier after they were received. Each return waits for a credit note or a replacement.">
-      <template #actions>
-        <RouterLink v-if="can('purchase.return.edit')" to="/purchase/returns/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New return</RouterLink>
-        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </template>
-    </PageHeader>
-
-    <FilterBar :columns="view.canFilter.value ? 5 : 4">
+  <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Purchase Return" subtitle="Goods sent back to a supplier after they were received. Each return waits for a credit note or a replacement." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar :columns="view.canFilter.value ? 5 : 4">
       <input v-model="supplierText" class="erp-input" placeholder="Filter by supplier" aria-label="Filter by supplier" />
       <input v-model="grnText" class="erp-input" placeholder="Filter by GRN no" aria-label="Filter by GRN no" />
       <select class="erp-input" aria-label="Filter by reason" :value="list.params.value.reason" @change="list.setFilter('reason', ($event.target as HTMLSelectElement).value)">
@@ -173,10 +171,13 @@ async function exportCsv() {
       />
       <BranchFilter :model-value="list.params.value.branch ?? ''" @update:model-value="(v) => list.setFilter('branch', v)" />
     </FilterBar>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No returns match these filters.">
+      </template>
+      <template #tools>
+        <RouterLink v-if="can('purchase.return.edit')" to="/purchase/returns/new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New return</RouterLink>
+        <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No returns match these filters.">
       <Column header="Return no">
         <template #body="{ data }: { data: ReturnListItem }">
           <strong v-if="data.isMigrated" class="whitespace-nowrap">{{ data.docNo }}</strong>
@@ -211,11 +212,18 @@ async function exportCsv() {
       <Column header="Status">
         <template #body="{ data }: { data: ReturnListItem }"><StatusChip :status="data.status" :group="CHIP[data.status].group" :label="CHIP[data.status].label" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/purchase/returns/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div v-if="list.data.value && list.data.value.total > list.data.value.pageSize" class="flex justify-end">
-      <Pager :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div v-if="list.data.value && list.data.value.total > list.data.value.pageSize" class="flex justify-end">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 
   <div class="flex grow gap-4">

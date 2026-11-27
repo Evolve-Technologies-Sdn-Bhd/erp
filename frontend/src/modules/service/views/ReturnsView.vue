@@ -5,6 +5,7 @@ import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
 import { ApiError } from '@/api/http'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import FormField from '@/components/erp/FormField.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -53,13 +54,16 @@ async function receive() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="Returned Parts" subtitle="Parts installers bring back from their jobs. The store counts them as good or damaged; the warehouse system counts the stock when they are scanned." />
-    <FilterBar>
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <ListBox open-filters>
+      <template #filters>
+        <FilterBar>
       <input :value="list.params.value.q" class="erp-input" placeholder="Search job, customer, item or person" aria-label="Search" @change="list.setFilter('q', ($event.target as HTMLInputElement).value)" />
     </FilterBar>
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No returned parts. They are listed when a visit is recorded.">
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No returned parts. They are listed when a visit is recorded.">
       <Column header="Job">
         <template #body="{ data }: { data: ReturnedPart }"><RouterLink :to="`/service/jobs/${data.jobId}`" class="erp-link font-semibold">{{ data.jobNo }}</RouterLink><div class="text-xs text-erp-muted">{{ data.customerName }}</div></template>
       </Column>
@@ -87,8 +91,10 @@ async function receive() {
         </template>
       </Column>
     </DataList>
-    <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
-
+      <template #footer>
+        <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
+      </template>
+    </ListBox>
     <Dialog :visible="Boolean(part)" data-tour="svc:receive" modal :draggable="false" class="erp-dialog" :style="{ width: '440px' }" :header="`Receive ${part?.itemCode ?? ''} from ${part?.jobNo ?? ''}`" @update:visible="part = null">
       <div class="grid grid-cols-2 gap-3 text-[13px]">
         <p class="col-span-2 m-0">{{ part ? formatQty(part.qty) : '' }} {{ part?.uomCode }} {{ part?.itemName }} said to come back.<template v-if="part?.reason === 'EXCHANGE'"> It is the faulty unit of a one-to-one exchange: receiving it makes its goods receipt, to the warranty location.</template></p>

@@ -9,6 +9,8 @@ import { useToast } from 'primevue/usetoast'
 import { Clock, Plus } from '@lucide/vue'
 import { ApiError } from '@/api/http'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import MoneyText from '@/components/erp/MoneyText.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -224,39 +226,15 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="List of Quotation" subtitle="Price offers sent to customers. A released quotation can be revised or turned into a sales order." />
-
-    <FilterBar>
-      <input v-model="customerText" class="erp-input" placeholder="Filter by customer" aria-label="Filter by customer" />
-      <select class="erp-input" aria-label="Filter by sales agent" :value="list.params.value.agent" @change="list.setFilter('agent', ($event.target as HTMLSelectElement).value)">
-        <option value="">Filter by sales agent</option>
-        <option v-for="a in agents" :key="a.code" :value="a.code">{{ a.name }}</option>
-      </select>
-      <select class="erp-input" aria-label="Filter by branch" :value="list.params.value.branch" @change="list.setFilter('branch', ($event.target as HTMLSelectElement).value)">
-        <option value="">Filter by branch</option>
-        <option v-for="b in branches" :key="b.code" :value="b.code">{{ b.name }}</option>
-      </select>
-      <DatePicker
-        v-model="dateRange"
-        selection-mode="range"
-        date-format="d M yy"
-        :placeholder="datePlaceholder"
-        :manual-input="false"
-        show-button-bar
-        fluid
-        class="erp-date"
-        @update:model-value="onDateRange"
-        @clear-click="onDateRange(null)"
-      />
-    </FilterBar>
-
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
     <div v-if="expiryBanner" class="flex items-center gap-2.5 rounded-[10px] border border-note-warn-border bg-note-warn-bg px-3.5 py-2.5 text-[13px] text-note-warn-text" role="status">
       <Clock :size="16" class="shrink-0 text-note-warn-strong" aria-hidden="true" />
       <span><strong>{{ expiryBanner.lead }}</strong> {{ expiryBanner.rest }}</span>
     </div>
 
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    
 
     <div class="flex items-center justify-between gap-3">
       <div class="flex gap-2">
@@ -287,8 +265,33 @@ async function exportCsv() {
       The quotations could not be loaded.
       <button type="button" class="erp-btn erp-btn-secondary" @click="list.reload()">Try again</button>
     </div>
-
-    <DataList :column-tool="false" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No quotations match these filters.">
+    <ListBox :count="showing" open-filters>
+      <template #filters>
+        <FilterBar>
+      <input v-model="customerText" class="erp-input" placeholder="Filter by customer" aria-label="Filter by customer" />
+      <select class="erp-input" aria-label="Filter by sales agent" :value="list.params.value.agent" @change="list.setFilter('agent', ($event.target as HTMLSelectElement).value)">
+        <option value="">Filter by sales agent</option>
+        <option v-for="a in agents" :key="a.code" :value="a.code">{{ a.name }}</option>
+      </select>
+      <select class="erp-input" aria-label="Filter by branch" :value="list.params.value.branch" @change="list.setFilter('branch', ($event.target as HTMLSelectElement).value)">
+        <option value="">Filter by branch</option>
+        <option v-for="b in branches" :key="b.code" :value="b.code">{{ b.name }}</option>
+      </select>
+      <DatePicker
+        v-model="dateRange"
+        selection-mode="range"
+        date-format="d M yy"
+        :placeholder="datePlaceholder"
+        :manual-input="false"
+        show-button-bar
+        fluid
+        class="erp-date"
+        @update:model-value="onDateRange"
+        @clear-click="onDateRange(null)"
+      />
+    </FilterBar>
+      </template>
+      <DataList :column-tool="false" v-model:selection="selection" :rows="rows" :loading="list.loading.value" selectable empty-text="No quotations match these filters.">
       <Column selection-mode="multiple" header-style="width: 44px" />
       <Column header="QT no">
         <template #body="{ data }: { data: QuotationListItem }">
@@ -323,10 +326,17 @@ async function exportCsv() {
       <Column header="Status">
         <template #body="{ data }: { data: QuotationListItem }"><StatusChip :status="data.status" :label="data.label" :group="groupOf(data)" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/sales/quotations/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>

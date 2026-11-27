@@ -5,6 +5,8 @@ import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import BranchFilter from '@/components/erp/BranchFilter.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import KpiCard from '@/components/erp/KpiCard.vue'
@@ -101,16 +103,12 @@ async function exportCsv() {
       <KpiCard label="Consolidated e-Invoice" tone="warning" :value="kpis ? `${kpis.consolidated.count} sales` : '—'" :sub="dueText" :loading="list.loading.value && !kpis" />
     </div>
 
-    <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
-      <PageHeader title="List of Cash Sales" subtitle="Walk-in sales paid on the spot. One document records the sale, the payment and the stock going out.">
-        <template #actions>
-          <RouterLink v-if="can('sales.cash_sale.edit')" to="/sales/cash-sales/new" data-tour="action:new-cash-sale" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cash sale</RouterLink>
-          <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
-          <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-        </template>
-      </PageHeader>
-
-      <FilterBar :columns="view.canFilter.value ? 5 : 4">
+    <section class="flex min-w-0 flex-col gap-3.5">
+    <PageHeader title="List of Cash Sales" subtitle="Walk-in sales paid on the spot. One document records the sale, the payment and the stock going out." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <ListBox :count="showing" open-filters>
+      <template #filters>
+        <FilterBar :columns="view.canFilter.value ? 5 : 4">
         <input v-model="buyerText" class="erp-input" placeholder="Filter by buyer" aria-label="Filter by buyer" />
         <select class="erp-input" aria-label="Filter by payment" :value="list.params.value.method" @change="list.setFilter('method', ($event.target as HTMLSelectElement).value)">
           <option value="">Filter by payment</option>
@@ -126,9 +124,12 @@ async function exportCsv() {
         <DatePicker v-model="dateRange" selection-mode="range" date-format="d M yy" :placeholder="datePlaceholder" :manual-input="false" show-button-bar fluid class="erp-date" @update:model-value="onDateRange" @clear-click="onDateRange(null)" />
         <BranchFilter :model-value="list.params.value.branch ?? ''" @update:model-value="(v) => list.setFilter('branch', v)" />
       </FilterBar>
-
-      <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
+      </template>
+      <template #tools>
+        <RouterLink v-if="can('sales.cash_sale.edit')" to="/sales/cash-sales/new" data-tour="action:new-cash-sale" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />New cash sale</RouterLink>
+          <button type="button" class="erp-btn erp-btn-import" @click="importLater">Import</button>
+          <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </template>
       <DataList :rows="rows" :loading="list.loading.value" empty-text="No cash sales match these filters.">
         <Column header="CS no">
           <template #body="{ data }: { data: CashListItem }">
@@ -158,12 +159,19 @@ async function exportCsv() {
             <StatusChip :status="data.status" :label="data.status === 'DRAFT' ? 'Draft' : 'Released'" :group="data.status === 'DRAFT' ? 'draft' : 'done'" />
           </template>
         </Column>
-      </DataList>
-
-      <div class="mt-auto flex items-center justify-between pt-2">
+            <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/sales/cash-sales/${data.id}` }]" />
+        </template>
+      </Column>
+    </DataList>
+      <template #footer>
+        <div class="mt-auto flex items-center justify-between pt-2">
         <span class="text-xs text-erp-muted">{{ showing }}</span>
-        <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+        <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
       </div>
-    </section>
+      </template>
+    </ListBox>
+  </section>
   </div>
 </template>

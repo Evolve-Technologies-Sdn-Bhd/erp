@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import Column from 'primevue/column'
 import { Plus } from '@lucide/vue'
 import DataList from '@/components/erp/DataList.vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import RowMenu from '@/components/erp/RowMenu.vue'
 import FilterBar from '@/components/erp/FilterBar.vue'
 import NoticeBanner from '@/components/erp/NoticeBanner.vue'
 import PageHeader from '@/components/erp/PageHeader.vue'
@@ -75,10 +77,29 @@ async function exportCsv() {
 </script>
 
 <template>
-  <section class="erp-card erp-listcard flex grow flex-col gap-3 px-6 py-[18px]">
+  <section class="flex min-w-0 flex-col gap-3.5">
     <PageHeader title="List of Customers" subtitle="Who Sales sells to. A prospect from an enquiry becomes a customer here before it can be quoted." />
+    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
+    <NoticeBanner v-if="list.params.value.toComplete">
+      Showing only the customers salespeople added from an order, still to complete.
+      <button type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-[13px] font-semibold text-erp-link" @click="list.setFilter('toComplete', '')">Show all customers</button>
+    </NoticeBanner>
 
-    <FilterBar>
+    
+
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex gap-2">
+        <RouterLink v-if="can('core.customer.edit')" to="/core/customers/new" data-tour="core:new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new customer</RouterLink>
+      </div>
+      <div class="flex gap-2">
+        <RouterLink to="/core/import" class="erp-btn erp-btn-import">Import</RouterLink>
+        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
+      </div>
+    </div>
+    <span class="text-xs text-erp-muted">{{ showing }}</span>
+    <ListBox :count="showing" open-filters>
+      <template #filters>
+        <FilterBar>
       <input class="erp-input" type="search" placeholder="Search code, name or TIN" aria-label="Search code, name or TIN" :value="search" @input="onSearch(($event.target as HTMLInputElement).value)" />
       <select class="erp-input" aria-label="Branch" :value="list.params.value.branch" @change="list.setFilter('branch', ($event.target as HTMLSelectElement).value)">
         <option value="">Branch: all</option>
@@ -93,26 +114,8 @@ async function exportCsv() {
         <option v-for="a in options?.agents ?? []" :key="a.code" :value="a.code">{{ a.name }}</option>
       </select>
     </FilterBar>
-
-    <NoticeBanner v-if="list.params.value.toComplete">
-      Showing only the customers salespeople added from an order, still to complete.
-      <button type="button" class="erp-link cursor-pointer border-0 bg-transparent p-0 text-[13px] font-semibold text-erp-link" @click="list.setFilter('toComplete', '')">Show all customers</button>
-    </NoticeBanner>
-
-    <StatusTabs :tabs="TABS" :counts="list.data.value?.statusCounts" :active="list.params.value.status" @select="list.setStatus" />
-
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex gap-2">
-        <RouterLink v-if="can('core.customer.edit')" to="/core/customers/new" data-tour="core:new" class="erp-btn erp-btn-add"><Plus :size="14" :stroke-width="2.5" aria-hidden="true" />Add new customer</RouterLink>
-      </div>
-      <div class="flex gap-2">
-        <RouterLink to="/core/import" class="erp-btn erp-btn-import">Import</RouterLink>
-        <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
-      </div>
-    </div>
-    <span class="text-xs text-erp-muted">{{ showing }}</span>
-
-    <DataList :rows="rows" :loading="list.loading.value" empty-text="No customers match these filters.">
+      </template>
+      <DataList :rows="rows" :loading="list.loading.value" empty-text="No customers match these filters.">
       <Column header="Code">
         <template #body="{ data }: { data: CustomerListItem }">
           <RouterLink :to="`/core/customers/${data.id}`" class="erp-link font-semibold whitespace-nowrap">{{ data.code }}</RouterLink>
@@ -141,10 +144,17 @@ async function exportCsv() {
       <Column header="Status">
         <template #body="{ data }: { data: CustomerListItem }"><StatusChip :status="data.status" :label="data.statusLabel" :group="CUSTOMER_STATUS_GROUP[data.status]" /></template>
       </Column>
+          <Column header="" header-class="w-[56px]">
+        <template #body="{ data }">
+          <RowMenu :items="[{ label: 'Open', to: `/core/customers/${data.id}` }]" />
+        </template>
+      </Column>
     </DataList>
-
-    <div class="mt-auto flex items-center justify-end pt-2">
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+      <template #footer>
+        <div class="mt-auto flex items-center justify-end pt-2">
+      <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
     </div>
+      </template>
+    </ListBox>
   </section>
 </template>
