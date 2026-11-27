@@ -6,7 +6,7 @@ const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 /** The header fields a revision may change, and that discarding a revision puts back. */
 const HEADER_FIELDS = [
   'contactName', 'deliveryAddress', 'deliveryPostcode', 'deliveryState', 'deliveryWantedBy', 'customerPoRef', 'project', 'remarks',
-  'installOption', 'installDate', 'installAfterStock', 'orderTypeCode', 'warehouseCode',
+  'installOption', 'installDate', 'installAfterStock', 'siteType', 'jobCategory', 'contactPhone', 'billingName', 'billingAddress', 'paymentMode', 'paymentMethod', 'orderTypeCode', 'warehouseCode',
   'subtotal', 'discountTotal', 'voucherTotal', 'taxTotal', 'rounding', 'total', 'creditResult', 'creditSnapshot', 'approvalRequired', 'approvedAt',
 ] as const satisfies readonly (keyof SalSalesOrder)[];
 

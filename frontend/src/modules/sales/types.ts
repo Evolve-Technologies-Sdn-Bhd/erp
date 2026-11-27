@@ -295,6 +295,14 @@ export interface OrderDetail {
   /** Phase 5: kept with the installation option, for the installer's address. */
   deliveryPostcode: string | null
   deliveryState: string | null
+  /** Phase 5: this order's own phone, billing, and how the customer will pay. Empty: the customer's / not said. */
+  contactPhone: string | null
+  billingName: string | null
+  billingAddress: string | null
+  paymentMode: PaymentMode | null
+  paymentModeLabel: string | null
+  paymentMethod: OrderPaymentMethod | null
+  paymentMethodLabel: string | null
   orderTypeCode: string
   quotation: { id: string; no: string } | null
   enquiryNo: string | null
@@ -393,11 +401,29 @@ export interface OrderRevisions {
 
 /** Phase 5: installation, delivery only or collect, asked when the company turns it on (S34). */
 export type InstallOption = 'INSTALLATION' | 'DELIVERY' | 'COLLECT'
+/** The install site on a sales order (phase 5): the same codes as Service's job. */
+export type SiteType = 'LANDED' | 'CONDO' | 'COMMERCIAL'
+/** How the customer will pay (phase 5); official receipts still decide what is paid. */
+export type PaymentMode = 'PAID' | 'COD' | 'LATER'
+export type OrderPaymentMethod = 'CASH' | 'TRANSFER' | 'DUITNOW' | 'CARD' | 'CARD_EPP' | 'CHEQUE'
+/** A job category from Service (its slot groups): the salesperson picks one with the installation. */
+export interface JobCategoryOption {
+  code: string
+  name: string
+  minutes: number
+  jobTypes: string[]
+  siteTypes: SiteType[]
+}
 export interface OrderInstallation {
   asked: boolean
   option: InstallOption | null
   optionLabel: string | null
   preferredDate: string | null
+  /** The install site (landed house, condo / apartment, shop / office), given to the job (phase 5). */
+  siteType: SiteType | null
+  siteTypeLabel: string | null
+  /** The job category (a Service slot group code), given to the job (phase 5). */
+  jobCategory: string | null
   /** Some items are short: installation is arranged when stock arrives. */
   afterStock: boolean
   /** A draft installation whose items are all in stock needs the date before release. */

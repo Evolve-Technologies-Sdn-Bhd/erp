@@ -185,6 +185,7 @@ describe('Sign-in (end to end, AUTH_MODE=jwt)', () => {
       'POST /me/notifications/read-all',
       'POST /me/notifications/:id/read',
       'GET /me/app-content',
+      'GET /service/categories',
       'POST /attachments',
       'GET /attachments/:id',
       'GET /attachments/:id/download',

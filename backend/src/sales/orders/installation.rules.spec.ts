@@ -1,4 +1,4 @@
-import { deliveryAreaFields, INSTALL_DATE_REQUIRED, installationErrors, installationFields, installationText, releaseInstallation } from './installation.rules';
+import { deliveryAreaFields, INSTALL_DATE_REQUIRED, installationErrors, installationFields, installationText, jobCategoryField, releaseInstallation, siteTypeField } from './installation.rules';
 
 describe('installationFields', () => {
   it('keeps nothing while the company does not ask', () => {
@@ -75,5 +75,32 @@ describe('deliveryAreaFields: the postcode and state of the install address', ()
     expect(deliveryAreaFields(true, {}, was)).toEqual({ deliveryPostcode: '40000', deliveryState: 'Selangor' });
     expect(deliveryAreaFields(true, { postcode: '', state: null }, was)).toEqual({ deliveryPostcode: null, deliveryState: null });
     expect(deliveryAreaFields(true, { state: 'Johor' }, was)).toEqual({ deliveryPostcode: '40000', deliveryState: 'Johor' });
+  });
+});
+
+describe('siteTypeField (the install site, for the job)', () => {
+  it('keeps the site for an installation, and nothing for delivery, collect or a company that does not ask', () => {
+    expect(siteTypeField(true, 'INSTALLATION', { siteType: 'CONDO' })).toEqual({ siteType: 'CONDO' });
+    expect(siteTypeField(true, 'DELIVERY', { siteType: 'CONDO' })).toEqual({ siteType: null });
+    expect(siteTypeField(false, 'INSTALLATION', { siteType: 'CONDO' })).toEqual({ siteType: null });
+  });
+
+  it('keeps the site already there when a save leaves it out, and clears it when sent empty', () => {
+    expect(siteTypeField(true, 'INSTALLATION', {}, { siteType: 'LANDED' })).toEqual({ siteType: 'LANDED' });
+    expect(siteTypeField(true, 'INSTALLATION', { siteType: '' }, { siteType: 'LANDED' })).toEqual({ siteType: null });
+    expect(siteTypeField(true, 'INSTALLATION', { siteType: 'GARAGE' })).toEqual({ siteType: null });
+  });
+});
+
+describe('jobCategoryField (the job category, for the job)', () => {
+  it('keeps the category for an installation only', () => {
+    expect(jobCategoryField(true, 'INSTALLATION', { jobCategory: 'combo' })).toEqual({ jobCategory: 'COMBO' });
+    expect(jobCategoryField(true, 'DELIVERY', { jobCategory: 'COMBO' })).toEqual({ jobCategory: null });
+    expect(jobCategoryField(false, 'INSTALLATION', { jobCategory: 'COMBO' })).toEqual({ jobCategory: null });
+  });
+
+  it('keeps the category already there when a save leaves it out, and clears it when sent empty', () => {
+    expect(jobCategoryField(true, 'INSTALLATION', {}, { jobCategory: 'LONG' })).toEqual({ jobCategory: 'LONG' });
+    expect(jobCategoryField(true, 'INSTALLATION', { jobCategory: '' }, { jobCategory: 'LONG' })).toEqual({ jobCategory: null });
   });
 });

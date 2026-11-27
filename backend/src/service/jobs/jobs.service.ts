@@ -101,11 +101,16 @@ export class JobsService {
       order.lines.length ? this.masterData.findItems(ctx.tenantId, [...new Set(order.lines.map((l) => l.itemCode))]) : Promise.resolve([]),
     ]);
     const lines = order.lines.map((l) => ({ itemCode: l.itemCode, itemName: items.find((i) => i.code === l.itemCode)?.name ?? l.itemCode, qty: l.qty, uomCode: l.uomCode }));
+    // The category the salesperson picked (phase 5): an active slot group. Its job types decide the job: an installation
+    // when it takes installations, else its first (a filter change makes a service job). Unknown: an installation, as before.
+    const group = order.category ? await tx.svcSlotGroup.findFirst({ where: { tenantId: ctx.tenantId, code: order.category, isActive: true } }) : null;
+    const takes = listOf(group?.jobTypes ?? '') as JobType[];
+    const jobType: JobType = !takes.length || takes.includes('INSTALLATION') ? 'INSTALLATION' : takes[0]!;
     return this.insert(tx, ctx, {
-      jobType: 'INSTALLATION', branchCode: order.branchCode, customerCode: order.customerCode, customerName: order.customerName,
-      contactName: order.contactName ?? customer?.contactName ?? null, phone: customer?.phone ?? null,
+      jobType, categoryCode: group?.code ?? null, branchCode: order.branchCode, customerCode: order.customerCode, customerName: order.customerName,
+      contactName: order.contactName ?? customer?.contactName ?? null, phone: order.contactPhone ?? customer?.phone ?? null,
       siteAddress: order.deliveryAddress ?? customer?.deliveryAddress ?? null, postcode: order.postcode, state: order.state, area: customer?.area ?? null,
-      source: 'SALES_ORDER', salesOrderId, salesOrderNo: order.soNo, preferredDate: order.preferredDate, afterStock: order.afterStock, note: null,
+      source: 'SALES_ORDER', salesOrderId, salesOrderNo: order.soNo, preferredDate: order.preferredDate, afterStock: order.afterStock, note: null, siteType: order.siteType,
       agentCode: order.agentCode, agentName: order.agentName, warehouseCode: order.warehouseCode,
     }, lines, `Created from ${order.soNo}`);
   }
@@ -477,7 +482,9 @@ export class JobsService {
       data: {
         contactName: order.contactName ?? job.contactName, siteAddress: order.deliveryAddress ?? job.siteAddress, postcode: order.postcode, state: order.state,
         agentCode: order.agentCode ?? job.agentCode, agentName: order.agentName ?? job.agentName, warehouseCode: order.warehouseCode ?? job.warehouseCode,
-        ...(waiting && { preferredDate: order.preferredDate ? day(order.preferredDate) : null, afterStock: order.afterStock }),
+        // While not booked the revised order's preferred date and site stand; once booked the office keeps what it booked.
+        ...(order.contactPhone && { phone: order.contactPhone }),
+        ...(waiting && { preferredDate: order.preferredDate ? day(order.preferredDate) : null, afterStock: order.afterStock, ...(order.siteType && { siteType: order.siteType }), ...(order.category && { categoryCode: order.category }) }),
         items: {
           deleteMany: { extra: false }, // parts the warehouse added stay
           create: order.lines.map((l, i) => ({
@@ -571,7 +578,7 @@ export class JobsService {
       jobType: JobType; branchCode: string; customerCode: string; customerName: string; contactName: string | null; phone: string | null;
       siteAddress: string | null; postcode?: string | null; state?: string | null; area: string | null; source: 'SALES_ORDER' | 'MANUAL'; salesOrderId?: string; salesOrderNo?: string;
       preferredDate: string | null; afterStock?: boolean; note: string | null; followUpOfId?: string; followUpOfNo?: string; reminderId?: string;
-      siteType?: string | null; warrantyId?: string | null;
+      siteType?: string | null; warrantyId?: string | null; categoryCode?: string | null;
       agentCode?: string | null; agentName?: string | null; warehouseCode?: string | null;
     },
     lines: { itemCode: string; itemName: string; qty: string; uomCode: string }[],
@@ -586,7 +593,7 @@ export class JobsService {
         postcode: j.postcode ?? null, state: j.state ?? null, area: j.area, source: j.source,
         agentCode: j.agentCode ?? null, agentName: j.agentName ?? null, warehouseCode: j.warehouseCode ?? null, salesOrderId: j.salesOrderId ?? null, salesOrderNo: j.salesOrderNo ?? null,
         preferredDate: j.preferredDate ? day(j.preferredDate) : null, afterStock: j.afterStock ?? false, note: j.note,
-        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null, siteType: j.siteType ?? null, warrantyId: j.warrantyId ?? null,
+        followUpOfId: j.followUpOfId ?? null, followUpOfNo: j.followUpOfNo ?? null, reminderId: j.reminderId ?? null, siteType: j.siteType ?? null, warrantyId: j.warrantyId ?? null, categoryCode: j.categoryCode ?? null,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
         items: { create: lines.map((l, i) => ({ tenantId: ctx.tenantId, lineNo: i + 1, itemCode: l.itemCode, itemName: l.itemName, qty: dec(l.qty), uomCode: l.uomCode })) },
       },

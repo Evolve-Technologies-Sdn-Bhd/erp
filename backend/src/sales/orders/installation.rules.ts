@@ -17,6 +17,49 @@ export const DEFAULT_INSTALL_OPTION: InstallOption = 'INSTALLATION';
 export const INSTALL_DATE_REQUIRED = 'Pick the customer\'s preferred installation date. It is needed when every item is in stock.';
 
 /**
+ * The install site, asked with the installation (phase 5, 27 Nov 2026, for the phone app): the job takes it, so the
+ * Planning Board offers only the people and slot groups for that site from the start. The same codes and words as
+ * Service's site types (Sales never imports Service; the event carries the code).
+ */
+export const SITE_TYPES = ['LANDED', 'CONDO', 'COMMERCIAL'] as const;
+export type SiteType = (typeof SITE_TYPES)[number];
+export const SITE_TYPE_LABEL: Record<SiteType, string> = { LANDED: 'Landed house', CONDO: 'Condo / apartment', COMMERCIAL: 'Shop / office' };
+
+/** Kept only for an installation with the installation option asked. Left out on a save, it stays; empty clears it. */
+export function siteTypeField(
+  asked: boolean,
+  option: InstallOption | null,
+  input: { siteType?: string | null },
+  current: { siteType: string | null } | null = null,
+): { siteType: SiteType | null } {
+  if (!asked || option !== 'INSTALLATION') return { siteType: null };
+  const v = input.siteType === undefined ? (current?.siteType ?? null) : input.siteType || null;
+  return { siteType: v && (SITE_TYPES as readonly string[]).includes(v) ? (v as SiteType) : null };
+}
+
+/**
+ * The job category the salesperson picks with the installation (27 Nov 2026): one of Service's slot groups, by code
+ * (installation, combo, hacking / ceiling …). Sales keeps the code as sent; Service makes the job with it, and ignores a
+ * code it does not know. Installation only; left out on a save, it stays; empty clears it.
+ */
+export function jobCategoryField(
+  asked: boolean,
+  option: InstallOption | null,
+  input: { jobCategory?: string | null },
+  current: { jobCategory: string | null } | null = null,
+): { jobCategory: string | null } {
+  if (!asked || option !== 'INSTALLATION') return { jobCategory: null };
+  const v = input.jobCategory === undefined ? (current?.jobCategory ?? null) : input.jobCategory?.trim().toUpperCase() || null;
+  return { jobCategory: v };
+}
+
+/** How the customer will pay (27 Nov 2026): official receipts still decide what is paid; this says what to expect. */
+export const PAYMENT_MODES = ['PAID', 'COD', 'LATER'] as const;
+export const PAYMENT_MODE_LABEL: Record<(typeof PAYMENT_MODES)[number], string> = { PAID: 'Paid (deposit or full)', COD: 'Cash on delivery: the installer collects', LATER: 'Customer pays later' };
+export const PAYMENT_METHODS = ['CASH', 'TRANSFER', 'DUITNOW', 'CARD', 'CARD_EPP', 'CHEQUE'] as const;
+export const PAYMENT_METHOD_LABEL: Record<(typeof PAYMENT_METHODS)[number], string> = { CASH: 'Cash', TRANSFER: 'Bank transfer', DUITNOW: 'DuitNow', CARD: 'Card', CARD_EPP: 'Card EPP', CHEQUE: 'Cheque' };
+
+/**
  * What the order keeps. With the switch off nothing is asked and nothing is kept. With it on, the option defaults to
  * Installation, and only an installation keeps a date.
  */

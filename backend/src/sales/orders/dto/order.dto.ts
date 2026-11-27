@@ -154,6 +154,42 @@ class OrderFieldsDto {
   @Matches(DATE_ONLY, { message: 'Preferred date must look like 2026-10-01.' })
   installDate?: string | null;
 
+  /** Phase 5: the install site (landed house, condo / apartment, shop / office), kept for an installation. Empty clears it. */
+  @IsOptional()
+  @IsIn(['', 'LANDED', 'CONDO', 'COMMERCIAL'], { message: 'Pick landed house, condo / apartment or shop / office.' })
+  siteType?: string | null;
+
+  /** Phase 5: the job category, one of Service's slot group codes (COMBO …), kept for an installation. Empty clears it. */
+  @IsOptional()
+  @Matches(/^([A-Za-z0-9_-]{1,20})?$/, { message: 'Pick the job category from the list.' })
+  jobCategory?: string | null;
+
+  /** Phase 5: the phone for this order, when it is not the customer's. Empty: the customer's. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  contactPhone?: string | null;
+
+  /** Phase 5: optional billing name and address for this order. Empty: the customer's. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  billingName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  billingAddress?: string | null;
+
+  /** Phase 5: how the customer will pay. Official receipts still decide what is paid. */
+  @IsOptional()
+  @IsIn(['', 'PAID', 'COD', 'LATER'], { message: 'Pick paid, cash on delivery or pays later.' })
+  paymentMode?: string | null;
+
+  @IsOptional()
+  @IsIn(['', 'CASH', 'TRANSFER', 'DUITNOW', 'CARD', 'CARD_EPP', 'CHEQUE'], { message: 'Pick how the customer pays from the list.' })
+  paymentMethod?: string | null;
+
   /** Phase 5: the delivery address's postcode and state, kept with the installation option. Empty clears them. */
   @IsOptional()
   @Matches(POSTCODE_OR_EMPTY, { message: POSTCODE_MESSAGE })

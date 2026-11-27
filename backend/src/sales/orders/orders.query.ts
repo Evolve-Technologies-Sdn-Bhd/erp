@@ -22,7 +22,7 @@ import { taxLinesWithVouchers } from '../shared/voucher.rules';
 import { netUnitPrice, outsideRange, rangeReason } from '../shared/price-range.rules';
 import { PriceRules } from '../shared/price-rules.service';
 import { ReceiptsQuery } from '../receipts/receipts.query';
-import { INSTALL_OPTION_LABEL, installationText, type InstallOption } from './installation.rules';
+import { INSTALL_OPTION_LABEL, installationText, PAYMENT_METHOD_LABEL, PAYMENT_MODE_LABEL, SITE_TYPE_LABEL, type InstallOption, type SiteType } from './installation.rules';
 import type { OrderListQueryDto } from './dto/order.dto';
 import { allowedOrderActions, creditLabel, SO_STATUSES, statusLabel, stockShortfall, type SoStatus } from './order.rules';
 import { REVISIONS_OFF_MESSAGE, reviseRefusal, revisionApproval, revisionChanges } from './revision.rules';
@@ -345,6 +345,14 @@ export class OrdersQuery {
       deliveryAddress: order.deliveryAddress,
       deliveryPostcode: order.deliveryPostcode,
       deliveryState: order.deliveryState,
+      /** Phase 5: this order's own phone, billing and how the customer will pay; empty means the customer's / not said. */
+      contactPhone: order.contactPhone,
+      billingName: order.billingName,
+      billingAddress: order.billingAddress,
+      paymentMode: order.paymentMode,
+      paymentModeLabel: order.paymentMode ? (PAYMENT_MODE_LABEL[order.paymentMode as keyof typeof PAYMENT_MODE_LABEL] ?? order.paymentMode) : null,
+      paymentMethod: order.paymentMethod,
+      paymentMethodLabel: order.paymentMethod ? (PAYMENT_METHOD_LABEL[order.paymentMethod as keyof typeof PAYMENT_METHOD_LABEL] ?? order.paymentMethod) : null,
       /** Revisions (phase 5): the one in draft, why it cannot be revised now, and the earlier ones kept read-only. */
       revisions: {
         number: order.revisionNo,
@@ -382,7 +390,7 @@ export class OrdersQuery {
       /** Share on WhatsApp (phase 5): the customer's number (null: pick the chat in WhatsApp) and the message. Null when it is not offered. */
       share: mayShare({ switchOn: Boolean(flags?.shareWhatsapp), status: order.status, canEdit: this.permissions.has(ctx.user.roles, P.ORDER_EDIT) })
         ? {
-            number: whatsappNumber(customer?.phone),
+            number: whatsappNumber(order.contactPhone || customer?.phone),
             text: orderShareText({
               company: await this.tenants.name(), contactName: order.contactName, customerName: order.customerName,
               docNo: order.docNo, revisionNo: order.revisionNo, docDate: iso(order.docDate)!, total: toMoney(order.total),
@@ -401,6 +409,10 @@ export class OrdersQuery {
         option: order.installOption,
         optionLabel: order.installOption ? (INSTALL_OPTION_LABEL[order.installOption as InstallOption] ?? order.installOption) : null,
         preferredDate: installDate,
+        siteType: order.siteType,
+        siteTypeLabel: order.siteType ? (SITE_TYPE_LABEL[order.siteType as SiteType] ?? order.siteType) : null,
+        /** The job category the salesperson picked (a Service slot group code); its name comes from Service. */
+        jobCategory: order.jobCategory,
         afterStock,
         /** A draft installation whose items are all in stock needs the date before release, unless the date can be agreed later. */
         dateNeeded: draft && order.installOption === 'INSTALLATION' && allInStock && !setting?.installDateLater,

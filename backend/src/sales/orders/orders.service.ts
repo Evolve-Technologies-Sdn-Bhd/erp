@@ -25,7 +25,7 @@ import { CREDIT_DOC, SAL_DOC_TYPE, SAL_ENTITY, SAL_EVENT, SAL_ROLE } from '../sh
 import type { CreateOrderDto, RequestApprovalDto, ReviseOrderDto, UpdateOrderDto } from './dto/order.dto';
 import { HeldStock } from '../shared/held-stock.service';
 import { ORDER_LOCKED_MESSAGE, stockShortfall, type OrderAction } from './order.rules';
-import { deliveryAreaFields, installationErrors, installationFields, releaseInstallation } from './installation.rules';
+import { deliveryAreaFields, installationErrors, installationFields, jobCategoryField, releaseInstallation, siteTypeField } from './installation.rules';
 import { OrdersQuery, type OrderWithLines } from './orders.query';
 import { headerData, snapshotOf, type RevisionSnapshot } from './revision.snapshot';
 import { preOrderActivity, preOrderAtRelease } from './pre-order.rules';
@@ -80,7 +80,7 @@ export class OrdersService {
     const priced = await this.withVouchers(ctx.tenantId, lines.lines, await this.vouchers.forOrder(ctx, dto.vouchers ?? [], docDate, null));
     const built = { ...lines, totals: priced.totals, vouchers: priced.vouchers };
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(built.totals.total), branchCode });
-    const install = await this.installation(ctx.tenantId, docDate, { option: dto.installOption, date: dto.installDate, postcode: dto.deliveryPostcode, state: dto.deliveryState });
+    const install = await this.installation(ctx.tenantId, docDate, { option: dto.installOption, date: dto.installDate, postcode: dto.deliveryPostcode, state: dto.deliveryState, siteType: dto.siteType, jobCategory: dto.jobCategory });
     const warehouseCode = await this.docs.warehouseFor(ctx, branchCode);
     const agent = await this.docs.agentFor(ctx, customer);
     return { dto, docDate, customer, branchCode, built, credit, warehouseCode, agent, install };
@@ -104,8 +104,10 @@ export class OrdersService {
         currency: 'MYR', taxMode: 'EXCLUSIVE', creditTermDays: customer.creditTermDays, priceListCode: customer.priceListCode,
         customerPoRef: dto.customerPoRef?.trim() || null, project: dto.project?.trim() || null,
         deliveryAddress: dto.deliveryAddress?.trim() || customer.deliveryAddress, remarks: dto.remarks?.trim() || null,
-        installOption: install.installOption, installDate: install.installDate ? day(install.installDate) : null,
+        installOption: install.installOption, installDate: install.installDate ? day(install.installDate) : null, siteType: install.siteType, jobCategory: install.jobCategory,
         deliveryPostcode: install.deliveryPostcode, deliveryState: install.deliveryState,
+        contactPhone: dto.contactPhone?.trim() || null, billingName: dto.billingName?.trim() || null, billingAddress: dto.billingAddress?.trim() || null,
+        paymentMode: dto.paymentMode || null, paymentMethod: dto.paymentMethod || null,
         quotationId: source.quotationId ?? null, quotationNo: source.quotationNo ?? null, enquiryNo: source.enquiryNo ?? null,
         ...built.totals, creditResult: credit.check.result, creditSnapshot: credit.snapshot,
         createdBy: ctx.user.code, updatedBy: ctx.user.code,
@@ -140,8 +142,8 @@ export class OrdersService {
       : null;
     // A new customer brings their own address: the postcode and state go with it unless typed again.
     const install = await this.installation(
-      ctx.tenantId, docDate, { option: dto.installOption, date: dto.installDate, postcode: dto.deliveryPostcode, state: dto.deliveryState },
-      { option: order.installOption, date: order.installDate ? iso(order.installDate) : null, ...(customerChanged && dto.deliveryAddress === undefined ? { postcode: null, state: null } : { postcode: order.deliveryPostcode, state: order.deliveryState }) },
+      ctx.tenantId, docDate, { option: dto.installOption, date: dto.installDate, postcode: dto.deliveryPostcode, state: dto.deliveryState, siteType: dto.siteType, jobCategory: dto.jobCategory },
+      { option: order.installOption, date: order.installDate ? iso(order.installDate) : null, siteType: order.siteType, jobCategory: order.jobCategory, ...(customerChanged && dto.deliveryAddress === undefined ? { postcode: null, state: null } : { postcode: order.deliveryPostcode, state: order.deliveryState }) },
     );
     const total = priced ? priced.totals.total : order.total;
     const credit = await this.credit.check(ctx.tenantId, { customer, docType: CREDIT_DOC.SALES_ORDER, thisDocument: toMoney(total), branchCode, excludeOrderId: order.id });
@@ -160,8 +162,14 @@ export class OrdersService {
         ...(dto.deliveryAddress !== undefined && { deliveryAddress: dto.deliveryAddress.trim() || null }),
         ...(dto.orderTypeCode && { orderTypeCode: dto.orderTypeCode }),
         ...(dto.remarks !== undefined && { remarks: dto.remarks.trim() || null }),
-        installOption: install.installOption, installDate: install.installDate ? day(install.installDate) : null,
+        installOption: install.installOption, installDate: install.installDate ? day(install.installDate) : null, siteType: install.siteType, jobCategory: install.jobCategory,
         deliveryPostcode: install.deliveryPostcode, deliveryState: install.deliveryState,
+        // Phase 5: left out on a save, each stays; empty clears it.
+        ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone?.trim() || null }),
+        ...(dto.billingName !== undefined && { billingName: dto.billingName?.trim() || null }),
+        ...(dto.billingAddress !== undefined && { billingAddress: dto.billingAddress?.trim() || null }),
+        ...(dto.paymentMode !== undefined && { paymentMode: dto.paymentMode || null }),
+        ...(dto.paymentMethod !== undefined && { paymentMethod: dto.paymentMethod || null }),
         ...(customerChanged && {
           customerId: customer.id, customerCode: customer.code, customerName: customer.name, branchCode, creditTermDays: customer.creditTermDays,
           priceListCode: customer.priceListCode, warehouseCode: await this.docs.warehouseFor(ctx, branchCode),
@@ -338,12 +346,12 @@ export class OrdersService {
         payload: {
           soNo: order.docNo, revision: order.revisionNo, docDate: iso(order.docDate), branchCode: order.branchCode, customerCode: customer.code, customerName: customer.name,
           agentCode: order.agentCode, agentName: order.agentName,
-          contactName: order.contactName, deliveryAddress: order.deliveryAddress, deliveryPostcode: order.deliveryPostcode, deliveryState: order.deliveryState,
+          contactName: order.contactName, contactPhone: order.contactPhone, deliveryAddress: order.deliveryAddress, deliveryPostcode: order.deliveryPostcode, deliveryState: order.deliveryState,
           total: toMoney(order.total), deliveryWantedBy: order.deliveryWantedBy ? iso(order.deliveryWantedBy) : null, warehouseCode: order.warehouseCode,
           lines: order.lines.map((l) => ({ lineNo: l.lineNo, itemCode: l.itemCode, uomCode: l.uomCode, qty: toQty(l.orderedQty), isBuyToOrder: l.isBuyToOrder, lineKind: l.lineKind, packageCode: l.packageCode })),
           preOrder: pre.isPreOrder,
           installation: order.installOption
-            ? { option: order.installOption, preferredDate: order.installDate ? iso(order.installDate) : null, afterStock: install.afterStock }
+            ? { option: order.installOption, preferredDate: order.installDate ? iso(order.installDate) : null, afterStock: install.afterStock, siteType: order.siteType, category: order.jobCategory }
             : null,
           vouchers: order.vouchers.map((v) => ({ voucherNo: v.voucherNo, amount: toMoney(v.amount), taxCode: v.taxCode, taxAmount: toMoney(v.taxAmount) })),
         },
@@ -415,15 +423,15 @@ export class OrdersService {
   private async installation(
     tenantId: string,
     docDate: string,
-    input: { option?: string | null; date?: string | null; postcode?: string | null; state?: string | null },
-    current: { option: string | null; date: string | null; postcode: string | null; state: string | null } | null = null,
+    input: { option?: string | null; date?: string | null; postcode?: string | null; state?: string | null; siteType?: string | null; jobCategory?: string | null },
+    current: { option: string | null; date: string | null; postcode: string | null; state: string | null; siteType: string | null; jobCategory: string | null } | null = null,
   ) {
     const setting = await this.prisma.salSetting.findUnique({ where: { tenantId }, select: { askInstallation: true } });
     const asked = Boolean(setting?.askInstallation);
     const fields = installationFields(asked, input, current);
     const errors = installationErrors(fields, docDate);
     if (errors.length) throw new ValidationFailedError(errors);
-    return { ...fields, ...deliveryAreaFields(asked, input, current) };
+    return { ...fields, ...deliveryAreaFields(asked, input, current), ...siteTypeField(asked, fields.installOption, input, current), ...jobCategoryField(asked, fields.installOption, input, current) };
   }
 
   /** Prices the order's vouchers against its lines and works out the totals with them (phase 5, F1 part 4). */

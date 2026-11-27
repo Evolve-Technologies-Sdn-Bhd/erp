@@ -42,6 +42,7 @@ import type {
   EnquiryListItem,
   EnquiryTypeOption,
   PackageOption,
+  JobCategoryOption,
   InboxDetail,
   InvoiceCandidates,
   InvoiceDetail,
@@ -314,6 +315,8 @@ export const salesLookupsApi = {
   /** Vouchers an order of this date may take (phase 5); nothing while the company does not control them. */
   vouchers: (date?: string, orderId?: string) => api<{ items: VoucherOption[] }>('/sales/lookups/vouchers', { query: { date, orderId } }),
   packages: (date?: string) => api<{ date: string; items: PackageOption[] }>('/sales/lookups/packages', { query: { date } }),
+  /** Job categories from Service (phase 5); none when the Service module is off. */
+  jobCategories: () => api<{ items: JobCategoryOption[] }>('/service/categories', { silent: true }).catch(() => ({ items: [] as JobCategoryOption[] })),
 }
 
 /** Phase 5 · a new household customer from the sales order (S11) — /api/v1/sales/customers. Core makes it. */
