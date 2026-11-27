@@ -4,7 +4,16 @@ import type { ListQuery, ListResponse } from '@/api/list'
 import { useViewBranch } from './useViewBranch'
 
 /** The page the list shows, for the table inside it: DataList numbers its rows from the first row of this page. */
-export const LIST_PAGE: InjectionKey<{ first: ComputedRef<number> }> = Symbol('erp-list-page')
+export const LIST_PAGE: InjectionKey<{
+  first: ComputedRef<number>
+  /** The search (?q=), sent to the server, for the box's search pill */
+  q: ComputedRef<string>
+  setQ: (q: string) => void
+  /** How many filters are on (status, search and paging left out), and a way to clear them */
+  activeFilters: ComputedRef<number>
+  clearFilters: () => void
+  setPageSize: (n: number) => void
+}> = Symbol('erp-list-page')
 
 /**
  * List pages keep their state — status tab, filters, page — in the URL query, so Back and Refresh
@@ -26,6 +35,9 @@ export function useListPage<R extends ListResponse<unknown>>(options: {
   const documents = /^\/(purchase|sales)\//.test(path)
   const keys = [...new Set(['status', 'q', 'sort', 'dateFrom', 'dateTo', 'branch', ...(options.filterKeys ?? [])])]
 
+  // The filters a person sets (not the status tab, the search or the sort): counted on the Filter button.
+  const filterKeys = keys.filter((k) => !['status', 'q', 'sort'].includes(k))
+
   const one = (v: LocationQueryValue | LocationQueryValue[] | undefined): string =>
     (Array.isArray(v) ? v[0] : v) ?? ''
 
@@ -38,7 +50,7 @@ export function useListPage<R extends ListResponse<unknown>>(options: {
       ...p,
       status: p.status || 'all',
       page: Math.max(1, Number(one(route.query.page)) || 1),
-      pageSize: Number(one(route.query.pageSize)) || options.pageSize || 20,
+      pageSize: Number(one(route.query.pageSize)) || options.pageSize || 25,
     } as Params
   })
 
@@ -54,6 +66,11 @@ export function useListPage<R extends ListResponse<unknown>>(options: {
       const size = data.value?.pageSize ?? params.value.pageSize
       return (page - 1) * size
     }),
+    q: computed(() => params.value.q ?? ''),
+    setQ: (q: string) => update({ q: q || undefined }),
+    activeFilters: computed(() => filterKeys.filter((k) => !!params.value[k]).length),
+    clearFilters: () => update(Object.fromEntries(filterKeys.map((k) => [k, undefined]))),
+    setPageSize: (n: number) => update({ pageSize: String(n), page: undefined }),
   })
 
   async function load() {

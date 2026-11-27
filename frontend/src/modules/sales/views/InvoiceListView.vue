@@ -208,7 +208,7 @@ const source = (i: InvoiceListItem) => (i.isMigrated ? 'migrated' : i.kind === '
       <template #footer>
         <div class="mt-auto flex items-center justify-between pt-2">
         <span class="text-xs text-erp-muted">{{ showing }}</span>
-        <Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
+        <Pager :sizes="[5, 10, 25, 50]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" />
       </div>
       </template>
     </ListBox>

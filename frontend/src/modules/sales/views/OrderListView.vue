@@ -307,7 +307,7 @@ const chipOf = (o: OrderListItem) => (o.balanceCancelled ? { status: 'CANCELLED'
     </DataList>
 
     <template #footer>
-      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" :sizes="[10, 20, 50, 100]" @change="list.setPage" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" />
+      <Pager v-if="list.data.value" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" :sizes="[5, 10, 25, 50]" @change="list.setPage" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" />
     </template>
   </ListBox>
 </template>

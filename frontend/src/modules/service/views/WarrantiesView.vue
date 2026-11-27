@@ -114,7 +114,7 @@ async function save() {
       </Column>
     </DataList>
       <template #footer>
-        <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :sizes="[10, 20, 50, 100]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
+        <div v-if="paged && list.data.value" class="mt-auto pt-2"><Pager :sizes="[5, 10, 25, 50]" @size="(n) => list.setFilters({ pageSize: String(n), page: undefined })" :page="list.data.value.page" :page-size="list.data.value.pageSize" :total="list.data.value.total" @change="list.setPage" /></div>
       </template>
     </ListBox>
     <Dialog :visible="Boolean(ask)" data-tour="svc:warranty-ask" modal :draggable="false" class="erp-dialog" :style="{ width: '460px' }" :header="ask ? `${TITLE[ask]} · ${unit?.itemCode}` : ''" @update:visible="ask = null">

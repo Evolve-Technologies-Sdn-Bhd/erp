@@ -16,6 +16,7 @@ const visible = computed(() => {
 })
 const first = computed(() => (props.total ? (props.page - 1) * props.pageSize + 1 : 0))
 const last = computed(() => Math.min(props.page * props.pageSize, props.total))
+const sizeOptions = computed(() => [...new Set([...(props.sizes ?? []), props.pageSize])].sort((a, b) => a - b))
 const count = (n: number) => n.toLocaleString('en-MY')
 
 function go(page: number) {
@@ -28,7 +29,7 @@ function go(page: number) {
     <template v-if="sizes">
       <span class="mr-2 text-xs whitespace-nowrap text-erp-muted">Rows per page</span>
       <select class="erp-input mr-2 !h-8 !w-auto pr-8 !text-xs" aria-label="Rows per page" :value="pageSize" @change="emit('size', Number(($event.target as HTMLSelectElement).value))">
-        <option v-for="s in sizes" :key="s" :value="s">{{ s }}</option>
+        <option v-for="s in sizeOptions" :key="s" :value="s">{{ s }}</option>
       </select>
     </template>
     <span class="erp-num mr-2 text-xs text-erp-muted" :class="{ 'mr-auto': sizes }">{{ count(first) }}–{{ count(last) }} of {{ count(total) }}</span>
