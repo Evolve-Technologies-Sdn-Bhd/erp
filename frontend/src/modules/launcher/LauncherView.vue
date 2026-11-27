@@ -6,7 +6,9 @@ import { accountApi, sessionApi, type ModuleTile } from '@/api/session'
 import NoticeBanner from '@/components/erp/NoticeBanner.vue'
 import TopBar from '@/components/erp/TopBar.vue'
 import { useSession } from '@/composables/useSession'
-import { MODULES } from '@/modules/registry'
+import { MODULES, type ModuleKey } from '@/modules/registry'
+import { notificationsApi } from '@/api/notifications'
+import { Clock, Inbox, Plus } from '@lucide/vue'
 import WelcomeCard from '@/tours/WelcomeCard.vue'
 import { isBuilt, meshStyle, TILE_STYLE } from '@/modules/tiles'
 import { formatLongDate, greeting } from '@/utils/format'
@@ -98,6 +100,53 @@ function setDefault(tile: ModuleTile) {
 }
 
 const hello = computed(() => `${greeting(now())}, ${user.value?.name ?? ''}`)
+
+/* ── Under the modules: what waits, what you opened last, what you start most ── */
+const session = useSession()
+const unread = ref(0)
+onMounted(() => {
+  notificationsApi
+    .list()
+    .then((a) => (unread.value = a.unread))
+    .catch(() => undefined)
+})
+const waitingCells = computed(() =>
+  builtTiles.value
+    .filter((t) => MODULES[t.code as ModuleKey]?.approvalsTo)
+    .map((t) => ({ code: t.code, label: `${t.name} approvals`, count: waiting[t.code] ?? 0, to: MODULES[t.code as ModuleKey].approvalsTo! })),
+)
+
+// Pages opened from a module's menu (the sidebar keeps when each was last opened, on this device).
+const recents = computed(() => {
+  let visits: Record<string, number> = {}
+  try {
+    visits = JSON.parse(localStorage.getItem('zora.nav.recents') ?? '{}') as Record<string, number>
+  } catch {
+    /* nothing kept */
+  }
+  const open = new Set(builtTiles.value.map((t) => t.code as string))
+  return Object.entries(visits)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key]) => {
+      const [code, item] = key.split(':') as [ModuleKey, string]
+      if (!open.has(code)) return null
+      const m = MODULES[code]
+      const page = m?.menu.flatMap((g) => g.items).find((i) => i.key === item)
+      return page ? { key, label: page.label, module: m.label, to: page.to, code } : null
+    })
+    .filter((r): r is NonNullable<typeof r> => !!r)
+    .slice(0, 8)
+})
+
+// The documents people start most, each only for whoever may make it.
+const QUICK = [
+  { label: 'New sales order', to: '/sales/orders/new', code: 'sales', permission: 'sales.order.edit' },
+  { label: 'New quotation', to: '/sales/quotations/new', code: 'sales', permission: 'sales.quotation.edit' },
+  { label: 'New purchase order', to: '/purchase/orders/new', code: 'purchase', permission: 'purchase.order.edit' },
+  { label: 'New customer', to: '/core/customers/new', code: 'core', permission: 'core.customer.edit' },
+  { label: 'New item', to: '/core/items/new', code: 'core', permission: 'core.item.edit' },
+] as const
+const quick = computed(() => QUICK.filter((q) => builtTiles.value.some((t) => t.code === q.code) && session.can(q.permission)))
 </script>
 
 <template>
@@ -124,7 +173,7 @@ const hello = computed(() => `${greeting(now())}, ${user.value?.name ?? ''}`)
             <h2 id="launcher-modules" class="erp-display m-0 text-xl font-semibold tracking-[-0.02em]">Modules</h2>
             <!-- One card per module: its grainy gradient as the art, its name and purpose set on it. The row reflows by
                  width, so adding a module never strands one card. -->
-            <ul data-tour="launcher:tiles" class="m-0 grid list-none grid-cols-1 gap-3 p-0 min-[480px]:grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))]">
+            <ul data-tour="launcher:tiles" class="m-0 grid list-none grid-cols-1 gap-3 p-0 min-[480px]:grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
               <li v-for="tile in sortedTiles" :key="tile.code">
                 <!-- Built module: the whole card is the link (stretched over it); the star sits above it -->
                 <div
@@ -184,6 +233,50 @@ const hello = computed(() => `${greeting(now())}, ${user.value?.name ?? ''}`)
               </li>
             </ul>
           </section>
+
+          <!-- What waits for you: one strip, cells split by hairlines (MES SummaryCards) -->
+          <section aria-labelledby="launcher-waiting" class="flex flex-col gap-3">
+            <h2 id="launcher-waiting" class="erp-display m-0 text-xl font-semibold tracking-[-0.02em]">Waiting for you</h2>
+            <div class="lc-strip">
+              <RouterLink v-for="c in waitingCells" :key="c.code" :to="c.to" class="lc-cell">
+                <span class="text-[13px] font-medium text-erp-muted">{{ c.label }}</span>
+                <span class="erp-display erp-num text-[28px] leading-none font-semibold" :class="c.count ? 'text-note-warn-strong' : 'text-erp-text'">{{ c.count }}</span>
+              </RouterLink>
+              <div class="lc-cell">
+                <span class="flex items-center gap-1.5 text-[13px] font-medium text-erp-muted"><Inbox :size="14" aria-hidden="true" />Unread alerts</span>
+                <span class="erp-display erp-num text-[28px] leading-none font-semibold">{{ unread }}</span>
+              </div>
+            </div>
+          </section>
+
+          <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+            <!-- Recently opened -->
+            <section aria-labelledby="launcher-recent" class="erp-card flex min-w-0 flex-col gap-3 p-5">
+              <h2 id="launcher-recent" class="m-0 flex items-center gap-2 text-base font-semibold"><Clock :size="16" class="text-erp-muted" aria-hidden="true" />Recently opened</h2>
+              <p v-if="!recents.length" class="m-0 text-[13px] text-erp-muted">Pages you open from a module's menu show here.</p>
+              <ul v-else class="m-0 grid list-none gap-1 p-0 sm:grid-cols-2">
+                <li v-for="r in recents" :key="r.key">
+                  <RouterLink :to="r.to" class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-erp-text no-underline hover:bg-erp-hover">
+                    <span class="erp-mesh lc-mini" :style="meshStyle(TILE_STYLE[r.code])" aria-hidden="true"><component :is="TILE_STYLE[r.code].icon" :size="14" /></span>
+                    <span class="min-w-0">
+                      <span class="block truncate text-[13px] font-medium">{{ r.label }}</span>
+                      <span class="block truncate text-xs text-erp-muted">{{ r.module }}</span>
+                    </span>
+                  </RouterLink>
+                </li>
+              </ul>
+            </section>
+
+            <!-- Quick actions -->
+            <section v-if="quick.length" aria-labelledby="launcher-quick" class="erp-card flex flex-col gap-3 p-5">
+              <h2 id="launcher-quick" class="m-0 text-base font-semibold">Start something</h2>
+              <div class="flex flex-wrap gap-2">
+                <RouterLink v-for="q in quick" :key="q.to" :to="q.to" class="lc-pill">
+                  <Plus :size="14" aria-hidden="true" />{{ q.label }}
+                </RouterLink>
+              </div>
+            </section>
+          </div>
         </div>
       </main>
     </div>
@@ -296,6 +389,59 @@ const hello = computed(() => `${greeting(now())}, ${user.value?.name ?? ''}`)
 .lc-card:focus-within .lc-open {
   opacity: 1;
   transform: none;
+}
+.lc-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--erp-border);
+  border-radius: 1rem;
+  background: var(--erp-card);
+  box-shadow: var(--erp-card-shadow);
+}
+.lc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px;
+  color: var(--erp-text);
+  text-decoration: none;
+  box-shadow:
+    -1px 0 0 var(--erp-border),
+    0 -1px 0 var(--erp-border);
+  transition: background-color 150ms;
+}
+a.lc-cell:hover {
+  background: var(--erp-hover-bg);
+}
+.lc-mini {
+  --mesh-blur: 6px;
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: var(--erp-on-dark);
+}
+.lc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--erp-input-border);
+  border-radius: 9999px;
+  background: var(--erp-card);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--erp-text);
+  text-decoration: none;
+  transition: background-color 150ms;
+}
+.lc-pill:hover {
+  background: var(--erp-hover-bg);
 }
 @media (prefers-reduced-motion: reduce) {
   .lc-card,
