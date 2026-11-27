@@ -130,13 +130,14 @@ const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod
         v-for="i in card.data.items"
         :key="i.id"
         :to="i.to"
-        class="flex items-center justify-between gap-3 rounded-xl border border-erp-row bg-erp-card px-3.5 py-2.5 text-[13px] text-erp-text transition-colors hover:bg-erp-hover"
+        class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-erp-row bg-erp-card px-3.5 py-2.5 text-[13px] text-erp-text transition-colors hover:bg-erp-hover"
       >
-        <span class="flex min-w-0 flex-col gap-0.5">
-          <span class="font-semibold">{{ i.title }}</span>
+        <span class="flex min-w-[12rem] flex-1 flex-col gap-0.5">
+          <span class="font-semibold break-words">{{ i.title }}</span>
           <span v-if="i.sub" class="text-xs text-erp-muted">{{ i.sub }}</span>
         </span>
-        <span v-if="i.aside" class="shrink-0 font-semibold whitespace-nowrap text-attention">{{ i.aside }}</span>
+        <!-- A short note sits on the right; a long one (many orders) goes under the title, two lines at most. -->
+        <span v-if="i.aside" class="line-clamp-2 max-w-full min-w-0 font-semibold text-attention" :title="i.aside">{{ i.aside }}</span>
         <StatusChip v-if="i.chip" :status="i.chip.status" :label="i.chip.label" :group="i.chip.group" />
       </component>
     </div>
