@@ -10,7 +10,13 @@ import { LIST_BOX, type BoxTable } from './listBox'
  * the filters panel, the bar of what can be done with ticked rows, the table (DataList, default slot) and the footer.
  * Inside a list page (useListPage) the search goes to the server as ?q= and the Filter count and Clear come from it.
  */
-const props = defineProps<{ count?: string; placeholder?: string; activeFilters?: number; selected?: number; openFilters?: boolean }>()
+const props = defineProps<{
+  count?: string
+  placeholder?: string
+  activeFilters?: number
+  selected?: number
+  openFilters?: boolean
+}>()
 const search = defineModel<string>('search')
 const page = inject(LIST_PAGE, null)
 
@@ -73,75 +79,165 @@ function download(format: 'csv' | 'xlsx') {
 </script>
 
 <template>
-  <div ref="root" class="erp-box" :class="{ 'is-max': maximized }">
-    <div class="erp-box-bar">
-      <label v-if="showSearch" class="erp-box-search">
-        <Search :size="15" class="shrink-0 text-erp-off-text" aria-hidden="true" />
-        <input v-model="text" type="text" :placeholder="placeholder ?? 'Search'" :aria-label="placeholder ?? 'Search this list'" />
-        <button v-if="text" type="button" class="erp-box-clear" aria-label="Clear search" @click="text = ''"><X :size="13" aria-hidden="true" /></button>
-      </label>
-      <span v-if="count" class="erp-num text-[13px] text-erp-muted">{{ count }}</span>
-      <div class="ml-auto flex flex-wrap items-center gap-0.5">
-        <button v-if="$slots.filters" type="button" class="erp-box-tool" :class="{ 'is-on': filtersOpen || filterCount }" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
-          <ListFilter :size="15" aria-hidden="true" />Filter
-          <span v-if="filterCount" class="erp-box-count">{{ filterCount }}</span>
-        </button>
-        <div v-if="table && table.columns.value.length > 1" class="erp-box-pop relative">
-          <button type="button" class="erp-box-tool" :class="{ 'is-on': columnsOpen || table.hidden.value.length }" aria-haspopup="true" :aria-expanded="columnsOpen" @click="columnsOpen = !columnsOpen">
-            <Columns3 :size="15" aria-hidden="true" />Columns
+  <!-- The MES table card: an outer card with room around the bordered grid box -->
+  <div class="erp-box-frame">
+    <div ref="root" class="erp-box" :class="{ 'is-max': maximized }">
+      <div class="erp-box-bar">
+        <label v-if="showSearch" class="erp-box-search">
+          <Search :size="15" class="shrink-0 text-erp-off-text" aria-hidden="true" />
+          <input
+            v-model="text"
+            type="text"
+            :placeholder="placeholder ?? 'Search'"
+            :aria-label="placeholder ?? 'Search this list'"
+          />
+          <button
+            v-if="text"
+            type="button"
+            class="erp-box-clear"
+            aria-label="Clear search"
+            @click="text = ''"
+          >
+            <X :size="13" aria-hidden="true" />
           </button>
-          <div v-if="columnsOpen" class="erp-box-menu absolute top-full right-0 z-40 mt-1.5 w-56">
-            <p class="m-0 px-2 pb-1.5 text-[11px] font-semibold text-erp-muted">Show columns</p>
-            <div class="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
-              <label v-for="c in table.columns.value" :key="c.index" class="erp-box-option">
-                <input type="checkbox" :checked="!table.hidden.value.includes(c.label)" @change="table.toggleColumn(c.label)" />
-                <span class="truncate">{{ c.label }}</span>
-              </label>
+        </label>
+        <span v-if="count" class="erp-num text-[13px] text-erp-muted">{{ count }}</span>
+        <div class="ml-auto flex flex-wrap items-center gap-0.5">
+          <button
+            v-if="$slots.filters"
+            type="button"
+            class="erp-box-tool"
+            :class="{ 'is-on': filtersOpen || filterCount }"
+            :aria-expanded="filtersOpen"
+            @click="filtersOpen = !filtersOpen"
+          >
+            <ListFilter :size="15" aria-hidden="true" />Filter
+            <span v-if="filterCount" class="erp-box-count">{{ filterCount }}</span>
+          </button>
+          <div v-if="table && table.columns.value.length > 1" class="erp-box-pop relative">
+            <button
+              type="button"
+              class="erp-box-tool"
+              :class="{ 'is-on': columnsOpen || table.hidden.value.length }"
+              aria-haspopup="true"
+              :aria-expanded="columnsOpen"
+              @click="columnsOpen = !columnsOpen"
+            >
+              <Columns3 :size="15" aria-hidden="true" />Columns
+            </button>
+            <div v-if="columnsOpen" class="erp-box-menu absolute top-full right-0 z-40 mt-1.5 w-56">
+              <p class="m-0 px-2 pb-1.5 text-[11px] font-semibold text-erp-muted">Show columns</p>
+              <div class="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+                <label v-for="c in table.columns.value" :key="c.index" class="erp-box-option">
+                  <input
+                    type="checkbox"
+                    :checked="!table.hidden.value.includes(c.label)"
+                    @change="table.toggleColumn(c.label)"
+                  />
+                  <span class="truncate">{{ c.label }}</span>
+                </label>
+              </div>
+              <button
+                v-if="table.hidden.value.length"
+                type="button"
+                class="erp-box-showall"
+                @click="table.showAll()"
+              >
+                Show all columns
+              </button>
             </div>
-            <button v-if="table.hidden.value.length" type="button" class="erp-box-showall" @click="table.showAll()">Show all columns</button>
           </div>
-        </div>
-        <div v-if="table" class="erp-box-pop relative">
-          <button type="button" class="erp-box-tool" aria-haspopup="true" :aria-expanded="downloadOpen" @click="downloadOpen = !downloadOpen">
-            <Download :size="15" aria-hidden="true" />Download
+          <div v-if="table" class="erp-box-pop relative">
+            <button
+              type="button"
+              class="erp-box-tool"
+              aria-haspopup="true"
+              :aria-expanded="downloadOpen"
+              @click="downloadOpen = !downloadOpen"
+            >
+              <Download :size="15" aria-hidden="true" />Download
+            </button>
+            <div v-if="downloadOpen" class="erp-box-menu absolute top-full right-0 z-40 mt-1.5 w-60">
+              <p class="m-0 px-2 pb-1.5 text-[11px] font-semibold text-erp-muted">
+                {{ ticked ? `The ${ticked} ticked rows` : 'The rows on this page' }}, shown columns
+              </p>
+              <button
+                type="button"
+                class="erp-box-option w-full border-0 bg-transparent text-left"
+                @click="download('xlsx')"
+              >
+                Excel (.xlsx)
+              </button>
+              <button
+                type="button"
+                class="erp-box-option w-full border-0 bg-transparent text-left"
+                @click="download('csv')"
+              >
+                CSV
+              </button>
+            </div>
+          </div>
+          <slot name="tools" />
+          <span v-if="$slots.add" class="ml-1.5 flex"><slot name="add" /></span>
+          <button
+            type="button"
+            class="erp-box-tool ml-1 w-8 justify-center !px-0"
+            :aria-pressed="maximized"
+            :title="maximized ? 'Exit full screen (Esc)' : 'Full screen'"
+            :aria-label="maximized ? 'Exit full screen' : 'Full screen'"
+            @click="maximized = !maximized"
+          >
+            <component :is="maximized ? Minimize2 : Maximize2" :size="15" aria-hidden="true" />
           </button>
-          <div v-if="downloadOpen" class="erp-box-menu absolute top-full right-0 z-40 mt-1.5 w-60">
-            <p class="m-0 px-2 pb-1.5 text-[11px] font-semibold text-erp-muted">{{ ticked ? `The ${ticked} ticked rows` : 'The rows on this page' }}, shown columns</p>
-            <button type="button" class="erp-box-option w-full border-0 bg-transparent text-left" @click="download('xlsx')">Excel (.xlsx)</button>
-            <button type="button" class="erp-box-option w-full border-0 bg-transparent text-left" @click="download('csv')">CSV</button>
-          </div>
         </div>
-        <slot name="tools" />
-        <span v-if="$slots.add" class="ml-1.5 flex"><slot name="add" /></span>
-        <button type="button" class="erp-box-tool ml-1 w-8 justify-center !px-0" :aria-pressed="maximized" :title="maximized ? 'Exit full screen (Esc)' : 'Full screen'" :aria-label="maximized ? 'Exit full screen' : 'Full screen'" @click="maximized = !maximized">
-          <component :is="maximized ? Minimize2 : Maximize2" :size="15" aria-hidden="true" />
+      </div>
+      <div v-if="$slots.filters && filtersOpen" class="erp-box-filters">
+        <slot name="filters" />
+        <div class="erp-box-filter-actions">
+          <button
+            v-if="page && filterCount"
+            type="button"
+            class="erp-btn erp-btn-secondary h-8"
+            @click="page.clearFilters()"
+          >
+            Clear
+          </button>
+          <button type="button" class="erp-btn erp-btn-import h-8" @click="filtersOpen = false">Close</button>
+        </div>
+      </div>
+      <div v-if="ticked" class="erp-box-selection">
+        <span class="mr-2 text-[13px] font-medium">{{ ticked }} selected</span>
+        <slot name="selection" />
+        <button v-if="table" type="button" class="erp-box-tool" @click="table.download('xlsx', true)">
+          <Download :size="15" aria-hidden="true" />Export selected
+        </button>
+        <button
+          v-if="table && props.selected === undefined"
+          type="button"
+          class="erp-box-tool ml-auto"
+          @click="table.clearSelection()"
+        >
+          Clear selection
         </button>
       </div>
+      <div class="erp-box-body"><slot /></div>
+      <div v-if="$slots.footer" class="erp-box-foot"><slot name="footer" /></div>
     </div>
-    <div v-if="$slots.filters && filtersOpen" class="erp-box-filters">
-      <slot name="filters" />
-      <div class="erp-box-filter-actions">
-        <button v-if="page && filterCount" type="button" class="erp-btn erp-btn-secondary h-8" @click="page.clearFilters()">Clear</button>
-        <button type="button" class="erp-btn erp-btn-import h-8" @click="filtersOpen = false">Close</button>
-      </div>
-    </div>
-    <div v-if="ticked" class="erp-box-selection">
-      <span class="mr-2 text-[13px] font-medium">{{ ticked }} selected</span>
-      <slot name="selection" />
-      <button v-if="table" type="button" class="erp-box-tool" @click="table.download('xlsx', true)"><Download :size="15" aria-hidden="true" />Export selected</button>
-      <button v-if="table && props.selected === undefined" type="button" class="erp-box-tool ml-auto" @click="table.clearSelection()">Clear selection</button>
-    </div>
-    <div class="erp-box-body"><slot /></div>
-    <div v-if="$slots.footer" class="erp-box-foot"><slot name="footer" /></div>
   </div>
 </template>
 
 <style scoped>
+.erp-box-frame {
+  padding: 14px;
+  border: 1px solid var(--erp-border);
+  border-radius: 16px;
+  background: var(--erp-card);
+  box-shadow: var(--erp-card-shadow);
+}
 .erp-box {
   border: 1px solid var(--erp-border);
   border-radius: var(--erp-radius);
   background: var(--erp-card);
-  box-shadow: var(--erp-card-shadow);
 }
 /* Full screen: the whole box lifts over the page and fills the window; a wide shadow dims what is behind */
 .erp-box.is-max {
