@@ -53,13 +53,13 @@ const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod
 <template>
   <!-- A table takes two cards' height, and in 3 columns two columns' width, so its columns stay readable. -->
   <section
-    class="group/card erp-card relative flex min-w-0 flex-col gap-3 px-5 py-[18px]"
+    class="group/card erp-card relative flex min-w-0 flex-col gap-4 px-5 pt-5 pb-5"
     :class="card.wide ? (cols === 3 ? 'col-span-2 row-span-2 max-lg:col-span-1' : 'row-span-2') : ''"
     :aria-label="title"
   >
     <div class="flex items-start justify-between gap-3">
-      <h2 class="m-0 text-[15px] font-bold">{{ title }}</h2>
-      <RouterLink v-if="card.link" :to="card.link.to" class="erp-link shrink-0 text-[13px] font-semibold whitespace-nowrap">{{ card.link.label }}</RouterLink>
+      <h2 class="m-0 text-base leading-tight font-semibold tracking-[-0.015em]">{{ title }}</h2>
+      <RouterLink v-if="card.link" :to="card.link.to" class="erp-link shrink-0 text-[13px] font-medium whitespace-nowrap">{{ card.link.label }}</RouterLink>
     </div>
 
     <!-- Move and remove: a small bar on the card's top edge, shown on hover, keyboard focus or a touch screen, so the
@@ -130,7 +130,7 @@ const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod
         v-for="i in card.data.items"
         :key="i.id"
         :to="i.to"
-        class="flex items-center justify-between gap-3 rounded-lg bg-erp-head px-3 py-2.5 text-[13px] text-erp-text"
+        class="flex items-center justify-between gap-3 rounded-xl border border-erp-row bg-erp-card px-3.5 py-2.5 text-[13px] text-erp-text transition-colors hover:bg-erp-hover"
       >
         <span class="flex min-w-0 flex-col gap-0.5">
           <span class="font-semibold">{{ i.title }}</span>
@@ -155,8 +155,8 @@ const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod
           <span class="truncate" :title="r.label">{{ r.label }}</span>
           <span v-if="r.sub" class="truncate text-[11px] text-erp-muted">{{ r.sub }}</span>
         </span>
-        <div class="h-2.5 grow rounded-[5px] bg-erp-track">
-          <div class="h-2.5 rounded-[5px]" :class="TONE[r.tone ?? 'primary']" :style="{ width: `${r.width}%` }" />
+        <div class="h-2 grow rounded-full bg-erp-track">
+          <div class="h-2 rounded-full" :class="TONE[r.tone ?? 'primary']" :style="{ width: `${r.width}%` }" />
         </div>
         <span class="w-[84px] shrink-0 text-right erp-num">{{ show(r.value, unit, true) }}</span>
       </component>
@@ -172,7 +172,7 @@ const TONE: Record<string, string> = { primary: 'bg-mod-primary', muted: 'bg-mod
       <div v-for="c in columns" :key="c.month" class="flex min-w-0 flex-1 flex-col items-center gap-1.5">
         <div class="relative h-[140px] w-full border-b border-erp-border">
           <div
-            class="absolute bottom-0 left-1/2 w-full max-w-[44px] -translate-x-1/2 rounded-t-md bg-mod-primary"
+            class="absolute bottom-0 left-1/2 w-full max-w-[40px] -translate-x-1/2 rounded-t-lg bg-mod-primary transition-[filter] hover:brightness-110"
             :style="{ height: `${Math.max(c.height, Number(c.value) ? 2 : 0)}%` }"
           />
           <span

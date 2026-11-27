@@ -55,7 +55,7 @@ const kpis = computed(() => {
       v-for="(g, i) in salesMenu()"
       :key="g.key"
       :to="g.to"
-      class="flex h-[100px] w-[132px] flex-col items-center justify-center gap-2 rounded-xl p-2 text-center text-xs font-semibold text-erp-on-dark"
+      class="erp-home-tile erp-mesh"
       :class="TILE_SHADES[i]"
     >
       <span class="flex h-9 w-9 items-center justify-center rounded-full bg-erp-on-dark">

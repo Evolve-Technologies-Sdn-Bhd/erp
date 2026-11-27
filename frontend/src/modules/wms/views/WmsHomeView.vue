@@ -52,7 +52,7 @@ const updated = computed(() => (data.value?.source.stale ? 'These are the last f
         v-for="(item, i) in TILES"
         :key="item.key"
         :to="item.to"
-        class="flex h-[100px] w-[132px] flex-col items-center justify-center gap-2 rounded-xl p-2 text-center text-xs font-semibold text-erp-on-dark"
+        class="erp-home-tile erp-mesh"
         :class="TILE_SHADES[i]"
       >
         <span class="flex h-9 w-9 items-center justify-center rounded-full bg-erp-on-dark">

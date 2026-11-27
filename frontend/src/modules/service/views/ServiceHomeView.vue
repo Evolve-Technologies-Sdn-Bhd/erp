@@ -51,7 +51,7 @@ const bookLink = (j: JobRow) => ({ path: '/service/board', query: { job: j.id, .
       v-for="t in TILES"
       :key="t.to"
       :to="t.to"
-      class="flex h-[100px] w-[132px] flex-col items-center justify-center gap-2 rounded-xl p-2 text-center text-xs font-semibold text-erp-on-dark"
+      class="erp-home-tile erp-mesh"
       :class="t.shade"
     >
       <span class="flex h-9 w-9 items-center justify-center rounded-full bg-erp-on-dark text-mod-accent">

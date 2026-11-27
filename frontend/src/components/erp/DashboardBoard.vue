@@ -105,20 +105,20 @@ const KIND: Record<IndicatorKind, { label: string; icon: typeof Table2 }> = {
 
 <template>
   <!-- Dashboard toolbar -->
-  <div data-tour="dashboard" class="erp-card flex min-h-14 flex-wrap items-center justify-between gap-3 px-5 py-2.5">
-    <div class="flex items-center gap-2.5">
-      <span class="text-sm font-bold">Dashboard</span>
+  <div data-tour="dashboard" class="erp-ink flex min-h-11 flex-wrap items-end justify-between gap-3">
+    <div class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+      <h2 class="erp-display m-0 text-xl font-semibold tracking-[-0.02em]">Dashboard</h2>
       <span v-if="board" class="text-xs text-erp-muted">{{ board.isDefault ? 'Default charts' : 'Your charts · saved to your account' }}</span>
       <slot name="scope" />
     </div>
     <div class="flex items-center gap-2">
-      <div class="flex overflow-hidden rounded-lg border border-erp-input" role="group" aria-label="Dashboard columns">
+      <div class="erp-tabs" role="group" aria-label="Dashboard columns">
         <button
           v-for="n in [2, 3] as const"
           :key="n"
           type="button"
-          class="h-8 cursor-pointer border-0 px-3 font-[inherit] text-xs font-semibold"
-          :class="board?.cols === n ? 'bg-mod-chip-bg text-mod-chip-text' : 'bg-erp-card text-erp-text'"
+          class="erp-tab"
+          :class="{ on: board?.cols === n }"
           :aria-pressed="board?.cols === n"
           :disabled="!board || busy"
           @click="setCols(n)"
@@ -141,7 +141,7 @@ const KIND: Record<IndicatorKind, { label: string; icon: typeof Table2 }> = {
 
   <div v-else-if="loading" class="erp-card px-5 py-8 text-center text-[13px] text-erp-muted">Loading your charts…</div>
 
-  <div v-else-if="board && !board.cards.length" class="erp-card flex flex-col items-center gap-3 px-5 py-10 text-center">
+  <div v-else-if="board && !board.cards.length" class="erp-card erp-ink flex flex-col items-center gap-3 px-5 py-10 text-center">
     <p class="m-0 text-sm font-semibold">No charts on your dashboard</p>
     <p class="m-0 max-w-md text-[13px] text-erp-muted">Add the charts you want to see here. They are saved to your account, so they follow you to any computer.</p>
     <div class="flex gap-2">
@@ -173,7 +173,7 @@ const KIND: Record<IndicatorKind, { label: string; icon: typeof Table2 }> = {
   <Dialog v-model:visible="adding" data-tour="dash:add" modal :draggable="false" class="erp-dialog" :style="{ width: '600px' }">
     <template #header>
       <div>
-        <h2 class="m-0 text-xl font-bold">Add a chart</h2>
+        <h2 class="erp-display m-0 text-[17px] font-semibold tracking-[-0.02em]">Add a chart</h2>
         <p class="m-0 mt-1 text-[13px] text-erp-muted">
           It goes at the end of your dashboard. Every chart shows only what you are allowed to see.
           <template v-if="board"> {{ keys.length }} of {{ board.maxCards }} used.</template>
