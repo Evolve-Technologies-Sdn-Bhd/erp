@@ -8,7 +8,9 @@ import TopBar from '@/components/erp/TopBar.vue'
 import { useSession } from '@/composables/useSession'
 import { MODULES, type ModuleKey } from '@/modules/registry'
 import { notificationsApi } from '@/api/notifications'
-import { Clock, Inbox, Plus } from '@lucide/vue'
+import { ClipboardCheck, Inbox, ListChecks, Plus, UserRound } from '@lucide/vue'
+import ListBox from '@/components/erp/ListBox.vue'
+import { help } from '@/tours/engine'
 import WelcomeCard from '@/tours/WelcomeCard.vue'
 import { isBuilt, meshStyle, TILE_STYLE } from '@/modules/tiles'
 import { formatLongDate, greeting } from '@/utils/format'
@@ -132,11 +134,33 @@ const recents = computed(() => {
       if (!open.has(code)) return null
       const m = MODULES[code]
       const page = m?.menu.flatMap((g) => g.items).find((i) => i.key === item)
-      return page ? { key, label: page.label, module: m.label, to: page.to, code } : null
+      return page ? { key, label: page.label, module: m.label, to: page.to, code, when: whenText(visits[key] ?? 0) } : null
     })
     .filter((r): r is NonNullable<typeof r> => !!r)
-    .slice(0, 8)
+    .slice(0, 12)
 })
+
+function whenText(t: number): string {
+  const mins = Math.round((Date.now() - t) / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins} min ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours} h ago`
+  return new Date(t).toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })
+}
+const recentSearch = ref('')
+const shownRecents = computed(() => {
+  const q = recentSearch.value.trim().toLowerCase()
+  return q ? recents.value.filter((r) => `${r.label} ${r.module}`.toLowerCase().includes(q)) : recents.value
+})
+
+// Each module's home that carries charts: the dashboards this ERP has today.
+const BOARDS = [
+  { code: 'sales', name: 'Sales dashboard', description: 'Orders, approvals, sales by agent and by month', to: '/sales' },
+  { code: 'purchase', name: 'Purchase dashboard', description: 'Open orders, what to buy soon, committed spend', to: '/purchase' },
+  { code: 'service', name: 'Service dashboard', description: 'Jobs today, not booked, overdue and reminders', to: '/service' },
+] as const
+const boards = computed(() => BOARDS.filter((b) => builtTiles.value.some((t) => t.code === b.code)))
 
 // The documents people start most, each only for whoever may make it.
 const QUICK = [
@@ -155,12 +179,15 @@ const quick = computed(() => QUICK.filter((q) => builtTiles.value.some((t) => t.
 
     <div class="px-2 pb-2">
       <main class="erp-page min-h-[calc(100dvh-4.5rem)] p-4 md:p-6">
-        <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-7 md:py-2">
-          <div>
-            <h1 class="m-0 text-[28px] leading-tight font-semibold">{{ hello }}</h1>
-            <p class="mt-1 mb-0 text-sm text-erp-muted">
-              {{ today ? formatLongDate(today) : '' }}<template v-if="state.tenantName"> · {{ state.tenantName }}</template>
-            </p>
+        <div class="flex w-full flex-col gap-7 md:py-1">
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 class="m-0 text-[28px] leading-tight font-semibold">{{ hello }}</h1>
+              <p class="mt-1 mb-0 text-sm text-erp-muted">
+                {{ today ? formatLongDate(today) : '' }}<template v-if="state.tenantName"> · {{ state.tenantName }}</template>
+              </p>
+            </div>
+            <button type="button" class="lc-tool" @click="help.open = true"><ListChecks :size="16" aria-hidden="true" />Guides</button>
           </div>
 
           <WelcomeCard />
@@ -171,112 +198,106 @@ const quick = computed(() => QUICK.filter((q) => builtTiles.value.some((t) => t.
 
           <section aria-labelledby="launcher-modules" class="flex flex-col gap-3">
             <h2 id="launcher-modules" class="erp-display m-0 text-xl font-semibold tracking-[-0.02em]">Modules</h2>
-            <!-- One card per module: its grainy gradient as the art, its name and purpose set on it. The row reflows by
-                 width, so adding a module never strands one card. -->
-            <ul data-tour="launcher:tiles" class="m-0 grid list-none grid-cols-1 gap-3 p-0 min-[480px]:grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+            <!-- One small card per module, in one row where the screen allows (MES launchpad) -->
+            <ul data-tour="launcher:tiles" class="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))]">
               <li v-for="tile in sortedTiles" :key="tile.code">
-                <!-- Built module: the whole card is the link (stretched over it); the star sits above it -->
                 <div
                   v-if="isBuilt(tile)"
-                  class="lc-card erp-mesh group flex aspect-[4/3] min-h-[9.5rem] flex-col justify-between rounded-[1.5rem] p-4 text-erp-on-dark"
+                  class="lc-card erp-mesh group flex h-[6.5rem] flex-col justify-between rounded-2xl p-3 text-erp-on-dark"
                   :style="meshStyle(TILE_STYLE[tile.code])"
+                  :title="TILE_STYLE[tile.code].description"
                 >
-                  <div class="flex items-start justify-between gap-2">
-                    <span class="lc-icon" aria-hidden="true"><component :is="TILE_STYLE[tile.code].icon" :size="18" /></span>
+                  <div class="flex items-start justify-between gap-1">
+                    <span class="lc-icon" aria-hidden="true"><component :is="TILE_STYLE[tile.code].icon" :size="15" /></span>
                     <button
                       type="button"
                       class="lc-star relative z-10"
                       :class="{ 'is-on': tile.code === defaultModule }"
                       :aria-pressed="tile.code === defaultModule"
+                      :aria-label="tile.code === defaultModule ? 'Default module' : 'Set as default module'"
                       :title="tile.code === defaultModule ? 'Opens first after you sign in' : 'Set as default module'"
                       @click="setDefault(tile)"
                     >
-                      <Star :size="13" :fill="tile.code === defaultModule ? 'currentColor' : 'none'" aria-hidden="true" />
-                      {{ tile.code === defaultModule ? 'Default' : 'Set default' }}
+                      <Star :size="12" :fill="tile.code === defaultModule ? 'currentColor' : 'none'" aria-hidden="true" />
                     </button>
                   </div>
-                  <div class="lc-text min-w-0 pr-12">
-                    <RouterLink :to="tile.route!" class="lc-name erp-display block text-lg leading-tight font-semibold text-erp-on-dark outline-none">
+                  <div class="lc-text min-w-0">
+                    <RouterLink :to="tile.route!" class="lc-name erp-display block truncate text-[15px] leading-tight font-semibold text-erp-on-dark outline-none">
                       {{ tile.name }}
                     </RouterLink>
-                    <span class="mt-1 line-clamp-2 block text-xs text-erp-on-dark/80">{{ TILE_STYLE[tile.code].description }}</span>
-                    <span v-if="waiting[tile.code]" class="lc-badge mt-2 inline-flex">{{ waiting[tile.code] }} waiting for you</span>
+                    <span class="block truncate text-[11px] text-erp-on-dark/80">{{ waiting[tile.code] ? `${waiting[tile.code]} waiting for you` : TILE_STYLE[tile.code].description }}</span>
                   </div>
-                  <!-- "Open", the MES play button: shows on hover or focus -->
-                  <span class="lc-open" aria-hidden="true"><ArrowRight :size="16" /></span>
                 </div>
-
-                <!-- Not in this app yet, or not in the person's roles -->
                 <div
                   v-else
-                  class="flex aspect-[4/3] min-h-[9.5rem] flex-col justify-between rounded-[1.5rem] border border-dashed border-erp-input bg-erp-card p-4"
+                  class="flex h-[6.5rem] flex-col justify-between rounded-2xl border border-dashed border-erp-input bg-erp-card p-3"
                   aria-disabled="true"
+                  :title="tile.state === 'NO_ACCESS' ? 'Not part of your role. Ask your administrator if you need it.' : 'Coming soon'"
                 >
-                  <div class="flex items-start justify-between gap-2">
-                    <span class="lc-icon-quiet" :style="{ '--tile-color': TILE_STYLE[tile.code].color }" aria-hidden="true">
-                      <component :is="TILE_STYLE[tile.code].icon" :size="18" />
-                    </span>
-                    <span
-                      v-if="tile.state === 'NO_ACCESS'"
-                      class="flex items-center gap-1 rounded-full bg-erp-muted-bg px-2.5 py-0.5 text-xs font-medium text-erp-muted"
-                      title="Not part of your role. Ask your administrator if you need it."
-                    >
-                      <Lock :size="12" aria-hidden="true" />No access
-                    </span>
-                    <span v-else class="rounded-full bg-erp-muted-bg px-2.5 py-0.5 text-xs font-medium text-erp-muted">Coming soon</span>
-                  </div>
+                  <span class="lc-icon-quiet" :style="{ '--tile-color': TILE_STYLE[tile.code].color }" aria-hidden="true">
+                    <component :is="TILE_STYLE[tile.code].icon" :size="15" />
+                  </span>
                   <div class="min-w-0">
-                    <span class="erp-display block text-lg leading-tight font-semibold text-erp-subtle">{{ tile.name }}</span>
-                    <span class="mt-1 line-clamp-2 block text-xs text-erp-muted">{{ TILE_STYLE[tile.code].description }}</span>
+                    <span class="erp-display block truncate text-[15px] leading-tight font-semibold text-erp-subtle">{{ tile.name }}</span>
+                    <span class="flex items-center gap-1 text-[11px] text-erp-muted"><Lock v-if="tile.state === 'NO_ACCESS'" :size="10" aria-hidden="true" />{{ tile.state === 'NO_ACCESS' ? 'No access' : 'Coming soon' }}</span>
                   </div>
                 </div>
               </li>
             </ul>
-          </section>
-
-          <!-- What waits for you: one strip, cells split by hairlines (MES SummaryCards) -->
-          <section aria-labelledby="launcher-waiting" class="flex flex-col gap-3">
-            <h2 id="launcher-waiting" class="erp-display m-0 text-xl font-semibold tracking-[-0.02em]">Waiting for you</h2>
-            <div class="lc-strip">
-              <RouterLink v-for="c in waitingCells" :key="c.code" :to="c.to" class="lc-cell">
-                <span class="text-[13px] font-medium text-erp-muted">{{ c.label }}</span>
-                <span class="erp-display erp-num text-[28px] leading-none font-semibold" :class="c.count ? 'text-note-warn-strong' : 'text-erp-text'">{{ c.count }}</span>
+            <!-- Quieter than the modules: the person's own inboxes -->
+            <div class="flex flex-wrap gap-2">
+              <RouterLink v-for="c in waitingCells" :key="c.code" :to="c.to" class="lc-pill">
+                <ClipboardCheck :size="14" aria-hidden="true" />{{ c.label }}
+                <span v-if="c.count" class="rounded-full bg-chip-pending-bg px-1.5 text-[11px] font-semibold text-chip-pending-text">{{ c.count }}</span>
               </RouterLink>
-              <div class="lc-cell">
-                <span class="flex items-center gap-1.5 text-[13px] font-medium text-erp-muted"><Inbox :size="14" aria-hidden="true" />Unread alerts</span>
-                <span class="erp-display erp-num text-[28px] leading-none font-semibold">{{ unread }}</span>
-              </div>
+              <span class="lc-pill"><Inbox :size="14" aria-hidden="true" />Alerts<span v-if="unread" class="rounded-full bg-chip-pending-bg px-1.5 text-[11px] font-semibold text-chip-pending-text">{{ unread }}</span></span>
+              <RouterLink to="/account" class="lc-pill"><UserRound :size="14" aria-hidden="true" />My account</RouterLink>
             </div>
           </section>
 
-          <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-            <!-- Recently opened -->
-            <section aria-labelledby="launcher-recent" class="erp-card flex min-w-0 flex-col gap-3 p-5">
-              <h2 id="launcher-recent" class="m-0 flex items-center gap-2 text-base font-semibold"><Clock :size="16" class="text-erp-muted" aria-hidden="true" />Recently opened</h2>
-              <p v-if="!recents.length" class="m-0 text-[13px] text-erp-muted">Pages you open from a module's menu show here.</p>
-              <ul v-else class="m-0 grid list-none gap-1 p-0 sm:grid-cols-2">
-                <li v-for="r in recents" :key="r.key">
-                  <RouterLink :to="r.to" class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-erp-text no-underline hover:bg-erp-hover">
-                    <span class="erp-mesh lc-mini" :style="meshStyle(TILE_STYLE[r.code])" aria-hidden="true"><component :is="TILE_STYLE[r.code].icon" :size="14" /></span>
-                    <span class="min-w-0">
-                      <span class="block truncate text-[13px] font-medium">{{ r.label }}</span>
-                      <span class="block truncate text-xs text-erp-muted">{{ r.module }}</span>
-                    </span>
-                  </RouterLink>
-                </li>
-              </ul>
-            </section>
-
-            <!-- Quick actions -->
-            <section v-if="quick.length" aria-labelledby="launcher-quick" class="erp-card flex flex-col gap-3 p-5">
-              <h2 id="launcher-quick" class="m-0 text-base font-semibold">Start something</h2>
-              <div class="flex flex-wrap gap-2">
-                <RouterLink v-for="q in quick" :key="q.to" :to="q.to" class="lc-pill">
-                  <Plus :size="14" aria-hidden="true" />{{ q.label }}
-                </RouterLink>
+          <section aria-labelledby="launcher-boards" class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+              <h2 id="launcher-boards" class="erp-display m-0 text-xl font-semibold tracking-[-0.02em]">Dashboards</h2>
+              <div v-if="quick.length" class="erp-ink flex flex-wrap gap-2">
+                <RouterLink v-for="q in quick.slice(0, 2)" :key="q.to" :to="q.to" class="erp-btn erp-btn-add"><Plus :size="14" aria-hidden="true" />{{ q.label }}</RouterLink>
               </div>
-            </section>
-          </div>
+            </div>
+            <!-- Each module's home dashboard, drawn as the board it is -->
+            <div v-if="boards.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <RouterLink v-for="b in boards" :key="b.code" :to="b.to" class="lc-board group">
+                <span class="lc-sketch" aria-hidden="true">
+                  <span class="lc-sk-row"><i /><i /><i /><i /></span>
+                  <span class="lc-sk-grid"><span class="lc-sk-line" /><span class="lc-sk-bars"><b /><b /><b /></span><span class="lc-sk-list" /><span class="lc-sk-ring" /></span>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-semibold text-erp-text">{{ b.name }}</span>
+                  <span class="mt-0.5 block text-xs text-erp-muted">{{ b.description }}</span>
+                  <span class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-erp-link">Open dashboard <ArrowRight :size="13" class="transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></span>
+                </span>
+              </RouterLink>
+            </div>
+
+            <ListBox v-model:search="recentSearch" placeholder="Search" :count="`${shownRecents.length} recently opened`">
+              <table class="erp-table">
+                <thead>
+                  <tr><th>Page</th><th>Module</th><th>Last opened</th><th class="w-10" /></tr>
+                </thead>
+                <tbody>
+                  <tr v-if="!shownRecents.length"><td colspan="4" class="py-8 text-center text-erp-muted">Pages you open from a module's menu show here.</td></tr>
+                  <tr v-for="r in shownRecents" :key="r.key">
+                    <td>
+                      <RouterLink :to="r.to" class="flex items-center gap-2.5 font-medium text-erp-text hover:underline">
+                        <span class="erp-mesh lc-mini" :style="meshStyle(TILE_STYLE[r.code])" aria-hidden="true"><component :is="TILE_STYLE[r.code].icon" :size="12" /></span>{{ r.label }}
+                      </RouterLink>
+                    </td>
+                    <td class="text-erp-subtle">{{ r.module }}</td>
+                    <td class="text-erp-subtle">{{ r.when }}</td>
+                    <td><RouterLink :to="r.to" class="text-erp-muted" :aria-label="`Open ${r.label}`"><ArrowRight :size="15" /></RouterLink></td>
+                  </tr>
+                </tbody>
+              </table>
+            </ListBox>
+          </section>
         </div>
       </main>
     </div>
@@ -449,5 +470,105 @@ a.lc-cell:hover {
   .lc-star {
     transition: none;
   }
+}
+</style>
+
+<style scoped>
+.lc-tool {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--erp-gray-600);
+}
+.lc-tool:hover {
+  background: var(--erp-gray-100);
+  color: var(--erp-text);
+}
+.lc-board {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--erp-border);
+  border-radius: var(--erp-radius);
+  background: var(--erp-card);
+  box-shadow: var(--erp-card-shadow);
+  text-decoration: none;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+.lc-board:hover {
+  border-color: var(--erp-gray-300);
+  box-shadow: var(--erp-lift-shadow);
+}
+/* A little drawing of the board: a KPI row, then four charts */
+.lc-sketch {
+  display: flex;
+  width: 104px;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--erp-muted-bg);
+}
+.lc-sk-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.lc-sk-row i {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--erp-gray-400);
+}
+.lc-sk-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.lc-sk-grid > span {
+  height: 22px;
+  border-radius: 4px;
+  background: var(--erp-card);
+}
+.lc-sk-line {
+  background: linear-gradient(165deg, transparent 45%, var(--erp-gray-400) 46% 50%, transparent 51%) var(--erp-card) !important;
+}
+.lc-sk-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
+}
+.lc-sk-bars b {
+  width: 5px;
+  border-radius: 1px;
+  background: var(--erp-gray-500);
+}
+.lc-sk-bars b:nth-child(1) {
+  height: 40%;
+}
+.lc-sk-bars b:nth-child(2) {
+  height: 75%;
+}
+.lc-sk-bars b:nth-child(3) {
+  height: 55%;
+}
+.lc-sk-list {
+  padding: 4px 6px;
+  background: repeating-linear-gradient(180deg, var(--erp-gray-300) 0 2px, transparent 2px 6px) content-box var(--erp-card) !important;
+}
+.lc-sk-ring {
+  background: radial-gradient(circle, var(--erp-card) 38%, var(--erp-gray-500) 40% 55%, var(--erp-card) 57%) !important;
 }
 </style>
