@@ -11,14 +11,14 @@ export function notifyApprovalsChanged(): void {
   changed.value += 1
 }
 
-/** The Approvals badge in the top bar: how many approvals wait for the current user. */
-export function useApprovalsCount(module: () => ModuleDef) {
+/** The Approvals badge in the top bar: how many approvals wait for the current user. No module (the launcher): none. */
+export function useApprovalsCount(module: () => ModuleDef | null) {
   const { state } = useSession()
   const count = ref<number | null>(null)
   let timer: ReturnType<typeof setInterval> | undefined
 
   async function load() {
-    const fetchCount = module().approvalsCount
+    const fetchCount = module()?.approvalsCount
     if (!fetchCount) {
       count.value = null
       return

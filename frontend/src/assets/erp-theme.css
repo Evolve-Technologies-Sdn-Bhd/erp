@@ -70,6 +70,8 @@
   --erp-dialog-foot-border: #f0f0f2;
   --erp-mask: rgb(9 9 11 / 0.4);
   --erp-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  /* MES film grain over the gradients (two noise layers, light and dark) */
+  --erp-grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27200%27%20height%3D%27200%27%3E%3Cfilter%20id%3D%27l%27%3E%3CfeTurbulence%20type%3D%27fractalNoise%27%20baseFrequency%3D%270.95%27%20numOctaves%3D%273%27%20seed%3D%273%27%20stitchTiles%3D%27stitch%27%2F%3E%3CfeColorMatrix%20values%3D%270%200%200%200%201%20%200%200%200%200%201%20%200%200%200%200%201%20%202.4%200%200%200%20-1.05%27%2F%3E%3C%2Ffilter%3E%3Cfilter%20id%3D%27d%27%3E%3CfeTurbulence%20type%3D%27fractalNoise%27%20baseFrequency%3D%270.95%27%20numOctaves%3D%273%27%20seed%3D%2711%27%20stitchTiles%3D%27stitch%27%2F%3E%3CfeColorMatrix%20values%3D%270%200%200%200%200%20%200%200%200%200%200%20%200%200%200%200%200%20%202.4%200%200%200%20-1.05%27%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D%27100%25%27%20height%3D%27100%25%27%20filter%3D%27url(%23l)%27%2F%3E%3Crect%20width%3D%27100%25%27%20height%3D%27100%25%27%20filter%3D%27url(%23d)%27%2F%3E%3C%2Fsvg%3E");
   --erp-check-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
 
   /* Dropdowns, menus, popovers and the date picker: one panel */
@@ -145,6 +147,29 @@
   --tile-wms: #0e7490; /* teal, so it does not read as Core's indigo */
   --tile-config: #5b6170;
   --tile-service: #c2410c; /* orange, as the Service mockups (SvcHome.html) */
+  /* Each tile's art (MES module cards): the deep corner of its gradient and the glow that blooms through it */
+  --tile-core-deep: #2e31a3;
+  --tile-core-glow: #e6866d;
+  --tile-purchase-deep: #14532d;
+  --tile-purchase-glow: #dcc25a;
+  --tile-sales-deep: #4e25ca;
+  --tile-sales-glow: #ef8c8a;
+  --tile-mes-deep: #78350f;
+  --tile-mes-glow: #f5b64c;
+  --tile-wms-deep: #0b4f61;
+  --tile-wms-glow: #f0a37c;
+  --tile-config-deep: #3d4352;
+  --tile-config-glow: #9aa6ff;
+  --tile-service-deep: #9a3412;
+  --tile-service-glow: #f5b64c;
+  --tile-home: #475569; /* "All modules" in the switcher: graphite */
+  --tile-home-deep: #1e293b;
+  --tile-home-glow: #9aa6ff;
+
+  /* The shell (MES AdminLayout): the top bar sits on the shell, the page on its own rounded panel */
+  --erp-shell: #ffffff;
+  --erp-panel-ring: rgb(0 0 0 / 0.05);
+  --erp-backdrop: rgb(9 9 11 / 0.4);
 
   /* Guided tours (Help): the dimmed page around the highlight, and the tour colour: the module's, or the launcher's */
   --tour-scrim: rgb(20 26 60 / 0.46);
@@ -308,8 +333,4 @@
   --dd-check: var(--mod-primary);
 }
 
-/* On the launcher no module is open, so the tours take the launcher's navy. */
-:root:not([data-module]) {
-  --tour-accent: var(--launcher-bar);
-  --tour-accent-soft: #eef0fb;
-}
+/* On the launcher no module is open, so the tours take its graphite (the --mod-* defaults above). */

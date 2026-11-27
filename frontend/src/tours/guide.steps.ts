@@ -24,7 +24,7 @@ export const openPage = (group: string, groupLabel: string, item: string, label:
     wait: { kind: 'appear', selector: `[data-tour="menu:${item}"]` },
     waiting: 'Waiting for you to click it.',
     title: `Open ${groupLabel}`,
-    text: `Click this icon in the menu on the left: ${groupLabel}.`,
+    text: `Click this group in the menu on the left: ${groupLabel}.`,
   },
   {
     target: `menu:${item}`,
@@ -54,13 +54,13 @@ export const openFromHome = (module: PageMatch['module'], tile: string, item: st
   },
 ]
 
-/** Another module, from the top icon of the menu rail. */
+/** Another module, from the round module button in the top bar. */
 export const openModule = (module: PageMatch['module'], label: string): TourStep => ({
   target: 'rail:switcher',
-  placement: 'right',
+  placement: 'bottom',
   wait: { kind: 'page', to: { module } },
   title: `Go to ${label}`,
-  text: `Click the top icon, then ${label}.`,
+  text: `Click the round button in the top bar, then ${label}.`,
 })
 
 /** From Core's home: a menu group's tile, which opens its first page. */

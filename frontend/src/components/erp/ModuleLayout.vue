@@ -1,87 +1,27 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { Bell, House, LogOut } from '@lucide/vue'
-import { useApprovalsCount } from '@/composables/useApprovalsCount'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useModuleTheme } from '@/composables/useModuleTheme'
 import { useCrumb } from '@/composables/usePageCrumb'
-import { useSession } from '@/composables/useSession'
+import { useShell } from '@/composables/useShell'
 import { moduleDef } from '@/modules/registry'
-import type { MenuGroup } from '@/modules/purchase/menu'
-import { formatTime, formatTopBarDate } from '@/utils/format'
-import AccountMenu from './AccountMenu.vue'
-import BranchSwitch from './BranchSwitch.vue'
-import HelpButton from '@/tours/HelpButton.vue'
-import AlertsButton from '@/components/erp/AlertsButton.vue'
-import ModuleSwitcher from './ModuleSwitcher.vue'
-import PageSearch from './PageSearch.vue'
+import ModuleSidebar from './ModuleSidebar.vue'
 import PrintStamp from './PrintStamp.vue'
+import TopBar from './TopBar.vue'
 
 /**
- * Frame for every module screen except the module home (PoList.html): a floating icon rail with one icon per
- * menu group, a floating panel with that group's pages, and a floating top bar. Colours come from data-module.
- * Reads everything from route meta: module, menuGroup, menuItem, title, parent.
+ * Frame for every page inside a module (MES AdminLayout): the top bar on the shell, the module's sidebar, and the page
+ * as a rounded panel beside it. `home`: the module's home, the same frame without the breadcrumb. Colours come from
+ * data-module. Reads everything from route meta: module, menuGroup, menuItem, title, parent.
  */
+const props = withDefaults(defineProps<{ home?: boolean }>(), { home: false })
 const route = useRoute()
-const router = useRouter()
-const { today, now, isJwt, signOut } = useSession()
-
-/** Sign-in mode ends the session; dev mode goes back to the launcher, as before. */
-async function leave() {
-  if (isJwt.value) {
-    await signOut()
-    await router.push('/sign-in')
-  } else await router.push('/')
-}
+const shell = useShell()
 
 const module = computed(() => moduleDef(route.meta.module))
 useModuleTheme(() => module.value.key)
 const group = computed(() => module.value.menu.find((g) => g.key === route.meta.menuGroup) ?? module.value.menu[0]!)
-const { count: approvals } = useApprovalsCount(() => module.value)
 const pageCrumb = useCrumb()
-
-// The panel shows the current page's group; clicking that group's icon again folds it away for more room.
-const openGroupKey = ref<string | null>(group.value.key)
-watch(
-  () => group.value.key,
-  (key) => (openGroupKey.value = key),
-)
-const openGroup = computed(() => module.value.menu.find((g) => g.key === openGroupKey.value) ?? null)
-
-/**
- * The sidebar item that is "here". An item that links to a filtered list (Draft Quotation → the quotation list on its
- * Draft tab) wins while the page shows exactly that filter; otherwise the route's own menu item.
- */
-const activeItemKey = computed(() => {
-  for (const g of module.value.menu) {
-    for (const item of g.items) {
-      const [path, qs] = item.to.split('?')
-      if (!qs || path !== route.path) continue
-      const wanted = new URLSearchParams(qs)
-      if ([...wanted.entries()].every(([k, v]) => route.query[k] === v)) return item.key
-    }
-  }
-  return route.meta.menuItem
-})
-
-function onGroupClick(g: MenuGroup) {
-  if (openGroupKey.value === g.key) {
-    openGroupKey.value = null
-    return
-  }
-  openGroupKey.value = g.key
-  if (g.key !== group.value.key) void router.push(g.to)
-}
-
-// Rail tooltips are teleported to body: the rail clips its overflow, which would cut them off.
-const tip = ref<{ label: string; top: number } | null>(null)
-function showTip(event: Event, label: string) {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  tip.value = { label, top: rect.top + rect.height / 2 }
-}
-function hideTip() {
-  tip.value = null
-}
 
 // Breadcrumb: Home › group › list title, or Home › list › document (pages may set the last crumb).
 const crumbs = computed(() => {
@@ -94,200 +34,32 @@ const crumbs = computed(() => {
   items.push({ label: pageCrumb.value ?? route.meta.title ?? '' })
   return items
 })
-
-const clock = ref(formatTime(now()))
-let timer: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  timer = setInterval(() => (clock.value = formatTime(now())), 15_000)
-})
-onBeforeUnmount(() => clearInterval(timer))
-
-const railButton = 'mx-auto flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200'
-const railIdle = 'text-erp-on-dark/60 hover:bg-erp-on-dark/10 hover:text-erp-on-dark'
-const railActive = 'bg-erp-on-dark/20 text-erp-on-dark ring-1 ring-erp-on-dark/10'
 </script>
 
 <template>
-  <div :data-module="module.key" class="min-h-screen bg-erp-bg">
-    <!-- Floating icon rail: one icon per menu group -->
-    <nav
-      data-tour="rail"
-      :aria-label="`${module.label} menu`"
-      class="fixed top-3 bottom-3 left-3 z-40 flex w-14 flex-col overflow-hidden rounded-2xl border border-erp-on-dark/5 bg-mod-side text-erp-on-dark shadow-2xl"
-    >
-      <div class="flex justify-center py-3">
-        <ModuleSwitcher
-          data-tour="rail:switcher"
-          :module="module"
-          variant="rail"
-          :trigger-class="[railButton, railIdle]"
-          @mouseenter="showTip($event, 'Switch module')"
-          @mouseleave="hideTip"
-          @focus="showTip($event, 'Switch module')"
-          @blur="hideTip"
-        />
-      </div>
-
-      <div class="mx-3 border-t border-erp-on-dark/10" />
-
-      <ul data-tour="rail:groups" class="m-0 flex flex-1 list-none flex-col gap-1 overflow-y-auto p-0 py-2">
-        <li v-for="g in module.menu" :key="g.key">
-          <button
-            type="button"
-            :data-tour="`rail:${g.key}`"
-            :aria-label="g.title"
-            :aria-expanded="openGroupKey === g.key"
-            :class="[railButton, 'border-0', openGroupKey === g.key || (!openGroupKey && group.key === g.key) ? railActive : `bg-transparent ${railIdle}`]"
-            @click="onGroupClick(g)"
-            @mouseenter="showTip($event, g.title)"
-            @mouseleave="hideTip"
-            @focus="showTip($event, g.title)"
-            @blur="hideTip"
-          >
-            <component :is="g.icon" :size="20" aria-hidden="true" />
-          </button>
-        </li>
-      </ul>
-
-      <div class="mx-3 border-t border-erp-on-dark/10" />
-
-      <div data-tour="rail:footer" class="flex flex-col gap-1 py-3">
-        <RouterLink
-          :to="module.home"
-          :aria-label="`${module.label} home`"
-          :class="[railButton, railIdle]"
-          @mouseenter="showTip($event, `${module.label} home`)"
-          @mouseleave="hideTip"
-          @focus="showTip($event, `${module.label} home`)"
-          @blur="hideTip"
-        >
-          <House :size="18" aria-hidden="true" />
-        </RouterLink>
-        <button
-          type="button"
-          aria-label="Sign out"
-          class="cursor-pointer border-0"
-          :class="[railButton, railIdle]"
-          @click="leave"
-          @mouseenter="showTip($event, 'Sign out')"
-          @mouseleave="hideTip"
-          @focus="showTip($event, 'Sign out')"
-          @blur="hideTip"
-        >
-          <LogOut :size="18" class="rotate-180" aria-hidden="true" />
-        </button>
-      </div>
-    </nav>
-
-    <!-- z 950: above a guided tour's dimmed page, so "Point at an icon to see its name" can be read -->
-    <Teleport to="body">
-      <div
-        v-if="tip"
-        class="pointer-events-none fixed left-[76px] z-[950] -translate-y-1/2 rounded-md border border-erp-on-dark/10 bg-brand-dark px-2.5 py-1.5 text-xs whitespace-nowrap text-erp-on-dark shadow-lg"
-        :style="{ top: `${tip.top}px` }"
-      >
-        {{ tip.label }}
-      </div>
-    </Teleport>
-
-    <!-- Floating panel: pages of the open group -->
-    <aside
-      data-tour="menu-panel"
-      class="erp-no-print fixed top-3 bottom-3 left-[76px] z-30 flex w-[210px] flex-col overflow-hidden rounded-2xl border border-erp-border bg-erp-card shadow-sm transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-      :class="openGroup ? 'translate-x-0 opacity-100' : 'pointer-events-none -translate-x-4 opacity-0'"
-      :aria-hidden="!openGroup"
-    >
-      <Transition name="swap" mode="out-in">
-        <div v-if="openGroup" :key="openGroup.key" class="flex min-h-0 flex-1 flex-col">
-          <div class="border-b border-erp-row px-4 py-3">
-            <p class="m-0 mb-0.5 text-[10px] font-semibold tracking-widest text-erp-muted uppercase">{{ module.label }}</p>
-            <h2 class="m-0 text-sm leading-tight font-semibold text-erp-text">{{ openGroup.title }}</h2>
-          </div>
-          <ul class="m-0 flex flex-1 list-none flex-col gap-0.5 overflow-y-auto px-2 py-2">
-            <li v-for="item in openGroup.items" :key="item.key">
-              <RouterLink
-                :to="item.to"
-                :data-tour="`menu:${item.key}`"
-                class="group flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors duration-150"
-                :class="
-                  activeItemKey === item.key
-                    ? 'bg-mod-light font-semibold text-mod-primary'
-                    : 'text-erp-subtle hover:bg-erp-head hover:text-erp-text'
-                "
-                :aria-current="activeItemKey === item.key ? 'page' : undefined"
-              >
-                <span
-                  class="h-1.5 w-1.5 shrink-0 rounded-full"
-                  :class="activeItemKey === item.key ? 'bg-mod-primary' : 'bg-erp-input group-hover:bg-erp-muted'"
-                  aria-hidden="true"
-                />
-                {{ item.label }}
-              </RouterLink>
-            </li>
-          </ul>
-        </div>
-      </Transition>
-    </aside>
+  <div :data-module="module.key" class="min-h-screen bg-erp-shell">
+    <TopBar :module="module" :home="props.home" />
+    <ModuleSidebar :module="module" :home="props.home" />
 
     <div
-      class="erp-print-full flex min-h-screen min-w-0 flex-col transition-[margin] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-      :class="openGroup ? 'ml-[286px]' : 'ml-[68px]'"
+      class="erp-print-full px-2 pb-2 transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      :class="shell.collapsed ? 'lg:pl-[88px]' : 'lg:pl-[296px]'"
     >
-      <!-- Floating top bar; the strip around it blurs content scrolling underneath -->
-      <div class="erp-no-print sticky top-0 z-20 px-4 pt-3 pb-2 backdrop-blur-sm md:px-6">
-        <header class="flex h-12 items-center gap-4 rounded-2xl border border-erp-border bg-erp-card/95 px-5 shadow-sm">
-          <div class="w-[180px] shrink-0 truncate text-xs font-medium text-erp-muted">{{ today ? formatTopBarDate(today) : '' }}</div>
-          <div class="flex min-w-0 grow justify-center"><PageSearch data-tour="search" :module="module" /></div>
-          <div class="flex shrink-0 items-center gap-4">
-            <RouterLink
-              v-if="module.approvalsTo"
-              data-tour="approvals"
-              :to="module.approvalsTo"
-              :aria-label="`Approvals, ${approvals ?? 0} waiting`"
-              class="flex items-center gap-1.5 text-[13px] font-semibold text-mod-chip-text"
-            >
-              <Bell :size="16" aria-hidden="true" />Approvals
-              <span v-if="approvals" class="rounded-[10px] bg-mod-side px-[7px] py-px text-[11px] font-bold text-erp-on-dark">{{ approvals }}</span>
-            </RouterLink>
-            <BranchSwitch data-tour="branch" />
-            <div class="erp-num text-xs text-erp-muted">{{ clock }}</div>
-            <div class="h-4 w-px bg-erp-border" aria-hidden="true" />
-            <AlertsButton />
-            <HelpButton />
-            <AccountMenu data-tour="account" variant="module" />
-          </div>
-        </header>
-      </div>
-
-      <main class="flex min-h-0 grow flex-col gap-3.5 px-4 pt-2 pb-6 md:px-6">
+      <main v-if="props.home" data-tour="home:main" class="erp-page flex min-h-[calc(100dvh-4.5rem)] flex-col gap-5 p-4 md:p-6">
         <PrintStamp :module="module.label" />
-        <div data-tour="crumbs" class="erp-no-print flex gap-1.5 text-xs text-erp-muted" aria-label="Breadcrumb">
+        <slot />
+      </main>
+      <main v-else class="erp-page flex min-h-[calc(100dvh-4.5rem)] flex-col gap-3.5 p-4 md:p-6">
+        <PrintStamp :module="module.label" />
+        <nav data-tour="crumbs" class="erp-no-print flex flex-wrap items-center gap-1 text-xs" aria-label="Breadcrumb">
           <template v-for="(crumb, i) in crumbs" :key="i">
-            <span v-if="i > 0" aria-hidden="true">›</span>
-            <RouterLink v-if="crumb.to" :to="crumb.to" class="erp-link">{{ crumb.label }}</RouterLink>
-            <span v-else :class="{ 'font-medium text-erp-text': i === crumbs.length - 1 }">{{ crumb.label }}</span>
+            <span v-if="i > 0" class="mx-0.5 text-erp-off-text" aria-hidden="true">/</span>
+            <RouterLink v-if="crumb.to" :to="crumb.to" class="text-erp-off-text transition-colors hover:text-mod-primary">{{ crumb.label }}</RouterLink>
+            <span v-else :class="i === crumbs.length - 1 ? 'font-medium text-erp-subtle' : 'text-erp-off-text'">{{ crumb.label }}</span>
           </template>
-        </div>
+        </nav>
         <slot />
       </main>
     </div>
   </div>
 </template>
-
-<style scoped>
-/* Panel content slides when switching group */
-.swap-enter-active,
-.swap-leave-active {
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-}
-.swap-enter-from {
-  opacity: 0;
-  transform: translateY(6px);
-}
-.swap-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-</style>

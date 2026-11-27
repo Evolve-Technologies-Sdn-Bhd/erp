@@ -10,6 +10,7 @@
   --font-display: var(--erp-font-display);
 
   --color-erp-bg: var(--erp-bg);
+  --color-erp-shell: var(--erp-shell);
   --color-erp-card: var(--erp-card);
   --color-erp-border: var(--erp-border);
   --color-erp-row: var(--erp-row-border);
@@ -1297,4 +1298,78 @@
 }
 [data-module='config'] {
   --mod-tile-4: #6e7487;
+}
+
+/* ── The shell (U2): MES's grainy gradient as a surface, and the page as a rounded panel ─────────────────────────────── */
+@layer components {
+  /* Mesh: a deep band to the left, a warm glow blooming top right, the base colour pooling low, blurred together, then
+     a fine grain. Colours come from --mesh-base, --mesh-deep and --mesh-glow (set inline per tile); they default to the
+     current module's. The layers sit behind the content. */
+  .erp-mesh {
+    --mesh-base: var(--mod-side);
+    --mesh-deep: var(--mod-grad-to);
+    --mesh-glow: var(--mod-glow);
+    --mesh-blur: 26px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: var(--mesh-deep);
+  }
+  .erp-mesh::before {
+    content: '';
+    position: absolute;
+    inset: -25%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(30% 22% at 74% 22%, color-mix(in srgb, var(--mesh-glow) 62%, var(--erp-on-dark)) 0%, transparent 70%),
+      radial-gradient(46% 34% at 62% 30%, var(--mesh-glow) 0%, transparent 70%),
+      radial-gradient(42% 32% at 72% 55%, color-mix(in srgb, var(--mesh-glow) 50%, var(--mesh-base)) 0%, transparent 72%),
+      radial-gradient(28% 62% at 22% 55%, color-mix(in srgb, var(--mesh-deep) 72%, var(--erp-gray-900)) 0%, transparent 72%),
+      radial-gradient(62% 30% at 50% 82%, var(--mesh-base) 0%, transparent 72%),
+      linear-gradient(180deg, var(--mesh-base) 0%, var(--mesh-deep) 100%);
+    filter: blur(var(--mesh-blur)) saturate(1.15);
+  }
+  .erp-mesh::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0.22;
+    background-image: var(--erp-grain);
+    background-size: 200px 200px;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .erp-mesh::after {
+      display: none;
+    }
+  }
+
+  /* The page: a rounded panel on the shell, beside the sidebar */
+  .erp-page {
+    position: relative;
+    min-width: 0;
+    border-radius: var(--erp-radius);
+    background: var(--erp-bg);
+    box-shadow: 0 0 0 1px var(--erp-panel-ring);
+  }
+}
+
+@media print {
+  .erp-shell-side,
+  .erp-topbar {
+    display: none !important;
+  }
+  .erp-print-full {
+    padding: 0 !important;
+  }
+  .erp-page {
+    min-height: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
 }

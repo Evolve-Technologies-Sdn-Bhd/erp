@@ -47,10 +47,10 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
    PrimeVue's own layer without fighting its specificity. */
 .erp-toast {
   width: 352px;
-  /* Under the floating top bar (it ends at 60px, 68px on the homes) and in line with its right edge. PrimeVue sets
-     20px inline, hence !important; under 640px the breakpoint in the template takes the whole width. */
-  top: 76px !important;
-  right: 24px !important;
+  /* Under the top bar (64px) and in line with the page panel's right edge. PrimeVue sets 20px inline, hence
+     !important; under 640px the breakpoint in the template takes the whole width. */
+  top: 72px !important;
+  right: 16px !important;
 }
 .erp-toast .p-toast-message {
   margin: 0 0 10px;

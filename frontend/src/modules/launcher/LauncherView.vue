@@ -1,22 +1,20 @@
 <script setup lang="ts">
-import BrandMark from '@/components/erp/BrandMark.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import { ArrowRight, Lock, Star } from '@lucide/vue'
 import { accountApi, sessionApi, type ModuleTile } from '@/api/session'
-import AccountMenu from '@/components/erp/AccountMenu.vue'
 import NoticeBanner from '@/components/erp/NoticeBanner.vue'
+import TopBar from '@/components/erp/TopBar.vue'
 import { useSession } from '@/composables/useSession'
 import { MODULES } from '@/modules/registry'
-import HelpButton from '@/tours/HelpButton.vue'
-import AlertsButton from '@/components/erp/AlertsButton.vue'
 import WelcomeCard from '@/tours/WelcomeCard.vue'
-import { isBuilt, TILE_STYLE } from '@/modules/tiles'
+import { isBuilt, meshStyle, TILE_STYLE } from '@/modules/tiles'
 import { formatLongDate, greeting } from '@/utils/format'
 
 /**
- * 00 · Choose a module. A tile opens only when its module is built in this app and the person may view it; the others
- * say "No access" (built, not in their roles) or "Coming soon".
+ * 00 · Choose a module, as the MES launchpad: the greeting, then one card per module drawn in its gradient. A card
+ * opens only when its module is built in this app and the person may view it; the others say "No access" (built, not in
+ * their roles) or "Coming soon".
  */
 const toast = useToast()
 const { state, user, today, now, isJwt } = useSession()
@@ -39,7 +37,7 @@ const sortedTiles = computed(() => [
 ])
 const builtTiles = computed(() => tiles.value.filter(isBuilt))
 
-// Approvals waiting for the current user, per built module (shown on its tile).
+// Approvals waiting for the current user, per built module (shown on its card).
 const waiting = reactive<Record<string, number>>({})
 async function loadWaiting() {
   for (const t of builtTiles.value) {
@@ -48,7 +46,7 @@ async function loadWaiting() {
     try {
       waiting[t.code] = (await fetchCount()).waitingForMe
     } catch {
-      /* the tile just shows no count */
+      /* the card just shows no count */
     }
   }
 }
@@ -100,114 +98,210 @@ function setDefault(tile: ModuleTile) {
 }
 
 const hello = computed(() => `${greeting(now())}, ${user.value?.name ?? ''}`)
-const year = computed(() => today.value.slice(0, 4))
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-erp-bg">
-    <!-- Floating top bar, same shape as the module screens -->
-    <div class="sticky top-0 z-20 px-4 pt-3 pb-2 backdrop-blur-sm md:px-6">
-      <header class="flex h-14 items-center justify-between gap-4 rounded-2xl border border-erp-border bg-erp-card/95 px-4 shadow-sm md:px-5">
-        <div class="flex min-w-0 items-center gap-3">
-          <BrandMark :size="38" />
-          <div class="truncate text-[15px] font-bold">Zora <span class="text-erp-brand">Pro</span> ERP</div>
-          <span v-if="state.tenantName" class="hidden rounded-full bg-erp-track px-2.5 py-0.5 text-xs font-semibold text-erp-subtle sm:inline">
-            {{ state.tenantName }}
-          </span>
+  <div class="min-h-screen bg-erp-shell">
+    <TopBar />
+
+    <div class="px-2 pb-2">
+      <main class="erp-page min-h-[calc(100dvh-4.5rem)] p-4 md:p-6">
+        <div class="mx-auto flex w-full max-w-[1200px] flex-col gap-7 md:py-2">
+          <div>
+            <h1 class="m-0 text-[28px] leading-tight font-semibold">{{ hello }}</h1>
+            <p class="mt-1 mb-0 text-sm text-erp-muted">
+              {{ today ? formatLongDate(today) : '' }}<template v-if="state.tenantName"> · {{ state.tenantName }}</template>
+            </p>
+          </div>
+
+          <WelcomeCard />
+
+          <NoticeBanner v-if="passwordDue" kind="warning">
+            It is time to change your password. <RouterLink to="/account" class="erp-link font-semibold">Change it in My account</RouterLink>
+          </NoticeBanner>
+
+          <section aria-labelledby="launcher-modules" class="flex flex-col gap-3">
+            <h2 id="launcher-modules" class="erp-display m-0 text-xl font-semibold tracking-[-0.02em]">Modules</h2>
+            <!-- One card per module: its grainy gradient as the art, its name and purpose set on it. The row reflows by
+                 width, so adding a module never strands one card. -->
+            <ul data-tour="launcher:tiles" class="m-0 grid list-none grid-cols-1 gap-3 p-0 min-[480px]:grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))]">
+              <li v-for="tile in sortedTiles" :key="tile.code">
+                <!-- Built module: the whole card is the link (stretched over it); the star sits above it -->
+                <div
+                  v-if="isBuilt(tile)"
+                  class="lc-card erp-mesh group flex aspect-[4/3] min-h-[9.5rem] flex-col justify-between rounded-[1.5rem] p-4 text-erp-on-dark"
+                  :style="meshStyle(TILE_STYLE[tile.code])"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <span class="lc-icon" aria-hidden="true"><component :is="TILE_STYLE[tile.code].icon" :size="18" /></span>
+                    <button
+                      type="button"
+                      class="lc-star relative z-10"
+                      :class="{ 'is-on': tile.code === defaultModule }"
+                      :aria-pressed="tile.code === defaultModule"
+                      :title="tile.code === defaultModule ? 'Opens first after you sign in' : 'Set as default module'"
+                      @click="setDefault(tile)"
+                    >
+                      <Star :size="13" :fill="tile.code === defaultModule ? 'currentColor' : 'none'" aria-hidden="true" />
+                      {{ tile.code === defaultModule ? 'Default' : 'Set default' }}
+                    </button>
+                  </div>
+                  <div class="lc-text min-w-0 pr-12">
+                    <RouterLink :to="tile.route!" class="lc-name erp-display block text-lg leading-tight font-semibold text-erp-on-dark outline-none">
+                      {{ tile.name }}
+                    </RouterLink>
+                    <span class="mt-1 line-clamp-2 block text-xs text-erp-on-dark/80">{{ TILE_STYLE[tile.code].description }}</span>
+                    <span v-if="waiting[tile.code]" class="lc-badge mt-2 inline-flex">{{ waiting[tile.code] }} waiting for you</span>
+                  </div>
+                  <!-- "Open", the MES play button: shows on hover or focus -->
+                  <span class="lc-open" aria-hidden="true"><ArrowRight :size="16" /></span>
+                </div>
+
+                <!-- Not in this app yet, or not in the person's roles -->
+                <div
+                  v-else
+                  class="flex aspect-[4/3] min-h-[9.5rem] flex-col justify-between rounded-[1.5rem] border border-dashed border-erp-input bg-erp-card p-4"
+                  aria-disabled="true"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <span class="lc-icon-quiet" :style="{ '--tile-color': TILE_STYLE[tile.code].color }" aria-hidden="true">
+                      <component :is="TILE_STYLE[tile.code].icon" :size="18" />
+                    </span>
+                    <span
+                      v-if="tile.state === 'NO_ACCESS'"
+                      class="flex items-center gap-1 rounded-full bg-erp-muted-bg px-2.5 py-0.5 text-xs font-medium text-erp-muted"
+                      title="Not part of your role. Ask your administrator if you need it."
+                    >
+                      <Lock :size="12" aria-hidden="true" />No access
+                    </span>
+                    <span v-else class="rounded-full bg-erp-muted-bg px-2.5 py-0.5 text-xs font-medium text-erp-muted">Coming soon</span>
+                  </div>
+                  <div class="min-w-0">
+                    <span class="erp-display block text-lg leading-tight font-semibold text-erp-subtle">{{ tile.name }}</span>
+                    <span class="mt-1 line-clamp-2 block text-xs text-erp-muted">{{ TILE_STYLE[tile.code].description }}</span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </section>
         </div>
-        <div class="flex shrink-0 items-center gap-3">
-          <AlertsButton />
-          <HelpButton />
-          <AccountMenu data-tour="account" variant="launcher" />
-        </div>
-      </header>
+      </main>
     </div>
-
-    <main class="mx-auto flex w-full max-w-[1040px] grow flex-col gap-8 px-4 pt-10 pb-10 md:px-6 md:pt-14">
-      <div class="flex flex-col gap-1.5">
-        <p class="m-0 text-xs font-semibold tracking-widest text-erp-muted uppercase">{{ today ? formatLongDate(today) : '' }}</p>
-        <h1 class="m-0 text-[28px] leading-tight font-bold">{{ hello }}</h1>
-        <p class="m-0 text-sm text-erp-subtle">Choose a module to start working.</p>
-      </div>
-
-      <WelcomeCard />
-
-      <NoticeBanner v-if="passwordDue" kind="warning">
-        It is time to change your password. <RouterLink to="/account" class="erp-link font-semibold">Change it in My account</RouterLink>
-      </NoticeBanner>
-
-      <ul data-tour="launcher:tiles" class="m-0 grid list-none grid-cols-1 gap-5 p-0 sm:grid-cols-2 lg:grid-cols-3">
-        <li v-for="tile in sortedTiles" :key="tile.code" :style="{ '--tile-color': TILE_STYLE[tile.code].color }">
-          <!-- Built module: the whole card is the link (stretched over it); the star sits above it -->
-          <div
-            v-if="isBuilt(tile)"
-            class="group relative flex h-full flex-col gap-4 rounded-2xl border border-erp-border bg-erp-card p-5 shadow-sm transition-all duration-200 focus-within:ring-2 focus-within:ring-(--tile-color) hover:-translate-y-0.5 hover:border-(--tile-color) hover:shadow-lg"
-          >
-            <div class="flex items-start justify-between">
-              <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-(--tile-color) text-erp-on-dark shadow-sm">
-                <component :is="TILE_STYLE[tile.code].icon" :size="24" aria-hidden="true" />
-              </span>
-              <button
-                type="button"
-                class="relative z-10 flex items-center gap-1 rounded-lg border-0 bg-transparent px-2 py-1 font-[inherit] text-xs font-semibold transition-colors"
-                :class="tile.code === defaultModule ? 'text-attention' : 'text-erp-muted opacity-0 group-hover:opacity-100 hover:bg-erp-head focus-visible:opacity-100'"
-                :aria-pressed="tile.code === defaultModule"
-                :title="tile.code === defaultModule ? 'Opens first after you sign in' : 'Set as default module'"
-                @click="setDefault(tile)"
-              >
-                <Star :size="14" :fill="tile.code === defaultModule ? 'currentColor' : 'none'" aria-hidden="true" />
-                {{ tile.code === defaultModule ? 'Default' : 'Set default' }}
-              </button>
-            </div>
-
-            <div class="flex flex-col gap-1">
-              <RouterLink
-                :to="tile.route!"
-                class="text-lg font-bold text-erp-text outline-none after:absolute after:inset-0 after:rounded-2xl"
-              >
-                {{ tile.name }}
-              </RouterLink>
-              <p class="m-0 text-[13px] leading-normal text-erp-muted">{{ TILE_STYLE[tile.code].description }}</p>
-            </div>
-
-            <div class="mt-auto flex items-center justify-between border-t border-erp-row pt-3.5 text-[13px]">
-              <span v-if="waiting[tile.code]" class="rounded-full bg-chip-pending-bg px-2.5 py-0.5 text-xs font-semibold text-chip-pending-text">
-                {{ waiting[tile.code] }} waiting for you
-              </span>
-              <span v-else class="text-xs text-erp-muted">Nothing waiting for you</span>
-              <span class="flex items-center gap-1 font-semibold text-(--tile-color)">
-                Open<ArrowRight :size="15" class="transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
-              </span>
-            </div>
-          </div>
-
-          <!-- Not in this app yet -->
-          <div v-else class="flex h-full flex-col gap-4 rounded-2xl border border-dashed border-erp-input bg-erp-card/60 p-5" aria-disabled="true">
-            <div class="flex items-start justify-between">
-              <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-(--tile-color)/10 text-(--tile-color)">
-                <component :is="TILE_STYLE[tile.code].icon" :size="24" aria-hidden="true" />
-              </span>
-              <span
-                v-if="tile.state === 'NO_ACCESS'"
-                class="flex items-center gap-1 rounded-full bg-erp-track px-2.5 py-0.5 text-xs font-semibold text-erp-muted"
-                title="Not part of your role. Ask your administrator if you need it."
-              >
-                <Lock :size="12" aria-hidden="true" />No access
-              </span>
-              <span v-else class="rounded-full bg-erp-track px-2.5 py-0.5 text-xs font-semibold text-erp-muted">Coming soon</span>
-            </div>
-            <div class="flex flex-col gap-1">
-              <span class="text-lg font-bold text-erp-subtle">{{ tile.name }}</span>
-              <p class="m-0 text-[13px] leading-normal text-erp-muted">{{ TILE_STYLE[tile.code].description }}</p>
-            </div>
-          </div>
-        </li>
-      </ul>
-    </main>
-
-    <footer class="mx-auto flex w-full max-w-[1040px] items-center justify-between px-4 pb-6 text-xs text-erp-muted md:px-6">
-      <span class="font-semibold text-erp-subtle">Zora Pro ERP<template v-if="state.tenantName"> · {{ state.tenantName }}</template></span>
-      <span>© {{ year }} All rights reserved.</span>
-    </footer>
   </div>
 </template>
+
+<style scoped>
+.lc-card {
+  box-shadow: var(--erp-card-shadow);
+  transition:
+    transform 200ms,
+    box-shadow 200ms;
+}
+.lc-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px color-mix(in srgb, var(--erp-gray-900) 22%, transparent);
+}
+.lc-card:focus-within {
+  outline: 2px solid var(--erp-text);
+  outline-offset: 2px;
+}
+/* The whole card is the link */
+.lc-name::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1.5rem;
+}
+.lc-text {
+  text-shadow: 0 1px 2px color-mix(in srgb, var(--erp-gray-900) 22%, transparent);
+}
+.lc-icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--erp-on-dark) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--erp-on-dark) 25%, transparent);
+  color: var(--erp-on-dark);
+}
+.lc-icon-quiet {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--tile-color) 12%, transparent);
+  color: var(--tile-color);
+}
+.lc-star {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--erp-gray-900) 18%, transparent);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--erp-on-dark);
+  opacity: 0;
+  transition:
+    opacity 150ms,
+    background-color 150ms;
+}
+.lc-card:hover .lc-star,
+.lc-star:focus-visible,
+.lc-star.is-on {
+  opacity: 1;
+}
+.lc-star:hover {
+  background: color-mix(in srgb, var(--erp-gray-900) 30%, transparent);
+}
+.lc-badge {
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 9999px;
+  background: var(--erp-card);
+  color: var(--chip-pending-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: none;
+}
+.lc-open {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--erp-card);
+  color: var(--erp-text);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--erp-gray-900) 25%, transparent);
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 200ms,
+    transform 200ms;
+  pointer-events: none;
+}
+.lc-card:hover .lc-open,
+.lc-card:focus-within .lc-open {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-card,
+  .lc-open,
+  .lc-star {
+    transition: none;
+  }
+}
+</style>
