@@ -43,6 +43,8 @@ function toEnvelope(row: SysOutbox): OutboxEnvelope {
 @Injectable()
 export class OutboxDispatcher implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(OutboxDispatcher.name);
+  /** How events are claimed: SKIP LOCKED where the database has it (MySQL 8, MariaDB 10.6+), else plain FOR UPDATE. */
+  private lockClause: Prisma.Sql | null = null;
   private running = false;
   /** listener → event id → failures so far and when to try again (Infinity: parked until a restart). */
   private readonly listenerFailures = new Map<string, Map<string, { attempts: number; nextAttemptAt: number }>>();
@@ -92,9 +94,26 @@ export class OutboxDispatcher implements OnApplicationBootstrap, OnApplicationSh
   }
 
   /** Claims and delivers the oldest due event. Returns false when there is nothing to do. */
+  /**
+   * Some MariaDB servers refuse SKIP LOCKED. There the claim waits for the lock instead of skipping it: still correct,
+   * since each event is checked again once locked, but two API instances would take turns rather than share the work.
+   */
+  private async lock(): Promise<Prisma.Sql> {
+    if (this.lockClause) return this.lockClause;
+    try {
+      await this.prisma.$transaction((tx) => tx.$queryRaw`SELECT id FROM sys_outbox LIMIT 0 FOR UPDATE SKIP LOCKED`);
+      this.lockClause = Prisma.sql`FOR UPDATE SKIP LOCKED`;
+    } catch {
+      this.lockClause = Prisma.sql`FOR UPDATE`;
+      this.logger.warn('This database does not accept SKIP LOCKED: events are claimed with FOR UPDATE. Run one API instance.');
+    }
+    return this.lockClause;
+  }
+
   async dispatchOne(): Promise<boolean> {
     const names = this.consumers.eventNames();
     if (names.length === 0) return false;
+    const lock = await this.lock();
 
     let claimed: SysOutbox | null = null;
     try {
@@ -105,7 +124,7 @@ export class OutboxDispatcher implements OnApplicationBootstrap, OnApplicationSh
             WHERE status = 'PENDING' AND nextAttemptAt <= UTC_TIMESTAMP(3) AND name IN (${Prisma.join(names)})
             ORDER BY seq
             LIMIT 1
-            FOR UPDATE SKIP LOCKED`;
+            ${lock}`;
           const id = due[0]?.id;
           if (!id) return false;
 
@@ -141,6 +160,7 @@ export class OutboxDispatcher implements OnApplicationBootstrap, OnApplicationSh
    * again, so two API instances never handle it twice and user transactions writing new events are never held up.
    */
   async listenOnce(): Promise<boolean> {
+    const lock = await this.lock();
     for (const { eventName, handler, handle } of this.consumers.listenerPairs()) {
       const now = Date.now();
       const failures = this.listenerFailures.get(handler);
@@ -159,7 +179,7 @@ export class OutboxDispatcher implements OnApplicationBootstrap, OnApplicationSh
       try {
         const outcome = await this.prisma.$transaction(
           async (tx) => {
-            const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM sys_outbox WHERE id = ${id} FOR UPDATE SKIP LOCKED`;
+            const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM sys_outbox WHERE id = ${id} ${lock}`;
             if (!locked.length) return 'busy' as const; // another instance is handling it right now
             if (await tx.sysEventHandled.findUnique({ where: { eventId_handler: { eventId: id, handler } } })) return 'done' as const;
             claimed = await tx.sysOutbox.findUniqueOrThrow({ where: { id } });
