@@ -46,7 +46,7 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
 /* Not scoped: PrimeVue draws the message frame (.p-toast-message) in a portal on <body>. Unlayered, so it wins over
    PrimeVue's own layer without fighting its specificity. */
 .erp-toast {
-  width: 360px;
+  width: 352px;
   /* Under the floating top bar (it ends at 60px, 68px on the homes) and in line with its right edge. PrimeVue sets
      20px inline, hence !important; under 640px the breakpoint in the template takes the whole width. */
   top: 76px !important;
@@ -55,8 +55,8 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
 .erp-toast .p-toast-message {
   margin: 0 0 10px;
   overflow: hidden;
-  border: 1px solid var(--erp-border);
-  border-radius: 12px;
+  border: 1px solid var(--erp-input-border);
+  border-radius: var(--erp-radius-lg);
   background: var(--erp-card);
   color: var(--erp-text);
   box-shadow: var(--toast-shadow);
@@ -69,7 +69,7 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
   gap: 12px;
   min-height: 0; /* lets the leave animation fold the card away */
   overflow: hidden;
-  padding: 12px 10px 14px 14px;
+  padding: 14px 10px 14px 15px;
   font-family: var(--erp-font);
 }
 .erp-toast-body[data-tone='done'] {
@@ -93,8 +93,8 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--toast-tone-bg);
   color: var(--toast-tone);
@@ -116,7 +116,7 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
 }
 .erp-toast-detail {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 18px;
   color: var(--erp-muted);
 }
@@ -130,7 +130,7 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
   margin-top: 1px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9999px;
   background: transparent;
   color: var(--erp-muted);
   cursor: pointer;
@@ -139,7 +139,7 @@ const PHONE = { '640px': { width: 'calc(100vw - 32px)', right: '16px', left: '16
     color 150ms;
 }
 .erp-toast-close:hover {
-  background: var(--erp-head-bg);
+  background: var(--erp-muted-bg);
   color: var(--erp-text);
 }
 .erp-toast-close:focus-visible {

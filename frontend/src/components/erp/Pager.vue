@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { ChevronLeft, ChevronRight } from '@lucide/vue'
 
-/** "‹ 1 2 3 ›" under a list. Shows at most 7 page buttons around the current page. */
+/**
+ * Under a list: "21–40 of 52", then the pages as quiet squares with the current one outlined (the Zora MES pager).
+ * Shows at most 7 page buttons around the current page.
+ */
 const props = defineProps<{ page: number; pageSize: number; total: number }>()
 const emit = defineEmits<{ change: [page: number] }>()
 
@@ -10,6 +14,9 @@ const visible = computed(() => {
   const start = Math.max(1, Math.min(props.page - 3, pages.value - 6))
   return Array.from({ length: Math.min(7, pages.value) }, (_, i) => start + i)
 })
+const first = computed(() => (props.total ? (props.page - 1) * props.pageSize + 1 : 0))
+const last = computed(() => Math.min(props.page * props.pageSize, props.total))
+const count = (n: number) => n.toLocaleString('en-MY')
 
 function go(page: number) {
   if (page >= 1 && page <= pages.value && page !== props.page) emit('change', page)
@@ -17,8 +24,11 @@ function go(page: number) {
 </script>
 
 <template>
-  <nav data-tour="pager" class="flex items-center gap-1.5" aria-label="Pages">
-    <button type="button" class="erp-page" :disabled="page <= 1" aria-label="Previous page" @click="go(page - 1)">‹</button>
+  <nav data-tour="pager" class="flex items-center gap-1" aria-label="Pages">
+    <span class="erp-num mr-2 text-xs text-erp-muted">{{ count(first) }}–{{ count(last) }} of {{ count(total) }}</span>
+    <button type="button" class="erp-page" :disabled="page <= 1" aria-label="Previous page" @click="go(page - 1)">
+      <ChevronLeft :size="16" aria-hidden="true" />
+    </button>
     <button
       v-for="n in visible"
       :key="n"
@@ -30,29 +40,44 @@ function go(page: number) {
     >
       {{ n }}
     </button>
-    <button type="button" class="erp-page" :disabled="page >= pages" aria-label="Next page" @click="go(page + 1)">›</button>
+    <button type="button" class="erp-page" :disabled="page >= pages" aria-label="Next page" @click="go(page + 1)">
+      <ChevronRight :size="16" aria-hidden="true" />
+    </button>
   </nav>
 </template>
 
 <style scoped>
 .erp-page {
-  width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
   height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--erp-input-border);
-  background: var(--erp-card);
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--erp-muted);
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+.erp-page:not(:disabled):not(.erp-page-on):hover {
+  background: var(--erp-gray-100);
   color: var(--erp-text);
 }
 .erp-page:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: default;
 }
 .erp-page-on {
-  background: var(--erp-text);
-  border-color: var(--erp-text);
-  color: var(--erp-on-dark);
+  background: var(--erp-card);
+  border-color: var(--erp-border);
+  color: var(--erp-text);
+  font-weight: 600;
+  box-shadow: var(--erp-card-shadow);
 }
 </style>

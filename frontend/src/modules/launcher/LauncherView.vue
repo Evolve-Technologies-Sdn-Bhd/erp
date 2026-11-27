@@ -110,7 +110,7 @@ const year = computed(() => today.value.slice(0, 4))
       <header class="flex h-14 items-center justify-between gap-4 rounded-2xl border border-erp-border bg-erp-card/95 px-4 shadow-sm md:px-5">
         <div class="flex min-w-0 items-center gap-3">
           <BrandMark :size="38" />
-          <div class="truncate text-[15px] font-bold">Zora <span class="text-erp-link">Pro</span> ERP</div>
+          <div class="truncate text-[15px] font-bold">Zora <span class="text-erp-brand">Pro</span> ERP</div>
           <span v-if="state.tenantName" class="hidden rounded-full bg-erp-track px-2.5 py-0.5 text-xs font-semibold text-erp-subtle sm:inline">
             {{ state.tenantName }}
           </span>

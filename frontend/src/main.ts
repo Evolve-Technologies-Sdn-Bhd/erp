@@ -14,6 +14,8 @@ import router from './router'
 /**
  * PrimeVue for the heavy widgets (DataTable, Select, DatePicker, Dialog, Toast). Its primary colour points at
  * the module variables, so dialogs and focus rings follow green Purchase / purple Sales.
+ * Fields, dropdown panels and option rows are sized as in the Zora MES design: tighter than Aura's defaults, 10px
+ * corners, and no glow on focus (main.css draws the neutral border and the soft halo instead).
  */
 const ErpPreset = definePreset(Aura, {
   semantic: {
@@ -29,6 +31,25 @@ const ErpPreset = definePreset(Aura, {
       800: 'var(--mod-active)',
       900: 'var(--mod-active)',
       950: 'var(--mod-active)',
+    },
+    formField: {
+      paddingX: '0.6875rem',
+      paddingY: '0.375rem',
+      sm: { paddingX: '0.5rem', paddingY: '0.3rem' },
+      lg: { paddingX: '0.75rem', paddingY: '0.55rem' },
+      borderRadius: '10px',
+      focusRing: { width: '0', style: 'solid', color: 'transparent', offset: '0', shadow: 'none' },
+      transitionDuration: '0.15s',
+    },
+    overlay: {
+      select: { borderRadius: '14px', shadow: 'var(--dd-shadow)' },
+      popover: { borderRadius: '14px', shadow: 'var(--dd-shadow)' },
+      modal: { borderRadius: '20px', shadow: 'var(--erp-panel-shadow)' },
+    },
+    list: {
+      padding: '6px',
+      gap: '1px',
+      option: { padding: '6px 10px', borderRadius: '8px' },
     },
   },
 })

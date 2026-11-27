@@ -1,5 +1,8 @@
 <script setup lang="ts">
-/** "All · 11  Draft · 2  Pending approval · 1 …" — the status tabs of a list, counts from statusCounts. */
+/**
+ * The status tabs of a list ("All 11  Draft 2  Pending approval 1 …"), counts from statusCounts. Drawn as the Zora MES
+ * segmented control (.erp-tabs in main.css): a grey pill, the chosen tab lifted in white, each count a little fainter.
+ */
 defineProps<{
   tabs: { key: string; label: string; hideWhenEmpty?: boolean }[]
   counts: Record<string, number> | null | undefined
@@ -9,18 +12,18 @@ defineEmits<{ select: [key: string] }>()
 </script>
 
 <template>
-  <div data-tour="status-tabs" class="flex flex-wrap gap-6 border-b border-erp-border" role="tablist">
+  <div data-tour="status-tabs" class="erp-tabs" role="tablist">
     <template v-for="tab in tabs" :key="tab.key">
       <button
         v-if="!tab.hideWhenEmpty || (counts?.[tab.key] ?? 0) > 0"
         type="button"
         role="tab"
         :aria-selected="active === tab.key"
-        class="-mb-px border-0 border-b-2 border-solid bg-transparent px-0 pb-2.5 font-[inherit] text-[13px] font-semibold whitespace-nowrap"
-        :class="active === tab.key ? 'border-mod-line text-mod-accent' : 'border-transparent text-erp-muted hover:text-erp-text'"
+        class="erp-tab"
+        :class="{ on: active === tab.key }"
         @click="$emit('select', tab.key)"
       >
-        {{ tab.label }} · {{ counts?.[tab.key] ?? 0 }}
+        {{ tab.label }} <span class="erp-tab-count">{{ counts?.[tab.key] ?? 0 }}</span>
       </button>
     </template>
   </div>

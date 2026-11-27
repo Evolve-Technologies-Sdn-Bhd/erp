@@ -527,7 +527,7 @@ const ruleText = computed(() =>
 
       <!-- Tabs: lines, terms, attachments, history -->
       <section id="qt-lines" data-tour="qt:lines" class="erp-card flex flex-col gap-3 px-5 pt-3.5 pb-[18px]">
-        <div class="flex gap-6 border-b border-erp-border" role="tablist">
+        <div class="erp-tabs" role="tablist">
           <button
             v-for="t in [
               { key: 'lines', label: `Lines · ${form.lines.length}` },
@@ -539,8 +539,8 @@ const ruleText = computed(() =>
             type="button"
             role="tab"
             :aria-selected="tab === t.key"
-            class="-mb-px cursor-pointer border-0 border-b-2 bg-transparent px-0 pt-1 pb-2.5 text-[13px] font-semibold"
-            :class="tab === t.key ? 'border-mod-primary text-mod-accent' : 'border-transparent text-erp-muted'"
+            class="erp-tab"
+            :class="{ on: tab === t.key }"
             @click="tab = t.key"
           >
             {{ t.label }}

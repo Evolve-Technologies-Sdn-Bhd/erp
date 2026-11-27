@@ -29,7 +29,7 @@ const roles = computed(() => (user.value?.roles ?? []).map(roleLabel).join(', ')
       <header class="flex h-14 items-center justify-between gap-4 rounded-2xl border border-erp-border bg-erp-card/95 px-4 shadow-sm md:px-5">
         <RouterLink to="/" class="flex min-w-0 items-center gap-3 text-erp-text no-underline">
           <BrandMark :size="38" />
-          <div class="truncate text-[15px] font-bold">Zora <span class="text-erp-link">Pro</span> ERP</div>
+          <div class="truncate text-[15px] font-bold">Zora <span class="text-erp-brand">Pro</span> ERP</div>
         </RouterLink>
         <AccountMenu data-tour="account" variant="launcher" />
       </header>

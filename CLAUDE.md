@@ -130,7 +130,7 @@ Source Code/
 
 ## Frontend rules
 
-- Match the mockup for layout, labels, column order, buttons, chips and empty space. Copy wording exactly.
+- Match the mockup for what is on a screen: layout, labels, column order and buttons. Copy wording exactly. The look (type, colours, chips, buttons, fields, tables, tabs, dialogs) follows `DESIGN_TOKENS.md`, which since the UI refresh (U1, 27 Nov 2026) follows the Zora MES design (*UI refresh after the MES design*, end of this file).
 - Build these shared components once in `components/erp/` and reuse them: `ModuleLayout` (sidebar + top bar + breadcrumb, themed by `data-module`), `PageHeader` (title, number, status chip, subtitle, actions), `StatusChip`, `KpiCard`, `FilterBar`, `StatusTabs`, `DataList` (PrimeVue DataTable wrapper), `Pager`, `DocLines`, `TotalsBox`, `SideCard`, `NextSteps`, `ChecksList`, `LinkedDocs`, `ActivityList`, `NoticeBanner`, `MoneyText`, `QtyProgress`, `MasterDataPicker`, `DevUserSwitcher`.
 - Module theme by CSS variables (`--mod-side`, `--mod-primary` …) from `DESIGN_TOKENS.md`. Purchase is green, Sales purple. No hard-coded hex in views.
 - Codes (item, supplier, warehouse) are always picked from a list (`MasterDataPicker`), never typed free.
@@ -1067,3 +1067,23 @@ The installer's part is used on a phone, so it is in the mobile contract too.
 **F7 · Journeys.** *The journey with every switch on is built (24 Nov 2026): `test/field-sales-journey.e2e-spec.ts`, 7 steps from the order to the warranty claim; the guided journey follows the same steps.* End-to-end tests for the profile, the handbook, and a final review of the module boundaries.
 
 **Definition of done for every step of this phase:** as for Configuration, plus: with every switch off, all existing tests, seed checks and journeys pass unchanged; with the profile on, the step has its own end-to-end test; no client name or client data is in the repo.
+
+---
+
+# UI refresh after the MES design (U1–U5)
+
+**Status:** asked for by the user on 27 Nov 2026: the ERP is to look exactly like the design Ipey built in the Zora MES (`C:\Users\user\Desktop\MES\MES`, commits 2ab4cbb and 4af56bc), so the Zora products share one standard. U1 is built; U2 to U5 wait. The work is on the branch `feat/ui-refresh`.
+
+The user's choices (27 Nov 2026): dark mode later, as its own step; module homes get the same sidebar as every other page inside a module; Core keeps its indigo; list tables get MES's tools (Columns, full screen, row numbers that turn into tick boxes).
+
+Following MES exactly changes four earlier rules: Add takes the module colour instead of blue; Import and Export are quiet buttons; table headers are not uppercase; links take the module colour. The mockups still decide what is on a screen; `DESIGN_TOKENS.md` decides how it looks.
+
+**Not taken from MES:** its features (QR scanning, PDF export, the installable app, its own modules, the table's built-in add and edit dialogs and in-memory filtering: ERP lists page and filter on the server, with the filters in the URL). Text selection stays on everywhere. `grid-layout-plus`, for dashboards you drag, needs the user's OK.
+
+- **U1 · Foundation (done, 27 Nov 2026):** Inter, with Geist for page titles, numbers and dialog titles; the MES greys, chips with a dot and a border, notes; a gradient and a glow per module (`--mod-grad-from`, `--mod-grad-to`, `--mod-glow`; graphite outside a module); the PrimeVue preset and skin (fields, dropdowns and menus, the date picker with its icon inside the field, dialogs, tooltips, tick boxes); `erp-card`, `erp-btn-*`, `erp-input`, `erp-table` and the list table (DataList) in the MES look; `KpiCard`, `StatusChip`, `StatusTabs` (and every other row of tabs, as `.erp-tabs`), `Pager`, `PageHeader`, `NoticeBanner`, `ErpToast`. No screen changes what it shows, and every `data-tour` id stays.
+- **U2 · Shell:** the top bar on the page (logo, module switcher, search with Ctrl K, Approvals, branch, alerts, Help, account), one sidebar panel in the module's gradient (menu groups as rows with round tiles, their pages as submenus, search, sort and view, collapsing to a strip of tiles), the page as a rounded panel, the module switcher, and the launcher with gradient module cards. Module homes get the sidebar. Tours keep their ids; the welcome tour's words change to match.
+- **U3 · Lists:** each list page as one bordered box (toolbar with the tabs and filters, the table, the pager), MES's minimum column widths and sideways scroll, Columns and full screen, row numbers that turn into tick boxes.
+- **U4 · Dashboards:** the module homes and their charts in the MES style.
+- **U5 · Dark mode.**
+
+**Definition of done for every UI step:** frontend `npm run type-check`, `npm run lint` and `npm run test:unit` pass (the tour registry test proves every tour target still exists); the changed screens are checked in screenshots against the MES design; no backend change, so the Purchase, Sales and Core journeys are untouched; a commit with a clear message.

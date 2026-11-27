@@ -41,7 +41,7 @@ const year = computed(() => (today.value ? today.value.slice(0, 4) : ''))
         <div class="flex items-center gap-3">
           <RouterLink to="/" class="flex items-center gap-3 text-erp-text no-underline" title="All modules">
             <BrandMark :size="38" />
-            <div class="text-lg font-bold">Zora <span class="text-erp-link">Pro</span> ERP</div>
+            <div class="text-lg font-bold">Zora <span class="text-erp-brand">Pro</span> ERP</div>
           </RouterLink>
           <ModuleSwitcher data-tour="home:switcher" :module="module" variant="chip" />
         </div>

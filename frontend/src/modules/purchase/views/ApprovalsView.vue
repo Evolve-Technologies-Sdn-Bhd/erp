@@ -148,18 +148,18 @@ async function decide(decision: 'approve' | 'reject') {
       <h1 class="m-0 text-xl font-bold">Purchase approvals</h1>
       <p class="mt-1 mb-0 text-xs text-erp-muted">Orders over the limit and supplier invoices that don't match. {{ signedInAs }}</p>
     </div>
-    <div data-tour="approvals:tabs" class="flex gap-6" role="tablist">
+    <div data-tour="approvals:tabs" class="erp-tabs self-end" role="tablist">
       <button
         v-for="t in TABS"
         :key="t.key"
         type="button"
         role="tab"
         :aria-selected="tab === t.key"
-        class="-mb-px border-0 border-b-2 border-solid bg-transparent px-0 pb-2 font-[inherit] text-[13px] font-semibold whitespace-nowrap"
-        :class="tab === t.key ? 'border-mod-line text-mod-accent' : 'border-transparent text-erp-muted hover:text-erp-text'"
+        class="erp-tab"
+        :class="{ on: tab === t.key }"
         @click="go({ status: t.key, id: null })"
       >
-        {{ t.label }} · {{ list?.counts[t.key] ?? 0 }}
+        {{ t.label }} <span class="erp-tab-count">{{ list?.counts[t.key] ?? 0 }}</span>
       </button>
     </div>
   </div>

@@ -56,15 +56,15 @@ const TABS = [
   <section class="erp-card flex grow flex-col gap-4 px-6 py-[18px]">
     <PageHeader title="Who can do what" subtitle="What a person can do from all their roles, or how two roles differ. Read only: change permissions on the role." />
 
-    <div data-tour="perm:tabs" class="flex gap-6 border-b border-erp-border" role="tablist">
+    <div data-tour="perm:tabs" class="erp-tabs" role="tablist">
       <button
         v-for="t in TABS"
         :key="t.key"
         type="button"
         role="tab"
         :aria-selected="tab === t.key"
-        class="-mb-px border-0 border-b-2 border-solid bg-transparent px-0 pb-2.5 font-[inherit] text-[13px] font-semibold whitespace-nowrap"
-        :class="tab === t.key ? 'border-mod-line text-mod-accent' : 'border-transparent text-erp-muted hover:text-erp-text'"
+        class="erp-tab"
+        :class="{ on: tab === t.key }"
         @click="setQuery({ tab: t.key })"
       >
         {{ t.label }}

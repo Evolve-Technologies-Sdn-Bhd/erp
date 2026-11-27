@@ -7,18 +7,23 @@
 /* Tailwind names for the ERP tokens: bg-erp-card, text-erp-muted, bg-mod-primary, bg-chip-done-bg … */
 @theme inline {
   --font-sans: var(--erp-font);
+  --font-display: var(--erp-font-display);
 
   --color-erp-bg: var(--erp-bg);
   --color-erp-card: var(--erp-card);
   --color-erp-border: var(--erp-border);
   --color-erp-row: var(--erp-row-border);
   --color-erp-head: var(--erp-head-bg);
+  --color-erp-hover: var(--erp-hover-bg);
   --color-erp-input: var(--erp-input-border);
   --color-erp-text: var(--erp-text);
+  --color-erp-text-soft: var(--erp-text-soft);
   --color-erp-muted: var(--erp-muted);
   --color-erp-subtle: var(--erp-subtle);
   --color-erp-link: var(--erp-link);
+  --color-erp-brand: var(--erp-brand);
   --color-erp-track: var(--erp-track);
+  --color-erp-muted-bg: var(--erp-muted-bg);
   --color-erp-on-dark: var(--erp-on-dark);
   --color-erp-off-text: var(--erp-off-text);
   --color-erp-off-bg: var(--erp-off-bg);
@@ -32,17 +37,29 @@
   --color-btn-export: var(--btn-export);
 
   --color-chip-draft-bg: var(--chip-draft-bg);
+  --color-chip-draft-border: var(--chip-draft-border);
   --color-chip-draft-text: var(--chip-draft-text);
+  --color-chip-draft-dot: var(--chip-draft-dot);
   --color-chip-pending-bg: var(--chip-pending-bg);
+  --color-chip-pending-border: var(--chip-pending-border);
   --color-chip-pending-text: var(--chip-pending-text);
+  --color-chip-pending-dot: var(--chip-pending-dot);
   --color-chip-released-bg: var(--chip-released-bg);
+  --color-chip-released-border: var(--chip-released-border);
   --color-chip-released-text: var(--chip-released-text);
+  --color-chip-released-dot: var(--chip-released-dot);
   --color-chip-partial-bg: var(--chip-partial-bg);
+  --color-chip-partial-border: var(--chip-partial-border);
   --color-chip-partial-text: var(--chip-partial-text);
+  --color-chip-partial-dot: var(--chip-partial-dot);
   --color-chip-done-bg: var(--chip-done-bg);
+  --color-chip-done-border: var(--chip-done-border);
   --color-chip-done-text: var(--chip-done-text);
+  --color-chip-done-dot: var(--chip-done-dot);
   --color-chip-cancelled-bg: var(--chip-cancelled-bg);
+  --color-chip-cancelled-border: var(--chip-cancelled-border);
   --color-chip-cancelled-text: var(--chip-cancelled-text);
+  --color-chip-cancelled-dot: var(--chip-cancelled-dot);
 
   --color-note-warn-bg: var(--note-warn-bg);
   --color-note-warn-border: var(--note-warn-border);
@@ -82,17 +99,35 @@
   --color-mod-tile-5: var(--mod-tile-5);
   --color-mod-chip-bg: var(--mod-chip-bg);
   --color-mod-chip-text: var(--mod-chip-text);
+  --color-mod-grad-from: var(--mod-grad-from);
+  --color-mod-grad-to: var(--mod-grad-to);
+  --color-mod-glow: var(--mod-glow);
+}
+
+/* MES weights: titles and numbers are semibold, never heavier, so `font-bold` draws 600. */
+@theme {
+  --font-weight-bold: 600;
 }
 
 @layer base {
-  /* Base text 13px on body; html keeps 16px so Tailwind's rem sizes stay true (text-xs = 12px). */
+  /* Base text 13px on body; html keeps 16px so Tailwind's rem sizes stay true (text-xs = 12px). Inter with its
+     single-storey a and open digits, a touch tight, as in MES. */
   body {
     margin: 0;
     font-family: var(--erp-font);
     font-size: 13px;
     color: var(--erp-text);
     background: var(--erp-bg);
+    letter-spacing: -0.01em;
+    font-feature-settings:
+      'cv11',
+      'ss01';
     -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--erp-selection);
+    color: inherit;
   }
 
   a {
@@ -103,14 +138,56 @@
   button {
     cursor: pointer;
   }
+
+  /* Native tick boxes and radio buttons in the module colour, like the PrimeVue ones */
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--mod-primary);
+  }
+
+  /* Page titles in the display face, as every MES page title */
+  h1 {
+    font-family: var(--erp-font-display);
+    letter-spacing: -0.025em;
+  }
+
+  /* Scrollbars: thin, a grey thumb with room around it, no track. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--erp-scroll-thumb) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--erp-scroll-thumb);
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--erp-scroll-thumb-hover);
+  }
 }
 
 @layer components {
-  /* Card: white, 1px border, radius 12px */
+  /* Card: white, a hairline border, 12px corners and a barely-there shadow (MES ComponentCard) */
   .erp-card {
     background: var(--erp-card);
     border: 1px solid var(--erp-border);
-    border-radius: 12px;
+    border-radius: var(--erp-radius);
+    box-shadow: var(--erp-card-shadow);
+  }
+
+  /* The display face (Geist, tight): page titles, big numbers, dialog titles */
+  .erp-display {
+    font-family: var(--erp-font-display);
+    letter-spacing: -0.025em;
   }
 
   .erp-link:hover {
@@ -123,28 +200,31 @@
     white-space: nowrap;
   }
 
-  /* Plain data table, as in the mockups (lists with sorting and paging use DataList / PrimeVue) */
+  /* Plain table (lists with sorting and paging use DataList): a quiet header, 40px rows, hairlines between rows */
   .erp-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
   }
   .erp-table th {
+    height: 40px;
     text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 500;
     color: var(--erp-muted);
-    padding: 10px 12px;
-    background: var(--erp-head-bg);
+    padding: 8px 12px;
+    background: transparent;
     border-bottom: 1px solid var(--erp-border);
     white-space: nowrap;
   }
   .erp-table td {
-    padding: 11px 12px;
+    height: 40px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--erp-row-border);
     vertical-align: middle;
+  }
+  .erp-table tbody tr {
+    transition: background-color 120ms;
   }
   .erp-table .num {
     text-align: right;
@@ -156,93 +236,203 @@
     background: var(--erp-off-bg);
   }
 
-  /* Buttons: height 36px, radius 8px, 13px semibold */
+  /* Buttons (MES): 32px, 10px corners, 13px medium. One filled button per screen in the module colour; outlined
+     for the rest; Import and Export quiet. */
   .erp-btn {
-    height: 36px;
-    padding: 0 16px;
-    border-radius: 8px;
+    height: var(--erp-control-h);
+    padding: 0 13px;
+    border-radius: var(--erp-radius-control);
     border: 1px solid transparent;
     font-family: inherit;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     white-space: nowrap;
     box-sizing: border-box;
+    text-decoration: none;
+    transition:
+      background-color 150ms,
+      border-color 150ms,
+      color 150ms,
+      box-shadow 150ms,
+      transform 100ms;
+  }
+  .erp-btn:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  .erp-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mod-primary) 70%, transparent);
+    outline-offset: 2px;
   }
   .erp-btn:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
   }
-  .erp-btn-add {
+  /* Filled: a hairline of light along the top and a soft drop, so it reads as pressable */
+  .erp-btn-add,
+  .erp-btn-primary {
     background: var(--btn-add);
     color: var(--erp-on-dark);
+    box-shadow: var(--btn-highlight);
   }
   .erp-btn-primary {
     background: var(--mod-primary);
-    color: var(--erp-on-dark);
   }
+  .erp-btn-add:not(:disabled):hover,
+  .erp-btn-primary:not(:disabled):hover {
+    background: color-mix(in srgb, var(--mod-primary) 86%, var(--erp-gray-900));
+  }
+  /* Outlined: white, a neutral border and real ink */
   .erp-btn-secondary {
     background: var(--erp-card);
     color: var(--erp-text);
     border-color: var(--erp-input-border);
+    box-shadow: var(--btn-outline-shadow);
+  }
+  .erp-btn-secondary:not(:disabled):hover {
+    background: var(--erp-off-bg);
+    border-color: var(--erp-input-border-strong);
   }
   .erp-btn-danger {
     background: var(--erp-card);
     color: var(--btn-danger-text);
     border-color: var(--btn-danger-border);
+    box-shadow: var(--btn-outline-shadow);
+  }
+  .erp-btn-danger:not(:disabled):hover {
+    background: var(--btn-danger-hover-bg);
   }
   .erp-btn-delete {
     background: var(--btn-delete);
     color: var(--erp-on-dark);
+    box-shadow: var(--btn-highlight);
   }
-  .erp-btn-import {
-    background: var(--btn-import);
-    color: var(--erp-on-dark);
+  .erp-btn-delete:not(:disabled):hover {
+    background: var(--btn-delete-hover);
   }
+  /* Quiet toolbar buttons (MES dg-tool): ink, a grey wash on hover */
+  .erp-btn-import,
   .erp-btn-export {
-    background: var(--btn-export);
-    color: var(--erp-on-dark);
+    padding: 0 10px;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--btn-export);
+  }
+  .erp-btn-import:not(:disabled):hover,
+  .erp-btn-export:not(:disabled):hover {
+    background: var(--erp-gray-100);
+    color: var(--erp-text);
+  }
+
+  /* Tabs (StatusTabs and every other tab row): the MES segmented control, a grey pill with the chosen tab lifted in
+     white and each count a little fainter than its label */
+  .erp-tabs {
+    display: inline-flex;
+    align-self: flex-start;
+    max-width: 100%;
+    gap: 2px;
+    padding: 2px;
+    overflow-x: auto;
+    border-radius: 9999px;
+    background: var(--erp-muted-bg);
+    scrollbar-width: none;
+  }
+  .erp-tab {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--erp-muted);
+    white-space: nowrap;
+    transition:
+      background-color 150ms,
+      color 150ms,
+      box-shadow 150ms;
+  }
+  .erp-tab:hover {
+    color: var(--erp-text);
+  }
+  .erp-tab.on {
+    background: var(--erp-card);
+    color: var(--erp-text);
+    box-shadow: var(--erp-raise-shadow);
+  }
+  .erp-tab:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mod-primary) 70%, transparent);
+    outline-offset: 1px;
+  }
+  .erp-tab-count {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.6;
   }
 }
 
-/* ── Form inputs (DESIGN_TOKENS.md → Inputs: 38px, radius 8px) ────────────── */
+/* ── Fields (MES): 32px, 10px corners, a neutral border that firms up on hover, a soft halo on focus ─────────────── */
 @layer components {
   .erp-input {
-    height: 38px;
+    height: var(--erp-control-h);
     width: 100%;
     box-sizing: border-box;
     border: 1px solid var(--erp-input-border);
-    border-radius: 8px;
-    padding: 0 12px;
+    border-radius: var(--erp-radius-control);
+    padding: 0 11px;
     font: inherit;
     font-size: 13px;
     color: var(--erp-text);
-    background: var(--erp-card);
+    background-color: var(--erp-card);
+    box-shadow: var(--erp-field-shadow);
+    transition:
+      border-color 150ms,
+      box-shadow 150ms,
+      background-color 150ms;
+  }
+  .erp-input:hover:not(:disabled):not(:focus) {
+    border-color: var(--erp-input-border-strong);
   }
   .erp-input:focus {
-    outline: 2px solid var(--mod-line);
-    outline-offset: -1px;
+    outline: none;
+    border-color: var(--erp-focus-border);
+    box-shadow: 0 0 0 3px var(--erp-focus-ring);
+  }
+  .erp-input::placeholder {
+    color: var(--erp-placeholder);
+  }
+  .erp-input:disabled {
+    background-color: var(--erp-off-bg);
+    color: var(--erp-muted);
+    box-shadow: none;
   }
   .erp-input[aria-invalid='true'],
   .erp-cell[aria-invalid='true'] {
-    border-color: var(--note-error-text);
+    border-color: var(--erp-invalid-border);
+    box-shadow: 0 0 0 3px var(--erp-invalid-ring);
   }
-  /* Read-only values look like inputs but grey (locked fields of a released document) */
+  /* Read-only values look like fields but quiet (locked fields of a released document) */
   .erp-input-ro {
     display: flex;
     align-items: center;
-    height: 38px;
+    height: var(--erp-control-h);
     box-sizing: border-box;
-    border: 1px solid var(--erp-border);
-    border-radius: 8px;
-    padding: 0 12px;
+    border: 1px solid var(--erp-input-border);
+    border-radius: var(--erp-radius-control);
+    padding: 0 11px;
     font-size: 13px;
     font-weight: 400;
     color: var(--erp-subtle);
-    background: var(--erp-head-bg);
+    background: var(--erp-off-bg);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -250,20 +440,26 @@
   textarea.erp-input {
     height: auto;
     min-height: 72px;
-    padding: 10px 12px;
+    padding: 7px 11px;
     line-height: 1.5;
     resize: vertical;
   }
+  /* A native select draws the same quiet chevron as the PrimeVue fields */
   select.erp-input {
+    appearance: none;
     padding-right: 32px;
+    background-image: var(--erp-select-arrow);
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
   }
-  /* Editable cell in a lines table (qty, price) */
+  /* Editable cell in a lines table (qty, price): the module colour says "type here" */
   .erp-cell {
     width: 100%;
-    height: 32px;
+    height: var(--erp-control-h);
     box-sizing: border-box;
-    border: 1.5px solid var(--mod-line);
-    border-radius: 6px;
+    border: 1px solid var(--mod-line);
+    border-radius: 8px;
     text-align: right;
     padding: 0 8px;
     font: inherit;
@@ -271,43 +467,168 @@
     font-weight: 600;
     color: var(--erp-text);
     background: var(--erp-card);
+    transition: box-shadow 150ms;
+  }
+  .erp-cell:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mod-line) 16%, transparent);
   }
 
-  /* ── PrimeVue widgets in the ERP look ─────────────────────────────────── */
+  /* ── PrimeVue fields take the same look ─────────────────────────────────────────────────────────────────────── */
+  .p-inputtext,
+  .p-select,
+  .p-multiselect,
+  .p-textarea,
+  .p-autocomplete-input-multiple {
+    border-radius: var(--erp-radius-control);
+    border-color: var(--erp-input-border);
+    box-shadow: var(--erp-field-shadow);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--erp-text);
+    transition:
+      border-color 150ms,
+      box-shadow 150ms,
+      background-color 150ms;
+  }
+  .p-inputtext:enabled:hover,
+  .p-select:not(.p-disabled):hover,
+  .p-multiselect:not(.p-disabled):hover,
+  .p-textarea:enabled:hover {
+    border-color: var(--erp-input-border-strong);
+  }
+  .p-inputtext:enabled:focus,
+  .p-textarea:enabled:focus,
+  .p-select.p-focus,
+  .p-multiselect.p-focus,
+  .p-autocomplete.p-focus .p-autocomplete-input-multiple {
+    border-color: var(--erp-focus-border);
+    box-shadow: 0 0 0 3px var(--erp-focus-ring);
+    outline: none;
+  }
+  .p-inputtext.p-invalid,
+  .p-select.p-invalid,
+  .p-multiselect.p-invalid,
+  .p-textarea.p-invalid {
+    border-color: var(--erp-invalid-border);
+    box-shadow: 0 0 0 3px var(--erp-invalid-ring);
+  }
+  .p-inputtext:disabled,
+  .p-select.p-disabled,
+  .p-multiselect.p-disabled,
+  .p-textarea:disabled {
+    background: var(--erp-off-bg);
+    color: var(--erp-muted);
+    box-shadow: none;
+  }
+  .p-inputtext::placeholder,
+  .p-textarea::placeholder,
+  .p-select-label.p-placeholder,
+  .p-multiselect-label.p-placeholder {
+    color: var(--erp-placeholder);
+  }
+  .erp-picker .p-autocomplete-input,
+  .erp-date .p-datepicker-input {
+    height: var(--erp-control-h);
+    padding: 0 11px;
+  }
+  .erp-select.p-select {
+    height: var(--erp-control-h);
+    align-items: center;
+  }
+  .erp-select .p-select-label {
+    padding: 0 11px;
+  }
+  /* The calendar button sits inside the field as a quiet icon (MES DateField) */
+  .p-datepicker:has(> .p-datepicker-dropdown) {
+    position: relative;
+  }
+  .p-datepicker:has(> .p-datepicker-dropdown) > .p-datepicker-input {
+    padding-right: 34px;
+    border-start-end-radius: var(--erp-radius-control);
+    border-end-end-radius: var(--erp-radius-control);
+  }
+  .p-datepicker > .p-datepicker-dropdown {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    translate: 0 -50%;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--erp-gray-400);
+    box-shadow: none;
+  }
+  .p-datepicker > .p-datepicker-dropdown:hover {
+    background: var(--erp-muted-bg);
+    color: var(--erp-text);
+  }
+  .p-datepicker > .p-datepicker-dropdown svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ── The list table (DataList): the MES data grid, hairlines between rows and columns, 40px rows ─────────────── */
+  .erp-datalist .p-datatable-table-container {
+    background: transparent;
+  }
   .erp-datalist .p-datatable-thead > tr > th {
-    background: var(--erp-head-bg);
-    border-bottom: 1px solid var(--erp-border);
-    padding: 10px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    height: 40px;
+    padding: 8px 10px;
+    background: var(--erp-card);
+    border-style: solid;
+    border-color: var(--erp-row-border);
+    border-width: 0 1px 1px 0;
+    border-bottom-color: var(--erp-border);
+    font-size: 13px;
+    font-weight: 500;
     color: var(--erp-muted);
     white-space: nowrap;
+  }
+  .erp-datalist .p-datatable-tbody > tr > td {
+    height: 40px;
+    padding: 8px 10px;
+    border-style: solid;
+    border-color: var(--erp-row-border);
+    border-width: 0 1px 1px 0;
+    font-size: 13px;
+    color: var(--erp-text);
+    vertical-align: middle;
+  }
+  .erp-datalist .p-datatable-thead > tr > th:last-child,
+  .erp-datalist .p-datatable-tbody > tr > td:last-child {
+    border-right-width: 0;
+  }
+  .erp-datalist .p-datatable-tbody > tr {
+    background: transparent;
+  }
+  .erp-datalist .p-datatable-tbody > tr > td {
+    transition: background-color 120ms;
+  }
+  .erp-datalist .p-datatable-tbody > tr:not(.p-datatable-row-selected):hover > td {
+    background: var(--erp-hover-bg);
+  }
+  .erp-datalist .p-datatable-tbody > tr.p-datatable-row-selected > td {
+    background: color-mix(in srgb, var(--mod-primary) 6%, var(--erp-card));
+    color: var(--erp-text);
   }
   /* Lists act on one picked row: no select-all box in the header */
   .erp-datalist .p-datatable-thead .p-checkbox {
     display: none;
   }
-  .erp-datalist .p-datatable-tbody > tr > td {
-    padding: 11px 10px;
-    border-bottom: 1px solid var(--erp-row-border);
-    font-size: 13px;
-    vertical-align: middle;
-  }
-  .erp-datalist .p-datatable-tbody > tr.p-datatable-row-selected,
-  .erp-datalist .p-datatable-tbody > tr.p-datatable-row-selected > td {
-    background: var(--mod-light);
-    color: var(--erp-text);
-  }
-  .erp-datalist .p-datatable-tbody > tr:not(.p-datatable-row-selected):hover {
-    background: var(--erp-head-bg);
-  }
   .erp-datalist .p-datatable-tfoot > tr > td {
-    padding: 11px 10px;
+    height: 40px;
+    padding: 8px 10px;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     background: var(--erp-head-bg);
+    border-top: 1px solid var(--erp-border);
+  }
+  .erp-datalist .p-datatable-empty-message > td {
+    border-width: 0;
   }
   .erp-datalist .erp-col-num {
     text-align: right;
@@ -316,54 +637,304 @@
     justify-content: flex-end;
   }
 
-  .erp-date .p-datepicker-dropdown {
-    border-radius: 0 8px 8px 0;
+  /* ── Tick boxes ─────────────────────────────────────────────────────────────────────────────────────────────── */
+  .p-checkbox .p-checkbox-box {
+    border-radius: 5px;
+    border-color: var(--erp-input-border-strong);
+    box-shadow: var(--btn-outline-shadow);
   }
-  .erp-picker .p-autocomplete-input,
-  .erp-date .p-datepicker-input {
-    height: 38px;
-    border-radius: 8px;
-    border-color: var(--erp-input-border);
-    font-size: 13px;
-    padding: 0 12px;
+  .p-checkbox.p-checkbox-checked .p-checkbox-box {
+    background: var(--mod-primary);
+    border-color: var(--mod-primary);
   }
-  .erp-select.p-select {
-    height: 38px;
-    border-radius: 8px;
-    border-color: var(--erp-input-border);
-    align-items: center;
-  }
-  .erp-select .p-select-label {
-    font-size: 13px;
-    padding: 0 12px;
+  .p-datatable .p-checkbox,
+  .p-datatable .p-checkbox .p-checkbox-box {
+    width: 16px;
+    height: 16px;
   }
 
-  .erp-dialog.p-dialog {
-    border-radius: 16px;
-    border: none;
+  /* ── Dialogs: 20px corners on a blurred page, the title in Geist, the actions on a quiet band ──────────────── */
+  .p-dialog-mask.p-overlay-mask {
+    background: var(--erp-mask);
+    backdrop-filter: blur(3px);
   }
-  .erp-dialog .p-dialog-header {
-    padding: 22px 24px 14px;
-    border-bottom: 1px solid var(--erp-border);
+  .p-dialog {
+    border: 1px solid var(--erp-input-border);
+    border-radius: 20px;
+    box-shadow: var(--erp-panel-shadow);
+    overflow: hidden;
   }
-  .erp-dialog .p-dialog-content {
-    padding: 18px 24px;
+  .p-dialog .p-dialog-header {
+    padding: 20px 24px 14px;
+    border-bottom: 0;
   }
-  .erp-dialog .p-dialog-footer {
+  .p-dialog .p-dialog-title {
+    font-family: var(--erp-font-display);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--erp-text);
+  }
+  .p-dialog .p-dialog-content {
+    padding: 0 24px 20px;
+  }
+  .p-dialog .p-dialog-footer {
+    gap: 8px;
     padding: 14px 24px;
+    border-top: 1px solid var(--erp-dialog-foot-border);
     background: var(--erp-head-bg);
-    border-top: 1px solid var(--erp-border);
-    border-radius: 0 0 16px 16px;
+    border-radius: 0;
+  }
+  .p-dialog .p-dialog-header-actions .p-button,
+  .p-dialog .p-dialog-close-button {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    color: var(--erp-muted);
+  }
+  .p-dialog .p-dialog-header-actions .p-button:hover,
+  .p-dialog .p-dialog-close-button:hover {
+    background: var(--erp-muted-bg);
+    color: var(--erp-text);
+  }
+  .p-confirmdialog .p-dialog-content {
+    padding-top: 4px;
+  }
+  /* PrimeVue's own buttons (the confirm box) in the ERP shape: the answer filled, the way out outlined */
+  .p-button {
+    border-radius: var(--erp-radius-control);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .p-dialog .p-dialog-footer .p-button {
+    min-height: var(--erp-control-h);
+    padding: 0 13px;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .p-dialog .p-dialog-footer .p-button:not(.p-button-outlined):not(.p-button-text):not(.p-confirmdialog-reject-button) {
+    box-shadow: var(--btn-highlight);
   }
   /* The way out of a question (Cancel, Keep it, Not yet) is never as strong as the answer. */
-  .erp-dialog .p-confirmdialog-reject-button,
-  .erp-dialog .p-confirmdialog-reject-button:not(:disabled):hover {
+  .p-confirmdialog-reject-button,
+  .p-confirmdialog-reject-button:not(:disabled):hover {
     background: var(--erp-card);
     border-color: var(--erp-input-border);
     color: var(--erp-text);
+    box-shadow: var(--btn-outline-shadow);
   }
-  .erp-dialog .p-confirmdialog-reject-button:not(:disabled):hover {
-    background: var(--erp-head-bg);
+  .p-confirmdialog-reject-button:not(:disabled):hover {
+    background: var(--erp-off-bg);
+    border-color: var(--erp-input-border-strong);
+  }
+
+  /* ── Tooltips: a small white label with a hairline and a soft shadow, no arrow ─────────────────────────────── */
+  .p-tooltip .p-tooltip-text {
+    font-family: var(--erp-font);
+    font-size: 12px;
+    line-height: 1.3;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--erp-border);
+    background: var(--erp-card);
+    color: var(--erp-gray-800);
+    box-shadow: var(--tip-shadow);
+    white-space: nowrap;
+  }
+  .p-tooltip .p-tooltip-arrow {
+    display: none;
+  }
+  .p-tooltip {
+    animation: erp-tooltip-in 120ms ease-out;
+  }
+
+  /* ── Dropdowns and menus: one panel for every popup list (MES) ───────────────────────────────────────────────── */
+  .p-select-overlay,
+  .p-multiselect-overlay,
+  .p-autocomplete-overlay,
+  .p-menu.p-menu-overlay,
+  .p-tieredmenu.p-tieredmenu-overlay,
+  .p-tieredmenu-submenu,
+  .p-contextmenu,
+  .p-popover,
+  .p-datepicker-panel {
+    background: var(--dd-bg);
+    border: 1px solid var(--dd-border);
+    border-radius: 14px;
+    box-shadow: var(--dd-shadow);
+    color: var(--dd-ink);
+  }
+  .p-popover::before,
+  .p-popover::after {
+    display: none;
+  }
+  .p-select-overlay,
+  .p-multiselect-overlay,
+  .p-autocomplete-overlay {
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .p-select-list,
+  .p-multiselect-list,
+  .p-autocomplete-list,
+  .p-menu-list,
+  .p-tieredmenu-root-list,
+  .p-contextmenu-root-list {
+    padding: 6px;
+    gap: 1px;
+  }
+  .p-select-option,
+  .p-multiselect-option,
+  .p-autocomplete-option {
+    position: relative;
+    min-height: 34px;
+    padding: 6px 34px 6px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--dd-ink);
+    background: transparent;
+  }
+  .p-menu .p-menu-item-content,
+  .p-tieredmenu .p-tieredmenu-item-content,
+  .p-contextmenu .p-contextmenu-item-content {
+    border-radius: 8px;
+    background: transparent;
+    color: var(--dd-ink);
+  }
+  .p-menu .p-menu-item-link,
+  .p-tieredmenu .p-tieredmenu-item-link,
+  .p-contextmenu .p-contextmenu-item-link {
+    min-height: 34px;
+    padding: 0 10px;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .p-menu .p-menu-item-icon,
+  .p-tieredmenu .p-tieredmenu-item-icon,
+  .p-contextmenu .p-contextmenu-item-icon {
+    color: var(--dd-muted);
+  }
+  .p-select-option:not(.p-disabled):hover,
+  .p-select-option.p-focus,
+  .p-multiselect-option:not(.p-disabled):hover,
+  .p-multiselect-option.p-focus,
+  .p-autocomplete-option:not(.p-disabled):hover,
+  .p-autocomplete-option.p-focus,
+  .p-menu .p-menu-item:not(.p-disabled) > .p-menu-item-content:hover,
+  .p-menu .p-menu-item.p-focus > .p-menu-item-content,
+  .p-tieredmenu .p-tieredmenu-item:not(.p-disabled) > .p-tieredmenu-item-content:hover,
+  .p-tieredmenu .p-tieredmenu-item.p-focus > .p-tieredmenu-item-content {
+    background: var(--dd-hover);
+    color: var(--dd-ink);
+  }
+  /* The chosen option: a plain row, a little weight and a tick on the right */
+  .p-select-option.p-select-option-selected,
+  .p-autocomplete-option.p-autocomplete-option-selected {
+    font-weight: 500;
+    background: transparent;
+  }
+  .p-select-option.p-select-option-selected::after,
+  .p-autocomplete-option.p-autocomplete-option-selected::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    transform: translateY(-50%);
+    background-color: var(--dd-check);
+    mask: var(--erp-check-mask) center / contain no-repeat;
+  }
+  .p-select-option.p-select-option-selected .p-select-option-check-icon {
+    display: none;
+  }
+  .p-select-option-group,
+  .p-multiselect-option-group,
+  .p-autocomplete-option-group,
+  .p-menu .p-menu-submenu-label {
+    padding: 8px 10px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--dd-muted);
+    background: transparent;
+  }
+  .p-select-empty-message,
+  .p-multiselect-empty-message,
+  .p-autocomplete-empty-message {
+    padding: 12px 10px;
+    font-size: 13px;
+    color: var(--dd-muted);
+  }
+  .p-menu .p-menu-separator,
+  .p-tieredmenu .p-tieredmenu-separator,
+  .p-contextmenu .p-contextmenu-separator {
+    margin: 4px -2px;
+    border-color: var(--dd-border);
+  }
+
+  /* ── Date picker panel: round days, today ringed, the chosen day in the module colour ───────────────────────── */
+  .p-datepicker-panel {
+    padding: 8px;
+  }
+  .p-datepicker-panel .p-datepicker-header {
+    border: 0;
+    background: transparent;
+    padding: 4px 4px 8px;
+  }
+  .p-datepicker-panel .p-datepicker-prev-button,
+  .p-datepicker-panel .p-datepicker-next-button {
+    border-radius: 9999px;
+  }
+  .p-datepicker-panel .p-datepicker-select-month,
+  .p-datepicker-panel .p-datepicker-select-year {
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .p-datepicker-panel .p-datepicker-weekday {
+    color: var(--erp-muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .p-datepicker-panel .p-datepicker-day {
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    font-size: 13px;
+  }
+  .p-datepicker-panel .p-datepicker-day:not(.p-datepicker-day-selected):not(.p-disabled):hover {
+    background: var(--erp-muted-bg);
+  }
+  .p-datepicker-panel .p-datepicker-today > .p-datepicker-day:not(.p-datepicker-day-selected) {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--erp-input-border-strong);
+    font-weight: 600;
+  }
+  .p-datepicker-panel .p-datepicker-day.p-datepicker-day-selected,
+  .p-datepicker-panel .p-datepicker-day-selected-range {
+    background: var(--mod-primary);
+    color: var(--erp-on-dark);
+  }
+  .p-datepicker-panel .p-datepicker-month,
+  .p-datepicker-panel .p-datepicker-year {
+    border-radius: 10px;
+  }
+  .p-datepicker-panel .p-datepicker-buttonbar {
+    border-top-color: var(--dd-border);
+  }
+}
+
+@keyframes erp-tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p-tooltip {
+    animation: none;
   }
 }
 
@@ -416,9 +987,9 @@
     gap: 16px;
     padding-bottom: 6px;
     margin-bottom: 4px;
-    border-bottom: 1px solid #d0d5dd;
+    border-bottom: 1px solid var(--erp-gray-300);
     font-size: 10px;
-    color: #475467;
+    color: var(--erp-gray-600);
   }
   /* Nothing scrolls on paper: wide tables and panels show in full instead of being cut at the edge. */
   .overflow-auto,
@@ -433,6 +1004,7 @@
   .fixed {
     position: static !important;
   }
+  .erp-card,
   .shadow-sm,
   .shadow,
   .shadow-md,
@@ -470,16 +1042,18 @@
 /*
  * A document's own A4 sheet (print previews): 794 × 1123 px on screen, the printable area of the paper when printed.
  * The sheet supplies its own margins, so the paper's margins are left at 0 by the page that shows it.
+ * Paper keeps its own typography (small caps headers, a strong rule): it is not screen chrome.
  */
 @layer components {
   .erp-sheet {
     width: 794px;
     min-height: 1123px;
     padding: 44px 48px;
-    background: #fff;
+    background: var(--erp-card);
     color: var(--erp-text);
     font-size: 11px;
     line-height: 1.45;
+    letter-spacing: normal;
     display: flex;
     flex-direction: column;
     transform-origin: top center;
@@ -552,9 +1126,11 @@
     height: 22px;
     border-radius: 50%;
     background: var(--mod-light);
+    box-shadow: inset 0 0 0 1px var(--mod-light-border);
     color: var(--mod-accent);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -566,13 +1142,13 @@
   .erp-compare {
     display: grid;
     border: 1px solid var(--erp-border);
-    border-radius: 12px;
+    border-radius: var(--erp-radius);
     overflow: hidden;
     font-size: 13px;
     background: var(--erp-card);
   }
   .erp-compare > div {
-    padding: 11px 16px;
+    padding: 10px 14px;
     border-bottom: 1px solid var(--erp-row-border);
     display: flex;
     align-items: center;
@@ -581,8 +1157,8 @@
   .erp-compare > .lab {
     background: var(--erp-head-bg);
     color: var(--erp-muted);
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: 500;
+    font-size: 13px;
   }
   .erp-compare > .win {
     background: var(--mod-light);
@@ -600,7 +1176,7 @@
     display: grid;
     grid-template-columns: 170px 1fr 1fr 1fr 190px;
     border: 1px solid var(--erp-border);
-    border-radius: 10px;
+    border-radius: var(--erp-radius);
     overflow: hidden;
     font-size: 13px;
   }
@@ -611,17 +1187,16 @@
     min-width: 0;
   }
   .erp-match > .h {
-    background: var(--erp-head-bg);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    background: var(--erp-card);
+    border-bottom-color: var(--erp-border);
+    font-size: 13px;
+    font-weight: 500;
     color: var(--erp-muted);
   }
   .erp-match > .l {
     color: var(--erp-muted);
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: 500;
+    font-size: 13px;
   }
   .erp-match > .bad {
     background: var(--note-error-bg);
@@ -631,40 +1206,53 @@
     gap: 10px;
     align-items: flex-start;
     border: 1px solid var(--erp-border);
-    border-radius: 10px;
+    border-radius: var(--erp-radius-control);
     padding: 12px 14px;
     font-size: 13px;
     line-height: 1.45;
     cursor: pointer;
+    transition:
+      border-color 150ms,
+      background-color 150ms;
+  }
+  .erp-opt:hover {
+    border-color: var(--erp-input-border-strong);
   }
   .erp-opt.on {
     border-color: var(--mod-line);
     background: var(--mod-light);
   }
 
-  /* On/off switch (Operation Policies) */
+  /* On/off switch (Operation Policies): a grey track, a white handle, the module colour when on */
   .erp-switch {
     width: 40px;
     height: 22px;
-    border-radius: 11px;
+    border-radius: 9999px;
     border: none;
     padding: 2px;
     display: flex;
     flex-shrink: 0;
     box-sizing: border-box;
-    background: var(--erp-track);
+    background: var(--erp-input-border);
+    box-shadow: var(--erp-inset-shadow);
     justify-content: flex-start;
+    transition: background-color 150ms;
   }
   .erp-switch > i {
     width: 18px;
     height: 18px;
-    border-radius: 9px;
+    border-radius: 9999px;
     background: var(--erp-card);
+    box-shadow: var(--erp-handle-shadow);
     display: block;
   }
   .erp-switch.on {
     background: var(--mod-primary);
     justify-content: flex-end;
+  }
+  .erp-switch:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mod-primary) 70%, transparent);
+    outline-offset: 2px;
   }
   .erp-switch:disabled {
     opacity: 0.6;
@@ -679,9 +1267,10 @@
     flex-direction: column;
     gap: 6px;
     padding: 14px;
-    border-radius: 12px;
+    border-radius: var(--erp-radius);
     background: var(--erp-card);
     border: 1px solid var(--erp-border);
+    box-shadow: var(--erp-card-shadow);
     color: var(--erp-text);
   }
   .erp-node.current {

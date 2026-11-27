@@ -2,59 +2,133 @@
  * Zora Pro ERP design tokens (docs/design/DESIGN_TOKENS.md).
  * The ONLY file with colour values. Views use the Tailwind names below (bg-erp-card, text-erp-muted,
  * bg-mod-primary …) or var(--…); never hex.
+ *
+ * Since the UI refresh (U1, 27 Nov 2026) the values follow the Zora MES design: Inter for text and Geist for titles
+ * and big numbers, neutral greys, quiet hairlines, chips with a dot, compact 32px controls with 10px corners, and each
+ * module's colour with a gradient and a glow for its art.
  */
 
 :root {
-  /* Type and shape */
-  --erp-font: 'Inter', system-ui, sans-serif;
+  /* Type */
+  --erp-font: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --erp-font-display: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  /* The MES grey scale */
+  --erp-gray-50: #f9fafb;
+  --erp-gray-100: #f2f4f7;
+  --erp-gray-200: #e4e7ec;
+  --erp-gray-300: #d0d5dd;
+  --erp-gray-400: #98a2b3;
+  --erp-gray-500: #667085;
+  --erp-gray-600: #475467;
+  --erp-gray-700: #33333a;
+  --erp-gray-800: #202024;
+  --erp-gray-900: #16161a;
 
   /* Surfaces and text */
-  --erp-bg: #f3f4f8;
+  --erp-bg: #f9f9fa; /* the page */
   --erp-card: #ffffff;
-  --erp-border: #e4e6ee;
-  --erp-row-border: #eef0f4;
-  --erp-head-bg: #f7f8fb;
-  --erp-input-border: #d9dce6;
-  --erp-text: #1e2233;
-  --erp-muted: #5e6478;
-  --erp-subtle: #4a5068;
-  --erp-link: #2563eb;
-  --erp-track: #eef0f4;
+  --erp-border: var(--erp-gray-200); /* cards and panels */
+  --erp-row-border: var(--erp-gray-100); /* hairlines between rows and columns */
+  --erp-head-bg: #fafafa; /* quiet bands: dialog footers, read-only fields, totals rows */
+  --erp-hover-bg: var(--erp-gray-50); /* the row or item under the pointer */
+  --erp-input-border: #e4e4e7;
+  --erp-input-border-strong: #d4d4d8;
+  --erp-focus-border: #a1a1aa;
+  --erp-focus-ring: rgb(0 0 0 / 0.06);
+  --erp-invalid-border: #fda29b;
+  --erp-invalid-ring: rgb(240 68 56 / 0.1);
+  --erp-placeholder: #a1a1aa;
+  --erp-text: #18181b;
+  --erp-text-soft: #3f3f46;
+  --erp-muted: var(--erp-gray-500);
+  --erp-subtle: var(--erp-gray-600);
+  --erp-link: var(--mod-primary); /* links take the module colour */
+  --erp-brand: #2563eb; /* the "Pro" of the wordmark */
+  --erp-track: var(--erp-gray-100);
+  --erp-muted-bg: #f4f4f5; /* grey fills: quiet buttons, segmented controls */
+  --erp-muted-bg-hover: #e9e9ec;
   --erp-on-dark: #ffffff; /* text and icons on coloured backgrounds */
-  --erp-off-text: #8a90a2; /* rows that need nothing (PurDemand.html "already covered") */
-  --erp-off-bg: #fafafb;
+  --erp-off-text: var(--erp-gray-400); /* rows that need nothing (PurDemand.html "already covered") */
+  --erp-off-bg: #fafafa;
+  --erp-selection: rgb(148 163 184 / 0.4);
+  --erp-scroll-thumb: rgb(0 0 0 / 0.18);
+  --erp-scroll-thumb-hover: rgb(0 0 0 / 0.3);
 
-  /* Buttons (same in every module) */
-  --btn-add: #2563eb;
-  --btn-delete: #dc2626;
-  --btn-danger-text: #b91c1c;
-  --btn-danger-border: #f3b4b4;
-  --btn-import: #4b5563;
-  --btn-export: #15803d;
+  /* Shape and depth */
+  --erp-radius: 12px; /* cards */
+  --erp-radius-lg: 16px; /* KPI cards, toasts */
+  --erp-radius-control: 10px; /* buttons and fields */
+  --erp-control-h: 32px; /* buttons and fields */
+  --erp-card-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  --erp-lift-shadow: 0 6px 20px rgb(0 0 0 / 0.05);
+  --erp-raise-shadow: 0 1px 3px rgb(0 0 0 / 0.1); /* the chosen tab of a segmented control */
+  --erp-field-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+  --erp-panel-shadow: 0 24px 60px rgb(0 0 0 / 0.14), 0 4px 14px rgb(0 0 0 / 0.06);
+  --erp-inset-shadow: inset 0 1px 2px rgb(0 0 0 / 0.06); /* switch track */
+  --erp-handle-shadow: 0 1px 3px rgb(0 0 0 / 0.2); /* switch handle */
+  --erp-dialog-foot-border: #f0f0f2;
+  --erp-mask: rgb(9 9 11 / 0.4);
+  --erp-select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2398a2b3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --erp-check-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
 
-  /* Status chips (same in every module) */
-  --chip-draft-bg: #eef0f4;
-  --chip-draft-text: #475069;
-  --chip-pending-bg: #fef3c7;
-  --chip-pending-text: #92400e;
-  --chip-released-bg: #dbeafe;
-  --chip-released-text: #1e40af;
-  --chip-partial-bg: #ede9fe;
-  --chip-partial-text: #5b21b6;
-  --chip-done-bg: #dcfce7;
-  --chip-done-text: #166534;
-  --chip-cancelled-bg: #fee2e2;
-  --chip-cancelled-text: #991b1b;
+  /* Dropdowns, menus, popovers and the date picker: one panel */
+  --dd-bg: #ffffff;
+  --dd-border: var(--erp-gray-200);
+  --dd-shadow: 0 20px 48px rgb(0 0 0 / 0.1), 0 3px 10px rgb(0 0 0 / 0.045);
+  --dd-ink: var(--erp-gray-800);
+  --dd-muted: var(--erp-gray-500);
+  --dd-hover: var(--erp-gray-100);
+  --dd-check: var(--mod-primary);
+  --tip-shadow: 0 8px 24px rgb(0 0 0 / 0.1), 0 2px 6px rgb(0 0 0 / 0.05);
+
+  /* Buttons (same in every module). Add and the next step are the one filled button, in the module colour. */
+  --btn-add: var(--mod-primary);
+  --btn-delete: #d92d20;
+  --btn-delete-hover: #b42318;
+  --btn-danger-text: #b42318;
+  --btn-danger-border: #fecdca;
+  --btn-danger-hover-bg: #fef3f2;
+  --btn-import: var(--erp-gray-600); /* Import and Export are quiet: ink, a grey wash on hover */
+  --btn-export: var(--erp-gray-600);
+  --btn-highlight: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(0 0 0 / 0.1);
+  --btn-outline-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+
+  /* Status chips (same in every module): a light tint, a hairline border, the text and a dot */
+  --chip-draft-bg: #f9fafb;
+  --chip-draft-border: #e4e7ec;
+  --chip-draft-text: #344054;
+  --chip-draft-dot: #98a2b3;
+  --chip-pending-bg: #fffaeb;
+  --chip-pending-border: #fedf89;
+  --chip-pending-text: #b54708;
+  --chip-pending-dot: #f79009;
+  --chip-released-bg: #eff8ff;
+  --chip-released-border: #b2ddff;
+  --chip-released-text: #175cd3;
+  --chip-released-dot: #2e90fa;
+  --chip-partial-bg: #f4f3ff;
+  --chip-partial-border: #d9d6fe;
+  --chip-partial-text: #5925dc;
+  --chip-partial-dot: #7a5af8;
+  --chip-done-bg: #ecfdf3;
+  --chip-done-border: #abefc6;
+  --chip-done-text: #067647;
+  --chip-done-dot: #17b26a;
+  --chip-cancelled-bg: #fef3f2;
+  --chip-cancelled-border: #fecdca;
+  --chip-cancelled-text: #b42318;
+  --chip-cancelled-dot: #f04438;
 
   /* Notes and banners */
-  --note-warn-bg: #fffbeb;
-  --note-warn-border: #fcd34d;
-  --note-warn-text: #78350f;
-  --note-warn-strong: #92400e;
-  --note-error-bg: #fef2f2;
-  --note-error-border: #fecaca;
-  --note-error-text: #7f1d1d;
-  --attention-text: #b45309; /* "5 left · reorder 20" */
+  --note-warn-bg: #fffaeb;
+  --note-warn-border: #fedf89;
+  --note-warn-text: #93370d;
+  --note-warn-strong: #b54708;
+  --note-error-bg: #fef3f2;
+  --note-error-border: #fecdca;
+  --note-error-text: #912018;
+  --attention-text: #b54708; /* "5 left · reorder 20" */
 
   /* Launcher */
   --launcher-bg: #dfe2e8;
@@ -80,18 +154,24 @@
   --tour-accent-soft: var(--mod-light);
 
   /* Toasts (ErpToast): a white card lifted off the page; the severity colours are the status-chip tokens */
-  --toast-shadow: 0 1px 2px rgb(20 26 60 / 0.06), 0 12px 32px -8px rgb(20 26 60 / 0.24);
+  --toast-shadow: 0 16px 40px rgb(0 0 0 / 0.12), 0 2px 8px rgb(0 0 0 / 0.05);
 
-  /* Module colours default to Purchase until a layout sets data-module */
-  --mod-side: #15803d;
-  --mod-hover: #17733a;
-  --mod-active: #14532d;
-  --mod-pill: #166534;
-  --mod-primary: #166534;
-  --mod-accent: #166534;
-  --mod-line: #15803d;
-  --mod-light: #f0fdf4;
-  --mod-light-border: #bbf7d0;
+  /* Outside a module (launcher, sign-in): graphite, the absence of a module colour (MES) */
+  --mod-side: #475569;
+  --mod-hover: #3f4b5c;
+  --mod-active: #334155;
+  --mod-pill: #3f4b5c;
+  --mod-primary: #475569;
+  --mod-accent: #334155;
+  --mod-line: #475569;
+  --mod-light: #f6f7f9;
+  --mod-light-border: #d9dee6;
+  --mod-chip-bg: #eef1f5;
+  --mod-chip-text: #334155;
+  /* The module's art: a gradient, light corner to deep, and a glow that blooms through it */
+  --mod-grad-from: #94a3b8;
+  --mod-grad-to: #334155;
+  --mod-glow: #8ea3c7;
 }
 
 /* Module themes: set data-module on the layout root. */
@@ -111,6 +191,9 @@
   --mod-tile-3: #15803d;
   --mod-chip-bg: #dcfce7;
   --mod-chip-text: #166534;
+  --mod-grad-from: #6fd8a4;
+  --mod-grad-to: #14532d;
+  --mod-glow: #dcc25a;
 }
 
 [data-module='sales'] {
@@ -128,6 +211,9 @@
   --mod-tile-3: #7b4fe0;
   --mod-chip-bg: #ede9fe;
   --mod-chip-text: #5b35c9;
+  --mod-grad-from: #ac78eb;
+  --mod-grad-to: #4e25ca;
+  --mod-glow: #ef8c8a;
 }
 
 /* Core (Master Data): indigo, like its launcher tile (--tile-core) */
@@ -146,6 +232,9 @@
   --mod-tile-3: #4f53d6;
   --mod-chip-bg: #e6e7fd;
   --mod-chip-text: #3a3db5;
+  --mod-grad-from: #8f93ff;
+  --mod-grad-to: #2e31a3;
+  --mod-glow: #e6866d;
 }
 
 /* WMS: teal, like its launcher tile (--tile-wms). */
@@ -164,6 +253,9 @@
   --mod-tile-3: #0e7490;
   --mod-chip-bg: #cff3f9;
   --mod-chip-text: #0b5e70;
+  --mod-grad-from: #5ec8de;
+  --mod-grad-to: #0b4f61;
+  --mod-glow: #f0a37c;
 }
 
 /* Service (phase 5): orange, like its launcher tile (--tile-service) and the Svc mockups. */
@@ -182,6 +274,9 @@
   --mod-tile-3: #c2410c;
   --mod-chip-bg: #ffedd5;
   --mod-chip-text: #9a3412;
+  --mod-grad-from: #ffad72;
+  --mod-grad-to: #b83a0b;
+  --mod-glow: #f5b64c;
 }
 
 /* Configuration: slate, like its launcher tile (--tile-config) */
@@ -200,6 +295,17 @@
   --mod-tile-3: #5b6170;
   --mod-chip-bg: #e7e9ee;
   --mod-chip-text: #3d4352;
+  --mod-grad-from: #a9b0c2;
+  --mod-grad-to: #3d4352;
+  --mod-glow: #9aa6ff;
+}
+
+/* Tokens that point at the module colour are worked out again wherever a module sets its theme (the layout root,
+   the sign-in page, print previews), not only on <html>. */
+[data-module] {
+  --erp-link: var(--mod-primary);
+  --btn-add: var(--mod-primary);
+  --dd-check: var(--mod-primary);
 }
 
 /* On the launcher no module is open, so the tours take the launcher's navy. */
