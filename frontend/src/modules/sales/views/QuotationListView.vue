@@ -259,7 +259,6 @@ async function exportCsv() {
         </Popover>
       </div>
     </div>
-    <span class="text-xs text-erp-muted">{{ showing }}</span>
 
     <div v-if="list.failed.value" class="flex items-center justify-between rounded-lg bg-note-error-bg px-4 py-3 text-[13px] text-note-error-text">
       The quotations could not be loaded.

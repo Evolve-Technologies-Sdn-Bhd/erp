@@ -91,7 +91,6 @@ async function exportCsv() {
         <button type="button" class="erp-btn erp-btn-export" @click="exportCsv">Export</button>
       </div>
     </div>
-    <span class="text-xs text-erp-muted">{{ showing }}</span>
     <ListBox :count="showing" open-filters>
       <template #filters>
         <FilterBar>
