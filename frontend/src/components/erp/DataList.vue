@@ -365,6 +365,10 @@ onBeforeUnmount(() => {
 .erp-dl :deep(thead .p-checkbox) {
   display: inline-flex !important;
 }
+/* Select all sits in the middle of its column, like the row tick boxes under it */
+.erp-dl :deep(th:has(.p-checkbox) .p-datatable-column-header-content) {
+  justify-content: center;
+}
 .erp-dl :deep(tbody) {
   counter-reset: erp-row var(--erp-first, 0);
 }
