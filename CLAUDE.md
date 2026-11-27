@@ -1072,7 +1072,7 @@ The installer's part is used on a phone, so it is in the mobile contract too.
 
 # UI refresh after the MES design (U1–U5)
 
-**Status:** asked for by the user on 27 Nov 2026: the ERP is to look exactly like the design Ipey built in the Zora MES (`C:\Users\user\Desktop\MES\MES`, commits 2ab4cbb and 4af56bc), so the Zora products share one standard. U1 is built; U2 to U5 wait. The work is on the branch `feat/ui-refresh`.
+**Status:** asked for by the user on 27 Nov 2026: the ERP is to look exactly like the design Ipey built in the Zora MES (`C:\Users\user\Desktop\MES\MES`, commits 2ab4cbb and 4af56bc), so the Zora products share one standard. U1 to U5 are built (27 Nov 2026), on the branch `feat/ui-refresh`; U2 to U5 were built without screenshots or test runs, at the user's request, and pass type-check and lint.
 
 The user's choices (27 Nov 2026): dark mode later, as its own step; module homes get the same sidebar as every other page inside a module; Core keeps its indigo; list tables get MES's tools (Columns, full screen, row numbers that turn into tick boxes).
 
